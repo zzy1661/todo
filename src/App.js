@@ -3,16 +3,33 @@ import logo from './logo.svg';
 import './App.css';
 
 class App extends Component {
+	constructor(props) {
+    super(props);
+    this.state = {imgBgStyle: {
+    	display: 'none'
+    }};
+  }
+	componentWillMount() {
+      const img = new Image()
+    	img.src = 'https://placeimg.com/1920/1080/any';
+    	img.onload = () => {
+    		this.setState({imgBgStyle: {
+    			display: 'block',
+    			height: '100%',
+					background: 'url("https://placeimg.com/1920/1080/any") 100% 100%/cover no-repeat'
+    		}});
+    	}
+  }
+	 componentDidMount() {
+    
+  }
   render() {
     return (
-      <div className="App">
-        <header className="App-header">
-          <img src={logo} className="App-logo" alt="logo" />
-          <h1 className="App-title">Welcome to React</h1>
-        </header>
-        <p className="App-intro">
-          To get started, edit <code>src/App.js</code> and save to reload.
-        </p>
+      <div className="login-wrapper" >
+        <div className="login-bg-img" style={this.state.imgBgStyle}></div>
+        <div className="login-panel">
+        	<h1 className="login-logo">TODO</h1>
+        </div>
       </div>
     );
   }
