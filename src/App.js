@@ -1,7 +1,8 @@
 import React, { Component } from 'react';
 import logo from './logo.svg';
 import './App.css';
-
+import { Form, Icon, Input, Button } from 'antd';
+const FormItem = Form.Item;
 class App extends Component {
 	constructor(props) {
     super(props);
@@ -29,6 +30,17 @@ class App extends Component {
         <div className="login-bg-img" style={this.state.imgBgStyle}></div>
         <div className="login-panel">
         	<h1 className="login-logo">TODO</h1>
+        	<Form layout="vertical" >
+        		<FormItem>
+        			<Input placeholder="用户名" />
+        		</FormItem>
+        		<FormItem>
+        			<Input placeholder="密码" type="password"/>
+        		</FormItem>
+        		<FormItem>
+        			<Button type="primary" block="true">Start!</Button>
+        		</FormItem>
+        	</Form>
         </div>
       </div>
     );
