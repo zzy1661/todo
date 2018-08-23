@@ -11,12 +11,12 @@ class App extends Component {
   }
 	componentWillMount() {
       const img = new Image()
-    	img.src = 'https://placeimg.com/1920/1080/any';
+    	img.src = 'https://placeimg.com/1920/1080/any/grayscale';
     	img.onload = () => {
     		this.setState({imgBgStyle: {
     			display: 'block',
     			height: '100%',
-					background: 'url("https://placeimg.com/1920/1080/any") 100% 100%/cover no-repeat'
+					background: `url(${img.src}) 50% 50%/cover no-repeat`
     		}});
     	}
   }

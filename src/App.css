@@ -4,7 +4,6 @@
 }
 .login-bg-img {
 	height: 100%;
-	background: url('https://placeimg.com/1920/1080/any/grayscale') 100% 100%/cover no-repeat;
 	display: none;
 }
 .login-panel {
@@ -17,6 +16,7 @@
 	display: flex;
 	justify-content: center;
 	align-items: center;
+	flex-direction: column;
 }
 .login-logo {
 	color: white;
