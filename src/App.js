@@ -1,7 +1,6 @@
 import React, { Component } from 'react';
-import logo from './logo.svg';
 import './App.css';
-import { Form, Icon, Input, Button } from 'antd';
+import { Form, Input, Button } from 'antd';
 const FormItem = Form.Item;
 class App extends Component {
 	constructor(props) {
@@ -12,7 +11,7 @@ class App extends Component {
   }
 	componentWillMount() {
       const img = new Image()
-    	img.src = 'https://placeimg.com/1920/1080/any/grayscale';
+    	img.src = 'https://placeimg.com/1920/1080/any';
     	img.onload = () => {
     		this.setState({imgBgStyle: {
     			display: 'block',
