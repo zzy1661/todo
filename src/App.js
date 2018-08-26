@@ -1,47 +1,26 @@
 import React, { Component } from 'react';
 import './App.css';
-import { Form, Input, Button } from 'antd';
-const FormItem = Form.Item;
+import { BrowserRouter 	as Router, Route, Link, Switch, Redirect } from 'react-router-dom';
+
+import Login from './pages/login';
+import Index from './pages/index';
+
 class App extends Component {
 	constructor(props) {
     super(props);
-    this.state = {imgBgStyle: {
-    	display: 'none'
-    }};
+   
   }
-	componentWillMount() {
-      const img = new Image()
-    	img.src = 'https://placeimg.com/1920/1080/any';
-    	img.onload = () => {
-    		this.setState({imgBgStyle: {
-    			display: 'block',
-    			height: '100%',
-					background: `url(${img.src}) 50% 50%/cover no-repeat`
-    		}});
-    	}
-  }
-	 componentDidMount() {
-    
-  }
+	
   render() {
     return (
-      <div className="login-wrapper" >
-        <div className="login-bg-img" style={this.state.imgBgStyle}></div>
-        <div className="login-panel">
-        	<h1 className="login-logo">TODO</h1>
-        	<Form layout="vertical" >
-        		<FormItem>
-        			<Input placeholder="用户名" />
-        		</FormItem>
-        		<FormItem>
-        			<Input placeholder="密码" type="password"/>
-        		</FormItem>
-        		<FormItem>
-        			<Button type="primary" block="true">Start!</Button>
-        		</FormItem>
-        	</Form>
-        </div>
-      </div>
+      <Router>
+				<Switch>
+        	<Route exact path="/" render={ ()=> ( <Redirect to="/login" />)} />
+					<Route path="/login" component={Login} />
+					<Route path="/index" component={Index} />
+					
+				</Switch>
+      </Router>
     );
   }
 }
