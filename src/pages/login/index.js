@@ -22,7 +22,11 @@ class Login extends Component {
   }
 	 componentDidMount() {
     
-  }
+	}
+	login = () => {
+		console.log('login');
+        this.props.history.push('/index');
+	}
   render() {
     return (
       <div className="login-wrapper" >
@@ -37,7 +41,7 @@ class Login extends Component {
         			<Input placeholder="密码" type="password"/>
         		</FormItem>
         		<FormItem>
-        			<Button type="primary" block>Start!</Button>
+        			<Button type="primary" block onClick={this.login}>Start!</Button>
         		</FormItem>
         	</Form>
         </div>
