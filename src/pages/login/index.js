@@ -1,21 +1,30 @@
-import React, { Component } from 'react';
+import React, {
+	Component
+} from 'react';
 import { Form, Input, Button } from 'antd';
+import {BrowserHistory } from 'react-router-dom';
 import './index.css';
 const FormItem = Form.Item;
 class Login extends Component {
 	constructor(props) {
-    super(props);
-    this.state = {imgBgStyle: {
-    	display: 'none'
-    }};
-  }
+		super(props);
+		this.state = {
+			imgBgStyle: {
+				display: 'none'
+			}
+		};
+	}
+	login() {
+//		BrowserHistory.push('/index')
+	}
 	componentWillMount() {
-      const img = new Image()
-    	img.src = 'https://placeimg.com/1920/1080/any';
-    	img.onload = () => {
-    		this.setState({imgBgStyle: {
-    			display: 'block',
-    			height: '100%',
+		const img = new Image()
+		img.src = 'https://placeimg.com/1920/1080/any';
+		img.onload = () => {
+			this.setState({
+				imgBgStyle: {
+					display: 'block',
+					height: '100%',
 					background: `url(${img.src}) 50% 50%/cover no-repeat`
     		}});
     	}
@@ -46,8 +55,8 @@ class Login extends Component {
         	</Form>
         </div>
       </div>
-    );
-  }
+		);
+	}
 }
 
 export default Login;
