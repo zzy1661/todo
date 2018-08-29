@@ -14,9 +14,6 @@ class Login extends Component {
 			}
 		};
 	}
-	login() {
-//		BrowserHistory.push('/index')
-	}
 	componentWillMount() {
 		const img = new Image()
 		img.src = 'https://placeimg.com/1920/1080/any';
