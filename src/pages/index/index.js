@@ -10,7 +10,7 @@ class Index extends Component {
     return (
       <Layout className="layout index">
         <Header>
-          <div className="logo" />
+          <div className="logo">TODO</div>
           <Menu
             theme="dark"
             mode="horizontal"
