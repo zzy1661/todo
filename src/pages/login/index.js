@@ -2,7 +2,7 @@ import React, {
 	Component
 } from 'react';
 import { Form, Input, Button } from 'antd';
-import {BrowserHistory } from 'react-router-dom';
+
 import './index.css';
 const FormItem = Form.Item;
 class Login extends Component {
@@ -13,9 +13,6 @@ class Login extends Component {
 				display: 'none'
 			}
 		};
-	}
-	login() {
-//		BrowserHistory.push('/index')
 	}
 	componentWillMount() {
 		const img = new Image()
@@ -28,33 +25,33 @@ class Login extends Component {
 					background: `url(${img.src}) 50% 50%/cover no-repeat`
     		}});
     	}
-  }
+  	}
 	 componentDidMount() {
     
 	}
 	login = () => {
-		console.log('login');
+		console.log(this.props);
         this.props.history.push('/index');
 	}
-  render() {
-    return (
-      <div className="login-wrapper" >
-        <div className="login-bg-img" style={this.state.imgBgStyle}></div>
-        <div className="login-panel">
-        	<h1 className="login-logo">TODO</h1>
-        	<Form layout="vertical" >
-        		<FormItem>
-        			<Input placeholder="用户名" />
-        		</FormItem>
-        		<FormItem>
-        			<Input placeholder="密码" type="password"/>
-        		</FormItem>
-        		<FormItem>
-        			<Button type="primary" block onClick={this.login}>Start!</Button>
-        		</FormItem>
-        	</Form>
-        </div>
-      </div>
+  	render() {
+		return (
+		<div className="login-wrapper" >
+			<div className="login-bg-img" style={this.state.imgBgStyle}></div>
+			<div className="login-panel">
+				<h1 className="login-logo">TODO</h1>
+				<Form layout="vertical" >
+					<FormItem>
+						<Input placeholder="用户名" />
+					</FormItem>
+					<FormItem>
+						<Input placeholder="密码" type="password"/>
+					</FormItem>
+					<FormItem>
+						<Button type="primary" block onClick={this.login}>Start!</Button>
+					</FormItem>
+				</Form>
+			</div>
+		</div>
 		);
 	}
 }

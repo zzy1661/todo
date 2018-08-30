@@ -1,13 +1,10 @@
 import React, { Component } from 'react';
-import { Layout, Menu, Breadcrumb } from 'antd';
+import { Layout, Menu } from 'antd';
+import General from '../general';
 import './index.css';
 const { Header, Content, Footer } = Layout;
 
 class Index extends Component {
-	constructor(props) {
-    super(props);
-   
-  }
 	
   render() {
     return (
@@ -27,10 +24,10 @@ class Index extends Component {
             <Menu.Item key="5">用户</Menu.Item>
           </Menu>
         </Header>
-        <Content style={{ padding: '0 50px' }}>
-          
+        <Content className="content">
+          <General></General>
         </Content>
-        <Footer style={{ textAlign: 'center' }}>
+        <Footer className="footer">
           TODO ©2018 Created by Zachary Zhou
           <address>
             github: <a href="https://github.com/zzy1661/todo">https://github.com/zzy1661/todo</a>

@@ -2,16 +2,12 @@ import React, {
 	Component
 } from 'react';
 import './App.css';
-import { BrowserRouter as Router, Route, Link, Switch, Redirect } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Switch, Redirect } from 'react-router-dom';
 
 import Login from './pages/login';
 import Index from './pages/index';
 
 class App extends Component {
-	constructor(props) {
-		super(props);
-
-	}
 
 	render() {
 		return(
