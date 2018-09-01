@@ -1,64 +1,14 @@
 import React, { Component } from 'react';
 import { Menu, Icon } from 'antd';
-import { Table, Divider, Tag } from 'antd';
 
+import { Route, Link, Switch, Redirect } from 'react-router-dom';
+import All from '../allPlan';
+import Finished from '../finishedPlan';
+import Todo from '../todoPlan';
+import './general.css';
 const SubMenu = Menu.SubMenu;
 const MenuItemGroup = Menu.ItemGroup;
 
-
-const columns = [{
-  title: 'Name',
-  dataIndex: 'name',
-  key: 'name',
-  render: text => <a href="javascript:;">{text}</a>,
-}, {
-  title: 'Age',
-  dataIndex: 'age',
-  key: 'age',
-}, {
-  title: 'Address',
-  dataIndex: 'address',
-  key: 'address',
-}, {
-  title: 'Tags',
-  key: 'tags',
-  dataIndex: 'tags',
-  render: tags => (
-    <span>
-      {tags.map(tag => <Tag color="blue" key={tag}>{tag}</Tag>)}
-    </span>
-  ),
-}, {
-  title: 'Action',
-  key: 'action',
-  render: (text, record) => (
-    <span>
-      <a href="javascript:;">Invite {record.name}</a>
-      <Divider type="vertical" />
-      <a href="javascript:;">Delete</a>
-    </span>
-  ),
-}];
-
-const data = [{
-  key: '1',
-  name: 'John Brown',
-  age: 32,
-  address: 'New York No. 1 Lake Park',
-  tags: ['nice', 'developer'],
-}, {
-  key: '2',
-  name: 'Jim Green',
-  age: 42,
-  address: 'London No. 1 Lake Park',
-  tags: ['loser'],
-}, {
-  key: '3',
-  name: 'Joe Black',
-  age: 32,
-  address: 'Sidney No. 1 Lake Park',
-  tags: ['cool', 'teacher'],
-}];
 class General extends Component {
     state = {
         current: 'all',
@@ -77,19 +27,27 @@ class General extends Component {
                 <Menu
                     onClick={this.handleClick}
                     selectedKeys={[this.state.current]}
+                    className="nav-plans"
                     mode="horizontal"
                 >
                     <Menu.Item key="all">
-                    <Icon type="file-text" />所有任务
+                    <Icon type="file-text" /><Link to="/index/general/all">所有任务</Link>
                     </Menu.Item>
                     <Menu.Item key="finished" >
-                    <Icon type="check-square-o" />已完成
+                    <Icon type="check-square-o" /><Link to="/index/general/finished">已完成</Link>
                     </Menu.Item>
                     <Menu.Item key="todo" >
-                    <Icon type="clock-circle-o" />未完成
+                    <Icon type="clock-circle-o" /><Link to="/index/general/todo">未完成</Link>
                     </Menu.Item>
                 </Menu>
-                <Table columns={columns} dataSource={data} />
+                <div className="plan-panel">
+                  <Switch>
+                    <Redirect exact from="/index/general" to="/index/general/all"></Redirect>
+                    <Route path="/index/general/all" component={ All }></Route>    
+                    <Route path="/index/general/finished" component={ Finished }></Route>    
+                    <Route path="/index/general/todo" component={ Todo }></Route>    
+                  </Switch>
+                </div>
             </div>
         );
       }
