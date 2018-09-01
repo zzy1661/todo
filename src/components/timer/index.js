@@ -16,7 +16,7 @@ class Timer extends Component {
         clearInterval(this.timerID);
     }
 
-    updatime () {
+    updatime = () => {
         this.setState({
             date: new Date()
         })
