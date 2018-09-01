@@ -25,7 +25,7 @@ const Utils = {
                 old = o.m;
             } else if (regY.test(v)) {
                 var y = '' + o.Y;
-                var le = y.length - (v.length == 1 ? 2 : v.length);
+                var le = y.length - (v.length === 1 ? 2 : v.length);
                 old = y.substring(y.length, le)
             } else {
                 var key = v.toUpperCase().substr(0, 1);
