@@ -1,6 +1,10 @@
 import React, { Component } from 'react';
 import { Layout, Menu } from 'antd';
+import { Route, Link, Switch, Redirect } from 'react-router-dom';
 import General from '../general';
+import Workbench from '../workbench'
+import Statistics from '../statistics';
+import Timer from '../../components/timer';
 import './index.css';
 const { Header, Content, Footer } = Layout;
 
@@ -14,18 +18,23 @@ class Index extends Component {
           <Menu
             theme="dark"
             mode="horizontal"
-            defaultSelectedKeys={['2']}
+            defaultSelectedKeys={['1']}
             style={{ lineHeight: '64px' }}
           >
-            <Menu.Item key="1">一览</Menu.Item>
-            <Menu.Item key="2">工作台</Menu.Item>
-            <Menu.Item key="3">统计</Menu.Item>
-            <Menu.Item key="4">时间</Menu.Item>
+            <Menu.Item key="1"><Link to="/index/general">一览</Link></Menu.Item>
+            <Menu.Item key="2"><Link to="/index/workbench">工作台</Link></Menu.Item>
+            <Menu.Item key="3"><Link to="/index/statistics">统计</Link></Menu.Item>
+            <Menu.Item key="4"><Timer/></Menu.Item>
             <Menu.Item key="5">用户</Menu.Item>
           </Menu>
         </Header>
         <Content className="content">
-          <General></General>
+          <Switch>
+            <Redirect exact from="/index" to="/index/general" />
+            <Route path="/index/general" component={ General } />
+            <Route path="/index/workbench" component={ Workbench }></Route>
+            <Route path="/index/statistics" component={ Statistics }></Route>
+          </Switch>
         </Content>
         <Footer className="footer">
           TODO ©2018 Created by Zachary Zhou
