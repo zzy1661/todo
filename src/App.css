@@ -16,6 +16,9 @@
 .p-2 {
   padding: 10px;
 }
+.m-2 {
+  margin: 4px;
+}
 .float-right {
   float: right !important;
 }
