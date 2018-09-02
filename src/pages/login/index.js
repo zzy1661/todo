@@ -30,8 +30,18 @@ class Login extends Component {
     
 	}
 	login = () => {
-		console.log(this.props);
-        this.props.history.push('/index');
+		fetch('https://easy-mock.com/mock/5b8baba761840c7b4033654b/todo/login', {
+			method: 'POST'
+		}).then((res)=>{
+			return res.json();
+		}).then((data)=>{
+			if(data.code === 1) {
+				sessionStorage.setItem('user','user');
+				console.log(this.props);
+        		this.props.history.push('/index');
+			}
+		})
+		
 	}
   	render() {
 		return (
