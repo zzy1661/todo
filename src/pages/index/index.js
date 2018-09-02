@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import { Layout, Menu } from 'antd';
+import { Layout, Menu, Avatar  } from 'antd';
 import { Route, Link, Switch, Redirect } from 'react-router-dom';
 import General from '../general';
 import Workbench from '../workbench'
@@ -24,8 +24,10 @@ class Index extends Component {
             <Menu.Item key="1"><Link to="/index/general">一览</Link></Menu.Item>
             <Menu.Item key="2"><Link to="/index/workbench">工作台</Link></Menu.Item>
             <Menu.Item key="3"><Link to="/index/statistics">统计</Link></Menu.Item>
-            <Menu.Item key="4"><Timer/></Menu.Item>
-            <Menu.Item key="5">用户</Menu.Item>
+            <Menu.Item key="5" className="float-right">
+              <Avatar src="http://lorempixel.com/60/60/" />
+            </Menu.Item>
+            <Menu.Item key="4" className="float-right"><Timer/></Menu.Item>
           </Menu>
         </Header>
         <Content className="content">
