@@ -2,7 +2,7 @@ import React, { Component } from 'react';
 import { Switch, Select, Row, Col, Tree, Collapse, Checkbox } from 'antd';
 import './workbench.css';
 import Item from 'antd/lib/list/Item';
-
+import CreateTask from '../createTask';
 const Option = Select.Option;
 const TreeNode = Tree.TreeNode;
 const Panel = Collapse.Panel;
@@ -133,7 +133,7 @@ class Workbench extends Component {
                 <header className="workbench-header">
                     <Switch onChange={this.onChange} className="mr-2"
                         checkedChildren="编辑任务" unCheckedChildren="创建任务" defaultChecked />
-                    <div>  
+                    <div className="d-inline-block">  
                     <Select
                         showSearch
                         style={{ width: 200 }}
@@ -150,7 +150,7 @@ class Workbench extends Component {
                     </div>
                 </header>
                 {content}
-
+                <CreateTask></CreateTask>
             </div>
         )
     }
