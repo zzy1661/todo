@@ -19,6 +19,9 @@
 .m-2 {
   margin: 4px;
 }
+.mr-2 {
+  margin-right: 10px;
+}
 .float-right {
   float: right !important;
 }

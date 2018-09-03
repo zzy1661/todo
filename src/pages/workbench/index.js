@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import { Switch, Select, Row, Col, Tree, Collapse } from 'antd';
+import { Switch, Select, Row, Col, Tree, Collapse, Checkbox } from 'antd';
 import './workbench.css';
 import Item from 'antd/lib/list/Item';
 
@@ -53,6 +53,9 @@ class Workbench extends Component {
     }
     callback(key) {
         console.log(key);
+    }
+    showAllTasks = (e) => {
+        console.log(`checked = ${e.target.checked}`)
     }
     subTaskTree = (task)=> {
         let subs = "";
@@ -128,8 +131,9 @@ class Workbench extends Component {
         return (
             <div>
                 <header className="workbench-header">
-                    <Switch onChange={this.onChange}
-                        checkedChildren="全部任务" unCheckedChildren="待办任务" defaultChecked />
+                    <Switch onChange={this.onChange} className="mr-2"
+                        checkedChildren="编辑任务" unCheckedChildren="创建任务" defaultChecked />
+                    <div>  
                     <Select
                         showSearch
                         style={{ width: 200 }}
@@ -142,6 +146,8 @@ class Workbench extends Component {
                     >
                         {options}
                     </Select>
+                    <Checkbox onChange={this.showAllTasks}>显示全部任务</Checkbox>  
+                    </div>
                 </header>
                 {content}
 
