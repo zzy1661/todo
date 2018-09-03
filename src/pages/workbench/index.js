@@ -1,6 +1,7 @@
 import React, { Component } from 'react';
 import { Switch, Select, Row, Col, Tree, Collapse } from 'antd';
 import './workbench.css';
+import Item from 'antd/lib/list/Item';
 
 const Option = Select.Option;
 const TreeNode = Tree.TreeNode;
@@ -8,8 +9,28 @@ const Panel = Collapse.Panel;
 
 class Workbench extends Component {
 
-    handleChange(value) {
-        console.log(`selected ${value}`);
+    state = {
+        tasks: null,
+        taskId: null
+    }
+
+    componentWillMount() {
+        fetch('https://easy-mock.com/mock/5b8baba761840c7b4033654b/todo/task', {
+            method: 'GET'
+        }).then(res => res.json())
+            .then(data => {
+                if (data.code === 1) {
+                    this.setState({
+                        tasks: data.data
+                    })
+                }
+            })
+    }
+
+    handleChange = (value) => {
+        this.setState({
+            taskId: value
+        })
     }
 
     handleBlur() {
@@ -33,7 +54,21 @@ class Workbench extends Component {
     callback(key) {
         console.log(key);
     }
-
+    subTaskTree = (task)=> {
+        let subs = "";
+        if(task.subTasks) {
+            subs = task.subTasks.map( (item, index) => {
+                return this.subTaskTree(item);
+            })
+        }
+        return (
+            <TreeNode title={task.name} key={task.id}>
+                {subs}
+            </TreeNode>
+        )
+        
+        
+    }
     text = `
         A dog is a type of domesticated animal.
         Known for its loyalty and faithfulness,
@@ -41,55 +76,37 @@ class Workbench extends Component {
       `
 
     render() {
-        return (
-            <div>
-                <header className="workbench-header">
-                    <Switch onChange={this.onChange}
-                        checkedChildren="全部任务" unCheckedChildren="d待办任务" defaultChecked />
-                    <Select
-                        showSearch
-                        style={{ width: 200 }}
-                        placeholder="Select a plan"
-                        optionFilterProp="children"
-                        onChange={this.handleChange}
-                        onFocus={this.handleFocus}
-                        onBlur={this.handleBlur}
-                        filterOption={(input, option) => option.props.children.toLowerCase().indexOf(input.toLowerCase()) >= 0}
-                    >
-                        <Option value="jack">Jack</Option>
-                        <Option value="lucy">Lucy</Option>
-                        <Option value="tom">Tom</Option>
-                    </Select>
-                </header>
+        let options = this.state.tasks ?
+            this.state.tasks.map((item, index) => (<Option key={item.id} value={item.id}>{item.name}</Option>)) :
+            (<Option value="0" >加载中</Option>);
+        let content = "";
+        if(this.state.taskId !== null) {
+            let task = this.state.tasks.filter( item => item.id === this.state.taskId)[0];
+            var nodes = this.subTaskTree(task);
+            console.log(nodes);
+            let taskTree = (
+                    <Tree
+                            checkable
+                            onSelect={this.onSelect}
+                            onCheck={this.onCheck}
+                        >
+                           { nodes }
+                        </Tree>
+            )
+            content = (
                 <Row>
                     <Col className="border-r p-2" span={8}>
                         <header>任务概览</header>
                         <article>
-                            <Tree
-                                checkable
-                                defaultExpandedKeys={['0-0-0', '0-0-1']}
-                                defaultSelectedKeys={['0-0-0', '0-0-1']}
-                                defaultCheckedKeys={['0-0-0', '0-0-1']}
-                                onSelect={this.onSelect}
-                                onCheck={this.onCheck}
-                            >
-                                <TreeNode title="parent 1" key="0-0">
-                                    <TreeNode title="parent 1-0" key="0-0-0" disabled>
-                                        <TreeNode title="leaf" key="0-0-0-0" disableCheckbox />
-                                        <TreeNode title="leaf" key="0-0-0-1" />
-                                    </TreeNode>
-                                    <TreeNode title="parent 1-1" key="0-0-1">
-                                        <TreeNode title={<span style={{ color: '#1890ff' }}>sss</span>} key="0-0-1-0" />
-                                    </TreeNode>
-                                </TreeNode>
-                            </Tree>
+                        {taskTree}
                         </article>
                     </Col>
                     <Col span={16} className="p-2">
-                        <header>任务详情</header>
+                        <header></header>
                         <article>
                             <Collapse onChange={this.callback}>
-                                <Panel header="This is panel header 1" key="1">
+                                <Panel header={task.name} key="1">
+                                111
                                     <Collapse defaultActiveKey="1">
                                         <Panel header="This is panel nest panel" key="1">
                                             <p>{this.text}</p>
@@ -106,6 +123,28 @@ class Workbench extends Component {
                         </article>
                     </Col>
                 </Row>
+            )
+        }
+        return (
+            <div>
+                <header className="workbench-header">
+                    <Switch onChange={this.onChange}
+                        checkedChildren="全部任务" unCheckedChildren="待办任务" defaultChecked />
+                    <Select
+                        showSearch
+                        style={{ width: 200 }}
+                        placeholder="Select a plan"
+                        optionFilterProp="children"
+                        onChange={this.handleChange}
+                        onFocus={this.handleFocus}
+                        onBlur={this.handleBlur}
+                        filterOption={(input, option) => option.props.children.toLowerCase().indexOf(input.toLowerCase()) >= 0}
+                    >
+                        {options}
+                    </Select>
+                </header>
+                {content}
+
             </div>
         )
     }
