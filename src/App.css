@@ -2,6 +2,9 @@
 .ant-form-vertical .ant-form-item {
 	padding-bottom: 0px;
   }
+.d-inline-block {
+  display: inline-block;
+}  
 .border-r {
   border-right: 1px solid #ddd;
 }
@@ -24,4 +27,7 @@
 }
 .float-right {
   float: right !important;
+}
+.text-center {
+  text-align: center;
 }
