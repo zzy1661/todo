@@ -152,7 +152,7 @@ class Workbench extends Component {
                     <Checkbox onChange={this.showAllTasks}>显示全部任务</Checkbox>  
                     </div>
                 </header>
-                {content}
+                {/* {content} */}
                 <CreateTask></CreateTask>
             </div>
         )
