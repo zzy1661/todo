@@ -105,23 +105,26 @@ class Workbench extends Component {
                         </article>
                     </Col>
                     <Col span={16} className="p-2">
-                        <header></header>
+                        <header>任务详情</header>
                         <article>
                             <Collapse onChange={this.callback}>
                                 <Panel header={task.name} key="1">
-                                111
+                                <article>
+                                    <h3>描述</h3>
+                                    <section>内容</section>
+                                </article>
+                                <hr/>
+                                <article>
+                                    <h3>子任务</h3>
                                     <Collapse defaultActiveKey="1">
                                         <Panel header="This is panel nest panel" key="1">
                                             <p>{this.text}</p>
                                         </Panel>
                                     </Collapse>
+                                </article>
+
                                 </Panel>
-                                <Panel header="This is panel header 2" key="2">
-                                    <p>{this.text}</p>
-                                </Panel>
-                                <Panel header="This is panel header 3" key="3">
-                                    <p>{this.text}</p>
-                                </Panel>
+                              
                             </Collapse>
                         </article>
                     </Col>
