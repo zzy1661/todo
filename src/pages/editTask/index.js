@@ -16,18 +16,10 @@ class EditTask extends Component {
 }
 
 componentWillMount() {
-    fetch('https://easy-mock.com/mock/5b8baba761840c7b4033654b/todo/task', {
-        method: 'GET'
-    }).then(res => res.json())
-        .then(data => {
-            if (data.code === 1) {
-                this.setState({
-                    tasks: data.data
-                })
-            }
-        })
+    this.setState({
+        tasks: this.props.tasks
+    })
 }
-
 
 subTaskTree = (task)=> {
     let subs = "";
@@ -52,9 +44,7 @@ text = `
 
     render() {
        
-      let options = this.state.tasks ?
-      this.state.tasks.map((item, index) => (<Option key={item.id} value={item.id}>{item.name}</Option>)) :
-      (<Option value="0" >加载中</Option>);
+     
   let content = "";
   if(this.state.taskId !== null) {
       let task = this.state.tasks.filter( item => item.id === this.state.taskId)[0];

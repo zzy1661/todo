@@ -3,6 +3,7 @@ import { Switch, Select, Row, Col, Tree, Collapse, Checkbox } from 'antd';
 import './workbench.css';
 import Item from 'antd/lib/list/Item';
 import CreateTask from '../createTask';
+import EditTask from '../editTask';
 const Option = Select.Option;
 const TreeNode = Tree.TreeNode;
 const Panel = Collapse.Panel;
@@ -81,7 +82,7 @@ class Workbench extends Component {
                     </div>
                 </header>
                 {/* {content} */}
-                {/* <EditTask></EditTask> */}
+                <EditTask tasks={this.state.tasks}></EditTask>
                 {/* <CreateTask></CreateTask> */}
             </div>
         )
