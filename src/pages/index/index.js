@@ -25,7 +25,7 @@ class Index extends Component {
             <Menu.Item key="2"><Link to="/index/workbench">工作台</Link></Menu.Item>
             <Menu.Item key="3"><Link to="/index/statistics">统计</Link></Menu.Item>
             <Menu.Item key="5" className="float-right">
-              <Avatar src="http://lorempixel.com/60/60/" />
+              <Avatar src="http://placeimg.com/60/60/any" />
             </Menu.Item>
             <Menu.Item key="4" className="float-right"><Timer/></Menu.Item>
           </Menu>
