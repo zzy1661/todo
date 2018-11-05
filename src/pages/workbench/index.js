@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import { Switch, Select, Row, Col, Tree, Collapse, Checkbox } from 'antd';
+import { Switch, Select, Row, Col, Tree, Collapse, Checkbox, Button } from 'antd';
 import './workbench.css';
 import Item from 'antd/lib/list/Item';
 import CreateTask from '../createTask';
@@ -10,7 +10,7 @@ const Panel = Collapse.Panel;
 
 class Workbench extends Component {
     state = {
-        tasks: null,
+        tasks: [],
         taskId: null
     }
     componentWillMount() {
@@ -25,65 +25,35 @@ class Workbench extends Component {
                 }
             })
     }
-    handleChange = (value) => {
-        this.setState({
-            taskId: value
-        })
-    }
     
-    handleBlur() {
-        console.log('blur');
-    }
-    
-    handleFocus() {
-        console.log('focus');
-    }
-    
-    onChange(checked) {
-        console.log(`switch to ${checked}`);
-    }
-    onSelect = (selectedKeys, info) => {
-        console.log('selected', selectedKeys, info);
-    }
-    
-    onCheck = (checkedKeys, info) => {
-        console.log('onCheck', checkedKeys, info);
-    }
-    callback(key) {
-        console.log(key);
-    }
-    showAllTasks = (e) => {
-        console.log(`checked = ${e.target.checked}`)
-    }
 
     render() {
-        let options = this.state.tasks ?
-        this.state.tasks.map((item, index) => (<Option key={item.id} value={item.id}>{item.name}</Option>)) :
-        (<Option value="0" >加载中</Option>);
+        var taskItems = this.state.tasks.map(item=>(
+            <Col key={item.id} span={6}>
+                <div className="text-center p-1 pb-3 bg-primary text-white rounded">
+                    <div></div>
+                    <div className="h5">{item.name}</div>
+                    <h>{item.describe}</h>
+                    <div className="d-flex align-items-center small justify-content-center">
+                        <span>2007-12-14 </span>
+                        <span className="px-2">~</span>
+                        <span>2014-12-06 </span>
+                    </div>
+                    <div className="mt-2">
+                        <Button type="default" className="mr-2">编辑</Button>
+                        <Button type="danger">删除</Button>
+                    </div>
+                </div>
+            </Col>
+        ));
         return (
             <div>
                 <header className="workbench-header">
-                    <Switch onChange={this.onChange} className="mr-2"
-                        checkedChildren="编辑任务" unCheckedChildren="创建任务" defaultChecked />
-                    <div className="d-inline-block">  
-                    <Select
-                        showSearch
-                        style={{ width: 200 }}
-                        placeholder="Select a plan"
-                        optionFilterProp="children"
-                        onChange={this.handleChange}
-                        onFocus={this.handleFocus}
-                        onBlur={this.handleBlur}
-                        filterOption={(input, option) => option.props.children.toLowerCase().indexOf(input.toLowerCase()) >= 0}
-                    >
-                        {options}
-                    </Select>
-                    <Checkbox onChange={this.showAllTasks}>显示全部任务</Checkbox>  
-                    </div>
+                   <h3>创建/编辑你的任务</h3>
                 </header>
-                {/* {content} */}
-                <EditTask tasks={this.state.tasks}></EditTask>
-                {/* <CreateTask></CreateTask> */}
+                <Row gutter={16}>
+                {taskItems}
+                </Row>
             </div>
         )
     }

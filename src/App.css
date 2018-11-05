@@ -949,7 +949,9 @@ button.bg-dark:hover {
     border-color: #fff!important
 }
 
-.rounded {}
+.rounded {
+    border-radius: 6px!important;
+}
 
 .rounded-top {
     border-top-left-radius: 6px!important;
