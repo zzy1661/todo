@@ -30,10 +30,10 @@ class Workbench extends Component {
     render() {
         var taskItems = this.state.tasks.map(item=>(
             <Col key={item.id} span={6}>
-                <div className="text-center p-1 pb-3 bg-primary text-white rounded">
+                <div className="media flex-column align-items-center p-1 pb-3 bg-primary text-white rounded h-100">
                     <div></div>
                     <div className="h5">{item.name}</div>
-                    <h>{item.describe}</h>
+                    <p className="mb-1 media-body">{item.describe}</p>
                     <div className="d-flex align-items-center small justify-content-center">
                         <span>2007-12-14 </span>
                         <span className="px-2">~</span>
@@ -46,14 +46,22 @@ class Workbench extends Component {
                 </div>
             </Col>
         ));
+        taskItems.push( (
+            <Col key={'add'} span={6}>
+                <div className="media flex-column align-items-center justify-content-center p-1 pb-3 text-white rounded h-100">
+                    <Button type="primary" size="large">+</Button>
+                </div>
+            </Col>
+        ) )
         return (
             <div>
                 <header className="workbench-header">
-                   <h3>创建/编辑你的任务</h3>
+                   <h3>工作台<small className="h6 ml-3">创建/编辑你的任务</small></h3>
                 </header>
-                <Row gutter={16}>
+                <Row gutter={16} className="d-flex">
                 {taskItems}
                 </Row>
+                
             </div>
         )
     }
