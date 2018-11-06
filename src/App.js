@@ -6,7 +6,7 @@ import { BrowserRouter as Router, Route, Switch, Redirect } from 'react-router-d
 
 import Login from './pages/login';
 import Index from './pages/index';
-
+import { hot } from 'react-hot-loader';
 class App extends Component {
 
 	render() {
@@ -23,4 +23,4 @@ class App extends Component {
 	}
 }
 
-export default App;
+export default hot(module)(App)
