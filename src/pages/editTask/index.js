@@ -10,91 +10,98 @@ const Panel = Collapse.Panel;
 
 class EditTask extends Component {
 
+    constructor(props){
+        super(props);
+    }
   state = {
-    tasks: null,
     taskId: null
 }
 
-componentWillMount() {
-    this.setState({
-        tasks: this.props.tasks
-    })
-}
+componentDidMount() {
 
-subTaskTree = (task)=> {
-    let subs = "";
-    if(task.subTasks) {
-        subs = task.subTasks.map( (item, index) => {
-            return this.subTaskTree(item);
-        })
+    let taskId = this.props.match.params.taskId,
+    task = this.props.location.state;
+    if(!taskId) {
+        this.props.history.push('/index/statistics');
     }
-    return (
-        <TreeNode title={task.name} key={task.id}>
-            {subs}
-        </TreeNode>
-    )
-    
-    
+    if(!task) {
+        fetch('https://easy-mock.com/mock/5b8baba761840c7b4033654b/todo/task?id='+taskId,{
+        method: 'GET'
+      }).then( res => res.json())
+      .then( data => {
+        if(data.code === 1) {
+            task = data.data;
+          this.setState({
+            task: task
+          })
+        }
+      })
+    }
+
 }
-text = `
-    A dog is a type of domesticated animal.
-    Known for its loyalty and faithfulness,
-    it can be found as a welcome guest in many households across the world.
-  `
 
-    render() {
-       
-     
-  let content = "";
-  if(this.state.taskId !== null) {
-      let task = this.state.tasks.filter( item => item.id === this.state.taskId)[0];
-      var nodes = this.subTaskTree(task);
-      console.log(nodes);
-      let taskTree = (
-              <Tree
-                      checkable
-                      onSelect={this.onSelect}
-                      onCheck={this.onCheck}
-                  >
-                     { nodes }
-                  </Tree>
-      )
-      content = (
-          <Row>
-              <Col className="border-r p-2" span={8}>
-                  <header>任务概览</header>
-                  <article>
-                  {taskTree}
-                  </article>
-              </Col>
-              <Col span={16} className="p-2">
-                  <header>任务详情</header>
-                  <article>
-                      <Collapse onChange={this.callback}>
-                          <Panel header={task.name} key="1">
-                          <article>
-                              <div className="h4">描述</div>
-                              <section>内容</section>
-                          </article>
-                          <hr/>
-                          <article>
-                              <div className="h4">子任务</div>
-                              <Collapse defaultActiveKey="1">
-                                  <Panel header="This is panel nest panel" key="1">
-                                      <p>{this.text}</p>
-                                  </Panel>
-                              </Collapse>
-                          </article>
 
-                          </Panel>
-                        
-                      </Collapse>
-                  </article>
-              </Col>
-          </Row>
-      )
+
+renderTreeNodes = (tasks) => {
+    return tasks.map((item) => {
+      if (item.subTasks) {
+        return (
+          <TreeNode title={item.name} key={item.id} dataRef={item}>
+            {this.renderTreeNodes(item.subTasks)}
+          </TreeNode>
+        );
+      }
+      return <TreeNode title={item.name} key={item.id} dataRef={item} />;
+    });
   }
-   return content;
+    render() {   
+        let taskTree = '';
+        let task = this.state.task;
+       
+        taskTree = task ? (
+            <Tree>
+                {this.renderTreeNodes([task])}
+            </Tree>
+        ) : '';   
+  
+        return (
+            <div>
+                <header className="workbench-header">
+                   <h3>工作台<small className="h6 ml-3">编辑你的任务</small></h3>
+                </header>
+                <Row className="d-flex">
+                    <Col span={8}>
+                        <div className="h5">任务概览</div>
+                        <div>
+                            {taskTree}
+                        </div>
+                    </Col>
+                    <Col span={16} className="px-2 border-left border-primary">
+                        <div className="form">
+                            <div className="form-group">
+                                <label>任务名</label>
+                                <input type="text" className="form-control"/>
+                            </div>
+                            <div className="form-group">
+                                <label>描述</label>
+                                <input type="text" className="form-control"/>
+                            </div>
+                            <div className="form-group">
+                                <label>开始时间</label>
+                                <input type="text" className="form-control"/>
+                            </div>
+                            <div className="form-group">
+                                <label>结束时间</label>
+                                <input type="text" className="form-control"/>
+                            </div>
+                            <button>重置</button>
+                            <button>确定</button>
+                        </div>
+                    </Col>
+                </Row>
+                
+            </div>
+        )
     }
 }
 export default EditTask;
