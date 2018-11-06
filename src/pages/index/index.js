@@ -36,6 +36,8 @@ class Index extends Component {
             <Route path="/index/general" component={ General } />
             <Route path="/index/workbench" component={ Workbench }></Route>
             <Route path="/index/statistics" component={ Statistics }></Route>
+            <Route path="/index/edit/:taskId" component={ Statistics }></Route>
+            <Route path="/index/create" component={ Statistics }></Route>
           </Switch>
         </Content>
         <Footer className="footer">
