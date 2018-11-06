@@ -4,6 +4,7 @@ import { Route, Link, Switch, Redirect } from 'react-router-dom';
 import General from '../general';
 import Workbench from '../workbench'
 import Statistics from '../statistics';
+import EditTask from '../editTask';
 import Timer from '../../components/timer';
 import './index.css';
 const { Header, Content, Footer } = Layout;
@@ -34,10 +35,10 @@ class Index extends Component {
           <Switch>
             <Redirect exact from="/index" to="/index/general" />
             <Route path="/index/general" component={ General } />
-            <Route path="/index/workbench" component={ Workbench }></Route>
+            <Route path="/index/workbench" exact component={ Workbench }></Route>
             <Route path="/index/statistics" component={ Statistics }></Route>
-            <Route path="/index/edit/:taskId" component={ Statistics }></Route>
-            <Route path="/index/create" component={ Statistics }></Route>
+            <Route path="/index/workbench/edit/:taskId" exact component={ EditTask }></Route>
+            <Route path="/index/workbench/create" exact component={ Statistics }></Route>
           </Switch>
         </Content>
         <Footer className="footer">
