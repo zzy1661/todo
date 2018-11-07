@@ -44,14 +44,15 @@ componentDidMount() {
 
 renderTreeNodes = (tasks) => {
     return tasks.map((item) => {
+    var title = (<span>{item.name}<Icon className="pr-1" type="edit"/><Icon className="pr-1" type="delete"/><Icon type="plus"/></span>);
       if (item.subTasks) {
         return (
-          <TreeNode title={item.name} key={item.id} dataRef={item}>
+          <TreeNode title={title} key={item.id} dataRef={item}>
             {this.renderTreeNodes(item.subTasks)}
           </TreeNode>
         );
       }
-      return <TreeNode title={item.name} key={item.id} dataRef={item} />;
+      return <TreeNode title={title} key={item.id} dataRef={item} />;
     });
   }
     render() {   
