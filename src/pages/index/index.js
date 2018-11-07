@@ -22,9 +22,9 @@ class Index extends Component {
             defaultSelectedKeys={['1']}
             style={{ lineHeight: '64px' }}
           >
-            <Menu.Item key="1"><Link to="/index/general">一览</Link></Menu.Item>
-            <Menu.Item key="2"><Link to="/index/workbench">工作台</Link></Menu.Item>
-            <Menu.Item key="3"><Link to="/index/statistics">统计</Link></Menu.Item>
+            <Menu.Item key="1"><Link to="/general">一览</Link></Menu.Item>
+            <Menu.Item key="2"><Link to="/workbench">工作台</Link></Menu.Item>
+            <Menu.Item key="3"><Link to="/statistics">统计</Link></Menu.Item>
             <Menu.Item key="5" className="float-right">
               <Avatar src="http://placeimg.com/60/60/any" />
             </Menu.Item>
@@ -33,12 +33,12 @@ class Index extends Component {
         </Header>
         <Content className="content">
           <Switch>
-            <Redirect exact from="/index" to="/index/general" />
-            <Route path="/index/general" component={ General } />
-            <Route path="/index/workbench" exact component={ Workbench }></Route>
-            <Route path="/index/statistics" component={ Statistics }></Route>
-            <Route path="/index/workbench/edit/:taskId" exact component={ EditTask }></Route>
-            <Route path="/index/workbench/create" exact component={ Statistics }></Route>
+            <Redirect exact from="/" to="/general" />
+            <Route path="/general" component={ General } />
+            <Route path="/workbench" exact component={ Workbench }></Route>
+            <Route path="/statistics" component={ Statistics }></Route>
+            <Route path="/edit/:taskId" exact component={ EditTask }></Route>
+            <Route path="/create" exact component={ Statistics }></Route>
           </Switch>
         </Content>
         <Footer className="footer">

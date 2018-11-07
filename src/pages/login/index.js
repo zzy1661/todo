@@ -38,7 +38,7 @@ class Login extends Component {
 			if(data.code === 1) {
 				sessionStorage.setItem('user','user');
 				console.log(this.props);
-        		this.props.history.push('/index');
+        		this.props.history.push('/');
 			}
 		})
 		

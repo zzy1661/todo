@@ -31,21 +31,21 @@ class General extends Component {
                     mode="horizontal"
                 >
                     <Menu.Item key="all">
-                    <Icon type="file-text" /><Link to="/index/general/all">所有任务</Link>
+                    <Icon type="file-text" /><Link to="/general/all">所有任务</Link>
                     </Menu.Item>
                     <Menu.Item key="finished" >
-                    <Icon type="check-square-o" /><Link to="/index/general/finished">已完成</Link>
+                    <Icon type="check-square-o" /><Link to="/general/finished">已完成</Link>
                     </Menu.Item>
                     <Menu.Item key="todo" >
-                    <Icon type="clock-circle-o" /><Link to="/index/general/todo">未完成</Link>
+                    <Icon type="clock-circle-o" /><Link to="/general/todo">未完成</Link>
                     </Menu.Item>
                 </Menu>
                 <div className="plan-panel">
                   <Switch>
-                    <Redirect exact from="/index/general" to="/index/general/all"></Redirect>
-                    <Route path="/index/general/all" component={ All }></Route>    
-                    <Route path="/index/general/finished" component={ Finished }></Route>    
-                    <Route path="/index/general/todo" component={ Todo }></Route>    
+                    <Redirect exact from="/general" to="/general/all"></Redirect>
+                    <Route path="/general/all" component={ All }></Route>    
+                    <Route path="/general/finished" component={ Finished }></Route>    
+                    <Route path="/general/todo" component={ Todo }></Route>    
                   </Switch>
                 </div>
             </div>

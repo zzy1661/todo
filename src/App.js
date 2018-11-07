@@ -13,9 +13,12 @@ class App extends Component {
 		return(
 			<Router>
 				<Switch>
-	        		<Route exact path="/" render={ ()=> ( <Redirect to="/login" />)} />
+	        		{/* <Route exact path="/" render={ ()=> ( <Redirect to="/login" />)} /> */}
 					<Route path="/login" component={Login} />
-					<Route path="/index" component={Index} />
+					<Redirect exact from="/" to="/general" />
+					<Route path="/general" component={Index} />
+					<Route path="/workbench" component={ Index }></Route>
+					<Route path="/statistics" component={ Index }></Route>
 					<Redirect to="/login" />
 				</Switch>
 	      </Router>
