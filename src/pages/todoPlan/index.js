@@ -16,7 +16,7 @@ class TodoPlan extends Component {
           dataIndex: 'status',
           key: 'status',
           render: status => {
-            console.log(status);
+            // console.log(status);
             var statusList = ["已完成","进行中", "超时", "封存"];
             return (
               <span>{statusList[status]}</span>

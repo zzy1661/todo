@@ -26,7 +26,12 @@ class Workbench extends Component {
                 }
             })
     }
-    
+    toPlus = () => {
+        this.props.history.push('/workbench/create');
+    }
+    toEdit = (index) => {
+        this.props.history.push('/workbench/edit/'+index);
+    }
 
     render() {
         var taskItems = this.state.tasks.map(item=>(
@@ -41,7 +46,7 @@ class Workbench extends Component {
                         <span>2014-12-06 </span>
                     </div>
                     <div className="mt-2">
-                        <Button type="default" className="mr-2">编辑</Button>
+                        <Button type="default" className="mr-2" onClick={()=>this.toEdit(item.id)}>编辑</Button>
                         <Button type="danger">删除</Button>
                     </div>
                 </div>
@@ -50,7 +55,7 @@ class Workbench extends Component {
         taskItems.push( (
             <Col key={'add'} span={6}>
                 <div className="media flex-column align-items-center justify-content-center p-1 pb-3 text-white rounded h-100">
-                    <Button type="primary" size="large">+</Button>
+                    <Button type="primary" size="large" onClick={this.toPlus}>+</Button>
                 </div>
             </Col>
         ) )

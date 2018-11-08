@@ -12,7 +12,7 @@ const { Header, Content, Footer } = Layout;
 class Index extends Component {
 	
   componentDidMount() {
-    console.log(this.props)
+    // console.log(this.props)
   }
   render() {
    

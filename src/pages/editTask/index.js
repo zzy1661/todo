@@ -18,7 +18,7 @@ class EditTask extends Component {
     }
 
     componentDidMount() {
-        console.log('edit', this.props)
+        // console.log('edit', this.props)
         let taskId = this.props.match.params.taskId,
             task = this.props.location.state;
         if (!taskId) {
