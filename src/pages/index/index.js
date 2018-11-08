@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
 import { Layout, Menu, Avatar  } from 'antd';
-import { Route, Link, Switch, Redirect } from 'react-router-dom';
+import { Route, NavLink, Switch, Redirect } from 'react-router-dom';
 import General from '../general';
 import Workbench from '../workbench'
 import Statistics from '../statistics';
@@ -11,7 +11,11 @@ const { Header, Content, Footer } = Layout;
 
 class Index extends Component {
 	
+  componentDidMount() {
+    console.log(this.props)
+  }
   render() {
+   
     return (
       <Layout className="layout index">
         <Header>
@@ -19,12 +23,12 @@ class Index extends Component {
           <Menu
             theme="dark"
             mode="horizontal"
-            defaultSelectedKeys={['1']}
+            defaultSelectedKeys={[]}
             style={{ lineHeight: '64px' }}
           >
-            <Menu.Item key="1"><Link to="/general">一览</Link></Menu.Item>
-            <Menu.Item key="2"><Link to="/workbench">工作台</Link></Menu.Item>
-            <Menu.Item key="3"><Link to="/statistics">统计</Link></Menu.Item>
+            <Menu.Item key="1"><NavLink to="/general" >一览</NavLink></Menu.Item>
+            <Menu.Item key="2"><NavLink to="/workbench" >工作台</NavLink></Menu.Item>
+            <Menu.Item key="3"><NavLink to="/statistics" >统计</NavLink></Menu.Item>
             <Menu.Item key="5" className="float-right">
               <Avatar src="http://placeimg.com/60/60/any" />
             </Menu.Item>
@@ -35,10 +39,8 @@ class Index extends Component {
           <Switch>
             <Redirect exact from="/" to="/general" />
             <Route path="/general" component={ General } />
-            <Route path="/workbench" exact component={ Workbench }></Route>
-            <Route path="/statistics" component={ Statistics }></Route>
-            <Route path="/edit/:taskId" exact component={ EditTask }></Route>
-            <Route path="/create" exact component={ Statistics }></Route>
+            <Route path="/workbench" component={ Workbench } />
+            <Route path="/statistics" component={ Statistics } />
           </Switch>
         </Content>
         <Footer className="footer">

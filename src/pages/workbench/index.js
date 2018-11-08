@@ -1,19 +1,20 @@
 import React, { Component } from 'react';
-import { Switch, Select, Row, Col, Tree, Collapse, Checkbox, Button } from 'antd';
+import { Route, Switch, Redirect } from 'react-router-dom';
+import { Row, Col, Button } from 'antd';
 import './workbench.css';
-import Item from 'antd/lib/list/Item';
 import CreateTask from '../createTask';
 import EditTask from '../editTask';
-const Option = Select.Option;
-const TreeNode = Tree.TreeNode;
-const Panel = Collapse.Panel;
+import All from '../allPlan';
+import Finished from '../finishedPlan';
+import Todo from '../todoPlan';
 
 class Workbench extends Component {
+
     state = {
         tasks: [],
         taskId: null
     }
-    componentWillMount() {
+    componentDidMount() {
         fetch('https://easy-mock.com/mock/5b8baba761840c7b4033654b/todo/task', {
             method: 'GET'
         }).then(res => res.json())
@@ -53,7 +54,7 @@ class Workbench extends Component {
                 </div>
             </Col>
         ) )
-        return (
+        var workbenchome = (
             <div>
                 <header className="workbench-header">
                    <h3>工作台<small className="h6 ml-3">创建/编辑你的任务</small></h3>
@@ -61,8 +62,18 @@ class Workbench extends Component {
                 <Row gutter={16} className="d-flex">
                 {taskItems}
                 </Row>
-                
             </div>
+        );
+        return (
+          
+                <div>
+                    <Switch>
+                        <Route path="/workbench" exact component={ () => workbenchome }></Route>
+                        <Route path="/workbench/edit/:taskId" component={ EditTask }></Route>
+                        <Route path="/workbench/create"  component={ CreateTask }></Route>               
+                    </Switch>
+                </div>
+             
         )
     }
 }
