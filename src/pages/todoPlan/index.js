@@ -40,7 +40,7 @@ class TodoPlan extends Component {
         data: null
       }
   
-      componentWillMount() {
+      componentDidMount() {
         fetch('https://easy-mock.com/mock/5b8baba761840c7b4033654b/todo/task',{
           method: 'GET'
         }).then( res => res.json())

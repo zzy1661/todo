@@ -13,7 +13,6 @@ class App extends Component {
 		return(
 			<Router>
 				<Switch>
-	        		{/* <Route exact path="/" render={ ()=> ( <Redirect to="/login" />)} /> */}
 					<Route path="/login" component={Login} />
 					<Redirect exact from="/" to="/general" />
 					<Route path="/general" component={Index} />

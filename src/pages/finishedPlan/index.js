@@ -17,7 +17,6 @@ class FinishedPlan extends Component {
           dataIndex: 'status',
           key: 'status',
           render: status => {
-            console.log(status);
             var statusList = ["已完成","进行中", "超时", "封存"];
             return (
               <span>{statusList[status]}</span>
@@ -41,7 +40,7 @@ class FinishedPlan extends Component {
         data: null
       }
   
-      componentWillMount() {
+      componentDidMount() {
         fetch('https://easy-mock.com/mock/5b8baba761840c7b4033654b/todo/task',{
           method: 'GET'
         }).then( res => res.json())
