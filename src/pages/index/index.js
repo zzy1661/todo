@@ -23,12 +23,11 @@ class Index extends Component {
           <Menu
             theme="dark"
             mode="horizontal"
-            defaultSelectedKeys={[]}
             style={{ lineHeight: '64px' }}
           >
-            <Menu.Item key="1"><NavLink to="/general" >一览</NavLink></Menu.Item>
-            <Menu.Item key="2"><NavLink to="/workbench" >工作台</NavLink></Menu.Item>
-            <Menu.Item key="3"><NavLink to="/statistics" >统计</NavLink></Menu.Item>
+            <Menu.Item className="px-0" key="1"><NavLink className="px-4 w-lsm text-center" to="/general" activeClassName="ant-menu-item-selected">一览</NavLink></Menu.Item>
+            <Menu.Item className="px-0" key="2"><NavLink className="px-4 w-lsm text-center" to="/workbench" activeClassName="ant-menu-item-selected">工作台</NavLink></Menu.Item>
+            <Menu.Item className="px-0" key="3"><NavLink className="px-4 w-lsm text-center" to="/statistics" activeClassName="ant-menu-item-selected">统计</NavLink></Menu.Item>
             <Menu.Item key="5" className="float-right">
               <Avatar src="http://placeimg.com/60/60/any" />
             </Menu.Item>
