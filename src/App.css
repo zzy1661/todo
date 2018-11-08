@@ -3354,3 +3354,41 @@ a.text-dark:hover {
     visibility: hidden!important
 }
 
+.w-xs {
+    min-width: 50px;
+}
+
+.w-sm {
+    min-width: 80px;
+}
+.w-lsm {
+    min-width: 100px;
+}
+.w-md {
+    min-width: 120px;
+}
+
+.w-lmd {
+    width: 160px !important;
+    max-width: 100%;
+}
+
+.w-slg {
+    width: 260px !important;
+    max-width: 100%;
+}
+
+.w-lg {
+    width: 320px !important;
+    max-width: 100%;
+}
+
+.w-mxl {
+    width: 420px !important;
+    max-width: 100%;
+}
+
+.w-xl {
+    width: 460px !important;
+    max-width: 100%;
+}
