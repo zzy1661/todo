@@ -2,6 +2,7 @@ import React, { Component } from 'react';
 import { Switch, Select, Row, Col, Tree, Collapse, Checkbox } from 'antd';
 import { Form, Icon, Input, Button, DatePicker } from 'antd';
 import Item from 'antd/lib/list/Item';
+import './editTask.css';
 const { RangePicker } = DatePicker;
 const FormItem = Form.Item;
 const Option = Select.Option;
@@ -31,20 +32,25 @@ class EditTask extends Component {
                 .then(data => {
                     if (data.code === 1) {
                         task = data.data;
-                        // this.setState({
-                        //     task: task
-                        // })
+                        this.setState({
+                            task: task
+                        })
                     }
                 })
         }
 
     }
 
-
-
     renderTreeNodes = (tasks) => {
         return tasks.map((item) => {
-            var title = (<span>{item.name}<Icon className="pr-1" type="edit" /><Icon className="pr-1" type="delete" /><Icon type="plus" /></span>);
+            var title = (
+                <div>
+                    <span className="pr-1">{item.name}</span>
+                    <Icon className="pr-1 operator-icon" type="edit" />
+                    <Icon className="pr-1 operator-icon" type="delete" />
+                    <Icon className="pr-1 operator-icon" type="plus" />
+                </div>
+            );
             if (item.subTasks) {
                 return (
                     <TreeNode title={title} key={item.id} dataRef={item}>
@@ -78,25 +84,23 @@ class EditTask extends Component {
                         </div>
                     </Col>
                     <Col span={16} className="px-2 border-left border-primary">
-                        <div className="form">
-                            <div className="form-group">
-                                <label>任务名</label>
-                                <input type="text" className="form-control" />
+                        <div className="form w-mxl m-auto">
+                            <div className="form-group mb-3">
+                                <label className="mr-3">任务名</label>
+                                <Input className="d-inline-block" placeholder="任务名" />
                             </div>
-                            <div className="form-group">
-                                <label>描述</label>
-                                <input type="text" className="form-control" />
+                            <div className="form-group mb-3">
+                                <label className="mr-3">描述</label>
+                                <Input className="d-inline-block" placeholder="描述" />
                             </div>
-                            <div className="form-group">
-                                <label>开始时间</label>
-                                <input type="text" className="form-control" />
+                            <div className="form-group mb-3">
+                                <label className="mr-3">任务期限</label>
+                                <RangePicker className="w-100" placeholder={['开始时间', '结束时间']}/>
                             </div>
-                            <div className="form-group">
-                                <label>结束时间</label>
-                                <input type="text" className="form-control" />
+                            <div className="d-flex justify-content-around">
+                                <Button>重置</Button>
+                                <Button type="primary">确定</Button>
                             </div>
-                            <button>重置</button>
-                            <button>确定</button>
                         </div>
                     </Col>
                 </Row>
@@ -106,4 +110,16 @@ class EditTask extends Component {
     }
 }
 export default EditTask;
+
+class EditForm extends Component {
+
+    render() {
+        return (
+            <Form>
+                
+
+            </Form>
+        )
+    }
+}
 

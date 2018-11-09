@@ -34,7 +34,7 @@ class Workbench extends Component {
     }
 
     render() {
-        var taskItems = this.state.tasks.map(item=>(
+        let taskItems = this.state.tasks.map(item=>(
             <Col key={item.id} span={6}>
                 <div className="media flex-column align-items-center p-1 pb-3 bg-primary text-white rounded h-100">
                     <div></div>
@@ -59,7 +59,7 @@ class Workbench extends Component {
                 </div>
             </Col>
         ) )
-        var workbenchome = (
+        let workbenchome = (
             <div>
                 <header className="workbench-header">
                    <h3>工作台<small className="h6 ml-3">创建/编辑你的任务</small></h3>
