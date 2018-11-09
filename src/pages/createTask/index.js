@@ -10,90 +10,92 @@ const Panel = Collapse.Panel;
 
 class CreateTask extends Component {
 
-    state = {
-        // tasks: null,
-        // taskId: null
-    }
+  state = {
+    // tasks: null,
+    // taskId: null
+  }
 
-    render() {
-       
-        let content = (
-                <div className="px-5 mx-auto" style={{width:'600px'}}>
-                    <h4 className="">创建任务</h4>
-                    <div className="px-5">
-                        <WrappedCreateForm/>
-                    </div>
-                </div>
-        )
-        return (
-            <div>
-                {content}
-            </div>
-        )
-    }
+  render() {
+
+    let content = (
+      <div className="px-5 mx-auto" style={{ width: '600px' }}>
+        <div className="px-5">
+          <WrappedCreateForm />
+        </div>
+      </div>
+    )
+    return (
+      <div>
+        <header className="workbench-header">
+          <h3>工作台<small className="h6 ml-3">创建任务</small></h3>
+        </header>
+        {content}
+      </div>
+    )
+  }
 }
 export default CreateTask;
 
 class CreateForm extends React.Component {
-    // state = {
-    //     taskName: '新建任务',
-    //     describe: ''
-    // }
-    handleSubmit = (e) => {
-      e.preventDefault();
-      this.props.form.validateFields((err, values) => {
-        if (!err) {
-          console.log('Received values of form: ', values);
-        }
-      });
-    }
-    
-    render() {
-      const { getFieldDecorator } = this.props.form;
-      const formItemLayout = {
-        labelCol: {
-          xs: { span: 24 },
-          sm: { span: 8 },
-        },
-        wrapperCol: {
-          xs: { span: 24 },
-          sm: { span: 16 },
-        },
-      };
-      return (
-        <Form onSubmit={this.handleSubmit} >
-          <FormItem className="mb-1"  {...formItemLayout} label="任务名称">
-            {getFieldDecorator('taskName', {
-              rules: [{ required: true, message: '任务名称不能为空！' }],
-            })(
-              <Input placeholder="任务名称" />
-            )}
-          </FormItem>
-          <FormItem className="mb-1"  {...formItemLayout} label="任务描述">
-            {getFieldDecorator('describe', {
-              rules: [{ required: false }],
-            })(
-              <Input placeholder="任务描述" />
-            )}
-          </FormItem>
-          <FormItem
+  // state = {
+  //     taskName: '新建任务',
+  //     describe: ''
+  // }
+  handleSubmit = (e) => {
+    e.preventDefault();
+    this.props.form.validateFields((err, values) => {
+      if (!err) {
+        console.log('Received values of form: ', values);
+      }
+    });
+  }
+
+  render() {
+    const { getFieldDecorator } = this.props.form;
+    const formItemLayout = {
+      labelCol: {
+        xs: { span: 24 },
+        sm: { span: 8 },
+      },
+      wrapperCol: {
+        xs: { span: 24 },
+        sm: { span: 16 },
+      },
+    };
+    return (
+      <Form onSubmit={this.handleSubmit} >
+        <FormItem className="mb-1"  {...formItemLayout} label="任务名称">
+          {getFieldDecorator('taskName', {
+            rules: [{ required: true, message: '任务名称不能为空！' }],
+          })(
+            <Input placeholder="任务名称" />
+          )}
+        </FormItem>
+        <FormItem className="mb-1"  {...formItemLayout} label="任务描述">
+          {getFieldDecorator('describe', {
+            rules: [{ required: false }],
+          })(
+            <Input placeholder="任务描述" />
+          )}
+        </FormItem>
+        <FormItem
           {...formItemLayout}
           label="任务期限"
         >
           {getFieldDecorator('dateRange', {
-      rules: [{ type: 'array', required: true, message: '任务时间不能为空!' }],
-    })(
+            rules: [{ type: 'array', required: true, message: '任务时间不能为空!' }],
+          })(
             <RangePicker />
           )}
         </FormItem>
-          <FormItem className="text-center">
-            <Button type="primary" htmlType="submit" className="login-form-button w-50">
-              提交
+        <FormItem className="text-center">
+          <Button type="primary" htmlType="submit" className="login-form-button w-50">
+            提交
             </Button>
-          </FormItem>
-        </Form>
-      );
-    }
+        </FormItem>
+      </Form>
+    );
   }
-  
-  const WrappedCreateForm = Form.create()(CreateForm);
+}
+
+const WrappedCreateForm = Form.create()(CreateForm);
