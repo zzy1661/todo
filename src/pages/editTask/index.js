@@ -84,24 +84,7 @@ class EditTask extends Component {
                         </div>
                     </Col>
                     <Col span={16} className="px-2 border-left border-primary">
-                        <div className="form w-mxl m-auto">
-                            <div className="form-group mb-3">
-                                <label className="mr-3">任务名</label>
-                                <Input className="d-inline-block" placeholder="任务名" />
-                            </div>
-                            <div className="form-group mb-3">
-                                <label className="mr-3">描述</label>
-                                <Input className="d-inline-block" placeholder="描述" />
-                            </div>
-                            <div className="form-group mb-3">
-                                <label className="mr-3">任务期限</label>
-                                <RangePicker className="w-100" placeholder={['开始时间', '结束时间']}/>
-                            </div>
-                            <div className="d-flex justify-content-around">
-                                <Button>重置</Button>
-                                <Button type="primary">确定</Button>
-                            </div>
-                        </div>
+                        <WrappedEditForm></WrappedEditForm>
                     </Col>
                 </Row>
 
@@ -113,13 +96,65 @@ export default EditTask;
 
 class EditForm extends Component {
 
+    handleSubmit = (e) => {
+        e.preventDefault();
+        this.props.form.validateFields((err, fieldsValue) => {
+            if (err) {
+                return;
+            }
+            const rangeValue = fieldsValue['taskAllotime'];
+            const values = {
+                ...fieldsValue,
+                taskAllotime: [
+                    rangeValue[0].format('YYYY-MM-DD HH:mm:ss'),
+                    rangeValue[1].format('YYYY-MM-DD HH:mm:ss'),
+                ],
+            }
+        })
+    }
+    handleReset = () => {
+        this.props.form.resetFields();
+    }
     render() {
+        const { getFieldDecorator } = this.props.form;
         return (
-            <Form>
-                
-
+            <Form className="w-mxl m-auto" onSubmit={this.handleSubmit}>
+                <FormItem className="mb-1" label="任务名">
+                    {getFieldDecorator('taskName', {
+                        rules: [{
+                            required: true, message: '请输入任务名',
+                        }],
+                    })(
+                        <Input className="d-inline-block" placeholder="任务名" />
+                    )}
+                </FormItem>
+                <FormItem className="mb-1" label="描述">
+                    {getFieldDecorator('desc', {
+                        rules: [{
+                            required: false
+                        }],
+                    })(
+                        <Input className="d-inline-block" placeholder="描述" />
+                    )}
+                </FormItem>
+                <FormItem className="mb-1" label="任务期限">
+                    {getFieldDecorator('taskAllotime', {
+                        rules: [{
+                            type: 'array',
+                            required: true,
+                            message: '请输入任务期限',
+                        }],
+                    })(
+                        <RangePicker className="w-100" placeholder={['开始时间', '结束时间']} />
+                    )}
+                </FormItem>
+                <div className="d-flex justify-content-around mt-4">
+                    <Button onClick={this.handleReset}>重置</Button>
+                    <Button type="primary" htmlType="submit">提交</Button>
+                </div>
             </Form>
         )
     }
 }
 
+const WrappedEditForm = Form.create()(EditForm);
