@@ -19,7 +19,7 @@ class CreateTask extends Component {
 
     let content = (
       <div className="px-5 mx-auto" style={{ width: '600px' }}>
-        <div className="px-5">
+        <div className="">
           <WrappedCreateForm />
         </div>
       </div>
@@ -41,6 +41,11 @@ class CreateForm extends React.Component {
   //     taskName: '新建任务',
   //     describe: ''
   // }
+  componentDidMount() {
+    this.props.form.setFieldsValue({
+      parentask: '父任务'
+    })
+  }
   handleSubmit = (e) => {
     e.preventDefault();
     this.props.form.validateFields((err, values) => {
@@ -86,6 +91,24 @@ class CreateForm extends React.Component {
             rules: [{ type: 'array', required: true, message: '任务时间不能为空!' }],
           })(
             <RangePicker />
+          )}
+        </FormItem>
+        <FormItem className="mb-1"  {...formItemLayout} label="父任务">
+          {getFieldDecorator('parentask', {
+            rules: [{ required: false}],
+          })(
+            <Input disabled/>
+          )}
+        </FormItem>
+        <FormItem className="mb-1"  {...formItemLayout} label="父任务">
+          {getFieldDecorator('parentask2', {
+            rules: [{ required: false}],
+          })(
+            <Select>
+              <Option value="jack">Jack</Option>
+              <Option value="lucy">Lucy</Option>
+              <Option value="Yiminghe">yiminghe</Option>
+            </Select>
           )}
         </FormItem>
         <FormItem className="text-center">
