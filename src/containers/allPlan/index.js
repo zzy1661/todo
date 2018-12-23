@@ -51,7 +51,6 @@ class AllPlan extends Component {
           })
         }
       })
-      
     }
 
     render () {
