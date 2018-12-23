@@ -41,16 +41,33 @@ class AllPlan extends Component {
     }
     
     componentDidMount() {
-      fetch('https://easy-mock.com/mock/5b8baba761840c7b4033654b/todo/task',{
-        method: 'GET'
-      }).then( res => res.json())
+      var token = sessionStorage.getItem('userToken')
+      fetch('http://localhost:8082/tasks',{
+        method: 'GET',
+        headers: {
+          'Authorization':`Bearer ${token}`
+        }
+      }).then( res => {
+        console.log(res)
+        if(res.status == 401) {
+          throw new Error(401) 
+        }
+        return res.json()
+      })
       .then( data => {
-        if(data.code === 1) {
+        console.log('data',data)
+        if(data.code === 0) {
           this.setState({
             data: data.data
           })
         }
-      })
+      }).catch(e=>{
+        sessionStorage.removeItem('username');
+        sessionStorage.removeItem('userToken')
+        if(e.message == 401) {
+          this.props.history.push('/login');
+        }
+    })
     }
 
     render () {

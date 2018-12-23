@@ -4,9 +4,6 @@ import { Row, Col, Button } from 'antd';
 import './workbench.css';
 import CreateTask from '../createTask';
 import EditTask from '../editTask';
-import All from '../allPlan';
-import Finished from '../finishedPlan';
-import Todo from '../todoPlan';
 
 class Workbench extends Component {
 
@@ -24,6 +21,8 @@ class Workbench extends Component {
                         tasks: data.data
                     })
                 }
+            }).catch(e=>{
+                console.log('e',e)
             })
     }
     toPlus = () => {

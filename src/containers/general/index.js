@@ -2,9 +2,9 @@ import React, { Component } from 'react';
 import { Menu, Icon } from 'antd';
 
 import { Route, Link, Switch, Redirect } from 'react-router-dom';
-import All from '../allPlan';
-import Finished from '../finishedPlan';
-import Todo from '../todoPlan';
+import All from '../../components/allPlan';
+import Finished from '../../components/finishedPlan';
+import Todo from '../../components/todoPlan';
 import './general.css';
 const SubMenu = Menu.SubMenu;
 const MenuItemGroup = Menu.ItemGroup;

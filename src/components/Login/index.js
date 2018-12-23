@@ -25,6 +25,7 @@ class Login extends Component {
 		};
 	}
 	componentWillMount() {
+		console.log(this.props.username, this.props.userToken)
 		if (this.props.username && this.props.userToken) {
 			this.props.history.push('/');
 		}
@@ -47,13 +48,16 @@ class Login extends Component {
 		var {username,password} = this.state;
 		fetch('http://localhost:8082/login', {
 			method: 'POST',
-			headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+			headers: { 
+				'Content-Type': 'application/x-www-form-urlencoded'
+		 	},
 			body: `username=${username}&password=${password}`
 		}).then((res) => {
 			return res.json();
 		}).then((data) => {
 			if (data.code === 0) {				
 				this.handleLogined(username,data.data.token)
+
 				this.props.history.push('/');
 			}
 		})
