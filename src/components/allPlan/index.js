@@ -60,14 +60,14 @@ class AllPlan extends Component {
           'Authorization':`Bearer ${this.props.userToken}`
         }
       }).then( res => {
-        console.log(res)
+        // console.log(res)
         if(res.status == 401) {
           throw new Error(401) 
         }
         return res.json()
       })
       .then( data => {
-        console.log('data',data)
+        // console.log('data',data)
         if(data.code === 0) {
           this.setState({
             data: data.data
