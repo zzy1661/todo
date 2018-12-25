@@ -25,7 +25,6 @@ class Login extends Component {
 		};
 	}
 	componentWillMount() {
-		console.log(this.props.username, this.props.userToken)
 		if (this.props.username && this.props.userToken) {
 			this.props.history.push('/');
 		}

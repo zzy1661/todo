@@ -20,8 +20,13 @@ const userReducer = (state, action) => {
 	}
 	switch (action.type) {
 		case 'login':
+			sessionStorage.setItem('username', action.username);
+			sessionStorage.setItem('userToken', action.userToken);
+			console.log()
 			return { ...state, username: action.username, userToken: action.userToken }
 		case 'logout':
+			sessionStorage.removeItem('username');
+            sessionStorage.removeItem('userToken');
 			return { ...state, username: '', userToken: '' }
 		default:
 			return state

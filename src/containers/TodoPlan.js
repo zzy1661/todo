@@ -1,5 +1,5 @@
 import { connect } from 'react-redux';
-import Login from '../components/Login';
+import TodoPlan from '../components/TodoPlan';
 
 const mapStateToProps = (state) => {
     return {
@@ -9,9 +9,9 @@ const mapStateToProps = (state) => {
 }
 const mapDispatchToProps = (dispatch) => {
     return {
-        onLogin: (username, userToken) => {
-            dispatch({ type: 'login', username, userToken })
+        removeUser: (username, userToken) => {          
+            dispatch({ type: 'logout'});
         }
     }
 }
-export default connect(mapStateToProps, mapDispatchToProps)(Login)
+export default connect(mapStateToProps, mapDispatchToProps)(TodoPlan)

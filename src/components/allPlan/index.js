@@ -1,8 +1,14 @@
 import React, { Component } from 'react';
+import PropTypes from 'prop-types';
 import { Table, Button } from 'antd';
   
 class AllPlan extends Component {
-    
+  static propTypes = {
+		username: PropTypes.string,
+		userToken: PropTypes.string,
+    removeUser: PropTypes.func,
+    test: PropTypes.func
+    }
     state = {
       columns: [{
         title: '创建时间',
@@ -17,15 +23,15 @@ class AllPlan extends Component {
         dataIndex: 'status',
         key: 'status',
         render: status => {
-          var statusList = ["已完成","进行中", "超时", "封存"];
+          var statusList = ['进行中', '已完成', '暂停', '终止', '超时', '未开始'];
           return (
             <span>{statusList[status]}</span>
           )
         }
       }, {
         title: '详情',
-        key: 'describe',
-        dataIndex: 'describe',
+        key: 'des',
+        dataIndex: 'des',
       }, {
         title: '操作',
         key: 'action',
@@ -40,12 +46,18 @@ class AllPlan extends Component {
       data: null
     }
     
-    componentDidMount() {
-      var token = sessionStorage.getItem('userToken')
+    componentDidMount() {    
+      
+      if (!this.props.username || !this.props.userToken) {
+        this.props.removeUser();
+        this.props.history.push('/login');
+        return;
+      }
+      
       fetch('http://localhost:8082/tasks',{
         method: 'GET',
         headers: {
-          'Authorization':`Bearer ${token}`
+          'Authorization':`Bearer ${this.props.userToken}`
         }
       }).then( res => {
         console.log(res)
