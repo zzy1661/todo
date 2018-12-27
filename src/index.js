@@ -17,7 +17,8 @@ import actions from './actions'
 const reducer = (state, action) => {
 	if (!state) return {
 		username: sessionStorage.getItem('username'),
-		userToken: sessionStorage.getItem('userToken')
+		userToken: sessionStorage.getItem('userToken'),
+		tasks:[]
 	}
 	if(actions[action.type]) {
 		return actions[action.type](state,action);

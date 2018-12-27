@@ -7,3 +7,6 @@ html, body {
 #root {
 	height: 100%;
 }
+.h-150 {
+  min-height: 150px;
+}
