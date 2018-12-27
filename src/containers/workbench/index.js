@@ -2,8 +2,8 @@ import React, { Component } from 'react';
 import { Route, Switch, Redirect } from 'react-router-dom';
 import { Row, Col, Button } from 'antd';
 import './workbench.css';
-import CreateTask from '../createTask';
-import EditTask from '../editTask';
+import CreateTask from '../../components/CreateTask';
+import EditTask from '../../components/EditTask';
 
 class Workbench extends Component {
 

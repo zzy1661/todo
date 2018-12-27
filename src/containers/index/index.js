@@ -4,7 +4,7 @@ import { Route, NavLink, Switch, Redirect } from 'react-router-dom';
 import General from '../general';
 import Workbench from '../workbench'
 import Statistics from '../statistics';
-import EditTask from '../editTask';
+import EditTask from '../../components/EditTask';
 import Timer from '../../components/timer';
 import './index.css';
 const { Header, Content, Footer } = Layout;
