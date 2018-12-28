@@ -4,35 +4,21 @@ import React, {
 import './App.css';
 import { BrowserRouter as Router, Route, Switch, Redirect } from 'react-router-dom';
 
+import { ConnectedRouter } from 'connected-react-router'
+import PropTypes from 'prop-types'
+
 import Login from './containers/Login';
 import Index from './containers/index';
-// import { hot } from 'react-hot-loader';
 
-
-/* import { Provider } from 'react-redux';
-import { createStore } from 'redux';
-
-const userReducer = (state, action) => {
-	if (!state) return {
-		username: sessionStorage.getItem('username'),
-		userToken: sessionStorage.getItem('userToken')
-	}
-	switch (action.type) {
-		case 'login':
-			return { ...state, username: action.username, userToken: action.userToken }
-		case 'logout':
-			return { ...state, username: '', userToken: '' }
-		default:
-			return state
-	}
-}
-const store = createStore(userReducer) */
 
 class App extends Component {
-
+	static propTypes = {
+		history: PropTypes.object,
+	  }
 	render() {
+		console.log(111,this.props.history)
 		return (
-			<Router>
+			<ConnectedRouter history={this.props.history}>
 				<Switch>
 					<Route path="/login" component={Login} />
 					<Redirect exact from="/" to="/general" />
@@ -41,10 +27,8 @@ class App extends Component {
 					<Route path="/statistics" component={Index}></Route>
 					<Redirect to="/login" />
 				</Switch>
-			</Router>
+			</ConnectedRouter>
 		);
 	}
 }
-
-// export default <Provider store={store}><App /></Provider>;
 export default App;

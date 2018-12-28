@@ -7,7 +7,6 @@ class AllPlan extends Component {
     username: PropTypes.string,
     userToken: PropTypes.string,
     removeUser: PropTypes.func,
-    test: PropTypes.func
   }
   state = {
     columns: [{
@@ -47,13 +46,12 @@ class AllPlan extends Component {
   }
 
   componentDidMount() {
-
+    console.log('allplan',this.props)
     if (!this.props.username || !this.props.userToken) {
-      this.props.removeUser();
-      this.props.history.push('/login');
-      return;
+      // this.props.removeUser();
+      
     }
-    this.props.getTasks(this.props.userToken);
+    // this.props.getTasks(this.props.userToken);
    
   }
 

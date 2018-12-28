@@ -23,7 +23,7 @@ class EditTask extends Component {
         let taskId = this.props.match.params.taskId,
             task = this.props.location.state;
         if (!taskId) {
-            this.props.history.push('/login');
+            // this.props.history.push('/login');
         }
         if (!task) {
             fetch('https://easy-mock.com/mock/5b8baba761840c7b4033654b/todo/task?id=' + taskId, {

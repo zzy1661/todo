@@ -24,12 +24,12 @@ class Login extends Component {
 			password: '',
 		};
 	}
-	componentWillMount() {
+
+	componentDidMount() {
 		if (this.props.username && this.props.userToken) {
 			this.props.history.push('/');
 		}
-	}
-	componentDidMount() {
+
 		const img = new Image()
 		img.src = 'https://placeimg.com/1920/1080/any';
 		img.onload = () => {
@@ -55,9 +55,9 @@ class Login extends Component {
 			return res.json();
 		}).then((data) => {
 			if (data.code === 0) {				
-				this.handleLogined(username,data.data.token)
-
+				// this.handleLogined(username,data.data.token)
 				this.props.history.push('/');
+				
 			}
 		})
 	}

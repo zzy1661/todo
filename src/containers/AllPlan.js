@@ -1,21 +1,22 @@
 import { connect } from 'react-redux';
 import AllPlan from '../components/AllPlan';
-import {getTasks} from '../actions/asyncActions';
+import { getTasks, logout } from '../actions/asyncActions';
+import { push, replace } from 'react-router-redux'
+
 const mapStateToProps = (state) => {
     return {
-        username: state.username,
-        userToken: state.userToken,
-        tasks: state.tasks
+        router: state.router,
+        ...state.basic,
     }
 }
 const mapDispatchToProps = (dispatch) => {
     return {
-        removeUser: (username, userToken) => {          
-            dispatch({ type: 'logout'});
+        removeUser: (username, userToken) => {
+            dispatch(logout());
         },
-        getTasks: (token) => {
-            return dispatch(getTasks(token));
-        }
+        getTasks: (token) => { 
+             return dispatch(getTasks(token));
+        },
     }
 }
 export default connect(mapStateToProps, mapDispatchToProps)(AllPlan)

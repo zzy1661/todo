@@ -3,14 +3,14 @@ import Login from '../components/Login';
 
 const mapStateToProps = (state) => {
     return {
-        username: state.username,
-        userToken: state.userToken
+        router: state.router,
+        ...state.basic,       
     }
 }
 const mapDispatchToProps = (dispatch) => {
     return {
         onLogin: (username, userToken) => {
-            dispatch({ type: 'login', username, userToken })
+            dispatch({ type: 'saveUser', username, userToken })
         }
     }
 }

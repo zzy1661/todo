@@ -1,5 +1,12 @@
-export function getTasks(userToken) {
-    return (dispatch) => {
+import {  push,replace } from 'react-router-redux'
+
+export function getTasks(userToken,forceUpdate) {
+    return (dispatch,getState) => {
+        var {tasks} = getState();
+        //利用缓存，forceUpdae:强制请求
+        if(!forceUpdate && tasks) {
+            return;
+        }
         fetch('http://localhost:8082/tasks', {
             method: 'GET',
             headers: {
@@ -13,10 +20,17 @@ export function getTasks(userToken) {
         }).then(data => {
             dispatch({ type: 'saveTasks', tasks: data.data })
         }).catch(e => {
-            dispatch({ type: 'logout' })
+            dispatch({ type: 'removeUser' })
             if (e.message == 401) {
                 this.props.history.push('/login');
             }
         })
+    }
+}
+export function logout() {
+    return (dispatch,getState) => {
+        console.log('logout',getState());
+        // dispatch({type:'removeUser'});
+        // dispatch(push('/login'))
     }
 }

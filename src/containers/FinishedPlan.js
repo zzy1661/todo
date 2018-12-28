@@ -3,8 +3,8 @@ import FinishedPlan from '../components/FinishedPlan';
 
 const mapStateToProps = (state) => {
     return {
-        username: state.username,
-        userToken: state.userToken
+        router: state.router,
+        ...state.basic,       
     }
 }
 const mapDispatchToProps = (dispatch) => {

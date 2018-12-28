@@ -16,7 +16,7 @@ class Workbench extends Component {
     componentDidMount() {
         if (!this.props.username || !this.props.userToken) {
             this.props.removeUser();
-            this.props.history.push('/login');
+            // this.props.history.push('/login');
             return;
           }
           this.props.getTasks(this.props.userToken);
@@ -30,7 +30,7 @@ class Workbench extends Component {
 
     render() {
         var allTasks = this.props.tasks;
-        var rootTasks = allTasks.filter(item=>item.pid===0);
+        var rootTasks = allTasks ? allTasks.filter(item=>item.pid===0) : [];
         let taskItems = rootTasks.map(item=>(
             <Col key={item.id} span={6}>
                 <div className="media flex-column align-items-center p-1 py-3 bg-primary text-white rounded h-150">
@@ -82,16 +82,18 @@ class Workbench extends Component {
 
 const mapStateToProps = (state) => {
     return {
-        username: state.username,
-        userToken: state.userToken,
-        tasks: state.tasks,
+        router: state.router,
+        ...state.basic,       
     }
 }
 const mapDispatchToProps = (dispatch) => {
     return {
         getTasks: (token) => {
             return dispatch(getTasks(token));
-        }
+        },
+        removeUser: (username, userToken) => {          
+            dispatch({ type: 'logout'});
+        },
     }
 }
 export default connect(mapStateToProps, mapDispatchToProps)(Workbench)

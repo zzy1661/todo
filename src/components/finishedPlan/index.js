@@ -48,7 +48,7 @@ class FinishedPlan extends Component {
     componentDidMount() {  
       if (!this.props.username || !this.props.userToken) {
         this.props.removeUser();
-        this.props.history.push('/login');
+        // this.props.history.push('/login');
         return;
       }  
       fetch('http://localhost:8082/tasks?status=1',{
@@ -74,7 +74,7 @@ class FinishedPlan extends Component {
         sessionStorage.removeItem('username');
         sessionStorage.removeItem('userToken')
         if(e.message == 401) {
-          this.props.history.push('/login');
+          // this.props.history.push('/login');
         }
     })
     }
