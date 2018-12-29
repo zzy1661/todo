@@ -26,9 +26,13 @@ class Login extends Component {
 	}
 
 	componentDidMount() {
-		if (this.props.username && this.props.userToken) {
+		setTimeout(() => {
+			this.props.test()
+		  }, 5000);
+		return;
+		/* if (this.props.username && this.props.userToken) {
 			this.props.history.push('/');
-		}
+		} */
 
 		const img = new Image()
 		img.src = 'https://placeimg.com/1920/1080/any';

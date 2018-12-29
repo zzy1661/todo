@@ -6,11 +6,16 @@ import { push, replace } from 'react-router-redux'
 const mapStateToProps = (state) => {
     return {
         router: state.router,
-        ...state.basic,
+        ...state.user,
+        ...state.task
     }
 }
 const mapDispatchToProps = (dispatch) => {
     return {
+        test: () => {
+            console.log('push login')
+            dispatch(push('/login'));
+        },
         removeUser: (username, userToken) => {
             dispatch(logout());
         },

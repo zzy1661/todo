@@ -2,6 +2,8 @@ import { AppContainer } from 'react-hot-loader'
 import { applyMiddleware, compose, createStore } from 'redux'
 import { createBrowserHistory } from 'history'
 import { routerMiddleware } from 'connected-react-router'
+import thunk from 'redux-thunk';
+
 import { Provider } from 'react-redux'
 import React from 'react'
 import ReactDOM from 'react-dom'
@@ -20,7 +22,7 @@ const store = createStore(
   rootReducer(history),
   composeEnhancer(
     applyMiddleware(
-      routerMiddleware(history),
+      routerMiddleware(history),thunk
     ),
   ),
 )
@@ -28,13 +30,13 @@ const store = createStore(
 const render = () => {
   ReactDOM.render(
     <AppContainer>
-		<LocaleProvider locale={zh_CN}>	
-      <Provider store={store}>
-        <App history={history} />
-      </Provider>
-	  </LocaleProvider>
+      <LocaleProvider locale={zh_CN}>	
+        <Provider store={store}>
+          <App history={history} />
+        </Provider>
+      </LocaleProvider>
     </AppContainer>,
-    document.getElementById('react-root')
+    document.getElementById('root')
   )
 }
 

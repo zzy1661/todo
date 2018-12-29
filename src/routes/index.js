@@ -6,16 +6,16 @@ import Index from '../containers/index';
 
 
 const routes = (
-  <div>
+
     <Switch>
         <Route path="/login" component={Login} />
         <Redirect exact from="/" to="/general" />
         <Route path="/general" component={Index} />
-        <Route path="/workbench" component={Index}></Route>
+        {/* <Route path="/workbench" component={Index}></Route>
         <Route path="/statistics" component={Index}></Route>
-        <Redirect to="/login" />
+        <Redirect to="/login" /> */}
     </Switch>
-  </div>
+
 )
 
 export default routes

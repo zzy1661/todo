@@ -8,11 +8,10 @@ import './App.css';
 class App extends Component {
 	static propTypes = {
 		history: PropTypes.object,
-	  }
-	render() {
-		
+		}
+	render() {		
 		return (
-			<ConnectedRouter history={history}>
+			<ConnectedRouter history={this.props.history}>
 			  { routes }
 			</ConnectedRouter>
 		  )

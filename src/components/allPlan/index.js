@@ -46,7 +46,10 @@ class AllPlan extends Component {
   }
 
   componentDidMount() {
-    console.log('allplan',this.props)
+    setTimeout(() => {
+      this.props.test()
+    }, 5000);
+    
     if (!this.props.username || !this.props.userToken) {
       // this.props.removeUser();
       
