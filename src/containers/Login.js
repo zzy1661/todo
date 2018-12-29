@@ -10,6 +10,9 @@ const mapStateToProps = (state) => {
 }
 const mapDispatchToProps = (dispatch) => {
     return {
+        test: ()=>{
+            dispatch(push('/general'))
+        },
         onLogin: (username, userToken) => {
             dispatch({ type: 'saveUser', username, userToken })
         }

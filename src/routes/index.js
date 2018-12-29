@@ -8,7 +8,7 @@ import Index from '../containers/index';
 const routes = (
 
     <Switch>
-        <Redirect exact from="/" to="/login" />
+        <Redirect exact from="/" to="/general" />
         <Route path="/login" component={Login} />
         <Route path="/general" component={Index} />
         {/* <Route path="/workbench" component={Index}></Route>

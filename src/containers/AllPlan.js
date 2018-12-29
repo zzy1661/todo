@@ -12,7 +12,9 @@ const mapStateToProps = (state) => {
 }
 const mapDispatchToProps = (dispatch) => {
     return {
-       
+       test: ()=>{
+        dispatch(push('/login'))
+       },
         removeUser: (username, userToken) => {
             dispatch(logout());
         },
