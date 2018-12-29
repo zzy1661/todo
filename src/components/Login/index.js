@@ -26,10 +26,7 @@ class Login extends Component {
 	}
 
 	componentDidMount() {
-		setTimeout(() => {
-			this.props.test()
-		  }, 5000);
-		return;
+
 		/* if (this.props.username && this.props.userToken) {
 			this.props.history.push('/');
 		} */

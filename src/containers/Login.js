@@ -1,6 +1,6 @@
 import { connect } from 'react-redux';
 import Login from '../components/Login';
-import { push, replace } from 'react-router-redux'
+import {push} from 'connected-react-router';
 
 const mapStateToProps = (state) => {
     return {
@@ -10,10 +10,6 @@ const mapStateToProps = (state) => {
 }
 const mapDispatchToProps = (dispatch) => {
     return {
-        test: () => {
-            console.log('push /general/all')
-            dispatch(push('/'));
-        },
         onLogin: (username, userToken) => {
             dispatch({ type: 'saveUser', username, userToken })
         }

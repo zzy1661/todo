@@ -31,12 +31,11 @@ class Index extends Component {
           </Menu>
         </Header>
         <Content className="content">
-          {/* <Switch>
-            <Redirect exact from="/" to="/general" />
+          <Switch>           
             <Route path="/general" component={ General } />
             <Route path="/workbench" component={ Workbench } />
             <Route path="/statistics" component={ Statistics } />
-          </Switch> */}
+          </Switch>
         </Content>
         <Footer className="footer">
           TODO ©2018 Created by Zachary Zhou
