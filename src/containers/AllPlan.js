@@ -12,14 +12,12 @@ const mapStateToProps = (state) => {
 }
 const mapDispatchToProps = (dispatch) => {
     return {
-       test: ()=>{
-            dispatch(push('/login'))
-       },
+
         removeUser: (username, userToken) => {
-            dispatch(logout());
+            // dispatch(logout());
         },
         getTasks: (token) => { 
-             return dispatch(getTasks(token));
+            //  return dispatch(getTasks(token));
         },
     }
 }
