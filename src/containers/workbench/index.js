@@ -5,7 +5,7 @@ import { connect } from 'react-redux';
 import { getTasks, logout } from '../../actions/commonActions';
 import { Row, Col, Button } from 'antd';
 import CreateTask from '../../components/CreateTask';
-import EditTask from '../../components/EditTask';
+import EditTask from '../EditTask';
 
 import './workbench.css';
 
@@ -18,6 +18,7 @@ class Workbench extends Component {
         tasks: PropTypes.array,
         getTasks: PropTypes.func,
       }
+    
     componentDidMount() {
         if (!this.props.username || !this.props.userToken) {
             this.props.removeUser();
@@ -29,7 +30,9 @@ class Workbench extends Component {
         this.props.history.push('/workbench/create');
     }
     toEdit = (index) => {
-        this.props.history.push('/workbench/edit/'+index);
+        var toEditTask = this.props.tasks.filter(task=>task.id === index)[0]
+       
+        this.props.history.push({pathname:'/workbench/edit/'+index,state:{task: toEditTask}});
     }
 
     render() {
@@ -74,14 +77,13 @@ class Workbench extends Component {
                 <div>
                     <Switch>
                         <Route path="/workbench" exact component={ () => workbenchome }></Route>
-                        <Route path="/workbench/edit/:taskId" component={ EditTask }></Route>
+                        <Route path="/workbench/edit/:taskId"  component={ EditTask }></Route>
                         <Route path="/workbench/create"  component={ CreateTask }></Route>               
                     </Switch>
                 </div>           
         )
     }
 }
-
 
 
 const mapStateToProps = (state) => {

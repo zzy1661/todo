@@ -1,5 +1,7 @@
 import React, { Component } from 'react';
 import { Switch, Select, Row, Col, Tree, Collapse, Checkbox } from 'antd';
+import PropTypes from 'prop-types';
+
 import { Form, Icon, Input, Button, DatePicker } from 'antd';
 import Item from 'antd/lib/list/Item';
 const { RangePicker } = DatePicker;
@@ -10,9 +12,10 @@ const Panel = Collapse.Panel;
 
 class CreateTask extends Component {
 
-  state = {
-    // tasks: null,
-    // taskId: null
+  static propTypes = {
+    username: PropTypes.string,
+    userToken: PropTypes.string,
+    removeUser: PropTypes.func    
   }
 
   render() {

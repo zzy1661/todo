@@ -1,6 +1,8 @@
 import React, { Component } from 'react';
 import { Switch, Select, Row, Col, Tree, Collapse, Checkbox } from 'antd';
 import { Form, Icon, Input, Button, DatePicker } from 'antd';
+import PropTypes from 'prop-types';
+
 import Item from 'antd/lib/list/Item';
 import './editTask.css';
 const { RangePicker } = DatePicker;
@@ -10,20 +12,26 @@ const TreeNode = Tree.TreeNode;
 const Panel = Collapse.Panel;
 
 class EditTask extends Component {
-
-    constructor(props) {
-        super(props);
-    }
+    static propTypes = {
+        getTaskById: PropTypes.func,
+      } 
     state = {
-        taskId: null
-    }
-
+        task: null
+    }  
     componentDidMount() {
-        // console.log('edit', this.props)
+        console.log('edit', this.props)
+        this.props.getTaskById(1);
         let taskId = this.props.match.params.taskId,
-            task = this.props.location.state;
+        task = this.props.location.state.task;
+        if(task) {
+            this.setState({
+                task, 
+            })
+            return ;
+        }
         if (!taskId) {
-            // this.props.history.push('/login');
+            this.props.history.push('/login');
+            return ;
         }
         if (!task) {
             fetch('https://easy-mock.com/mock/5b8baba761840c7b4033654b/todo/task?id=' + taskId, {
@@ -63,7 +71,7 @@ class EditTask extends Component {
     }
     render() {
         let taskTree = '';
-        let task = this.state.task;
+        let task = null;
 
         taskTree = task ? (
             <Tree>
