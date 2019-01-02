@@ -1,7 +1,7 @@
 import { connect } from 'react-redux';
 import Login from '../components/Login';
 import {push} from 'connected-react-router';
-
+import {redirect} from '../actions/asyncActions'
 const mapStateToProps = (state) => {
     return {
         router: state.router,
@@ -11,8 +11,7 @@ const mapStateToProps = (state) => {
 const mapDispatchToProps = (dispatch) => {
     return {
         test: ()=>{
-            console.log(1)
-            dispatch(push('/'))
+            dispatch(redirect())
         },
         onLogin: (username, userToken) => {
             dispatch({ type: 'saveUser', username, userToken })

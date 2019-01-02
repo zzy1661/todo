@@ -1,3 +1,4 @@
+import {push} from 'connected-react-router';
 
 export function getTasks(userToken,forceUpdate) {
     return (dispatch,getState) => {
@@ -31,5 +32,12 @@ export function logout() {
         console.log('logout',getState());
         // dispatch({type:'removeUser'});
         // dispatch(push('/login'))
+    }
+}
+export function redirect() {
+    return (dispatch,getState) => {
+        console.log('test',getState());
+        // dispatch({type:'removeUser'});
+        dispatch(push('/'))
     }
 }
