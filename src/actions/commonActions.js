@@ -1,4 +1,4 @@
-
+import {push} from 'connected-react-router';
 export function getTasks(userToken,forceUpdate) {
     return (dispatch,getState) => {
         var {tasks} = getState();
@@ -28,8 +28,13 @@ export function getTasks(userToken,forceUpdate) {
 }
 export function logout() {
     return (dispatch,getState) => {
-        console.log('logout',getState());
-        // dispatch({type:'removeUser'});
-        // dispatch(push('/login'))
+        dispatch({type:'REMOVEUSER'});
+        dispatch(push('/login'))
+    }
+}
+export function login(username,userToken) {
+    return (dispatch,getState) => {
+        dispatch({type:'SAVEUSER',username,userToken})
+        // dispatch(push('/'))
     }
 }

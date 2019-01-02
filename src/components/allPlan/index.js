@@ -47,12 +47,12 @@ class AllPlan extends Component {
 
   componentDidMount() {
     
-    if (!this.props.username || !this.props.userToken) {
+    /* if (!this.props.username || !this.props.userToken) {
       // this.props.removeUser();
       
     }
     // this.props.getTasks(this.props.userToken);
-   
+    */
   }
 
   render() {

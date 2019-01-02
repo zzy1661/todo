@@ -13,7 +13,7 @@ class Login extends Component {
 		userToken: PropTypes.string,
 		onLogin: PropTypes.func
 	  }
-
+  
 	constructor(props) {
 		super(props);
 		this.state = {
@@ -27,10 +27,10 @@ class Login extends Component {
 
 	componentDidMount() {
 
-		/* if (this.props.username && this.props.userToken) {
+		if (this.props.username && this.props.userToken) {
 			this.props.history.push('/');
-		} */
-
+			return;
+		}
 		const img = new Image()
 		img.src = 'https://placeimg.com/1920/1080/any';
 		img.onload = () => {
@@ -56,9 +56,7 @@ class Login extends Component {
 			return res.json();
 		}).then((data) => {
 			if (data.code === 0) {				
-				// this.handleLogined(username,data.data.token)
-				this.props.history.push('/');
-				
+				this.handleLogined(username,data.data.token)
 			}
 		})
 	}
