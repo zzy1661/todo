@@ -6,13 +6,15 @@ class TodoPlan extends Component {
   static propTypes = {
     username: PropTypes.string,
     userToken: PropTypes.string,
-    removeUser: PropTypes.func
+    removeUser: PropTypes.func,
+    getTasks: PropTypes.func,
   }
   state = {
     columns: [{
       title: '创建时间',
       dataIndex: 'creatime',
       key: 'creatime',
+      render: creatime => (<span>{creatime?Utils.dateFormat(new Date(creatime)):''}</span>)
     }, {
       title: '任务名称',
       dataIndex: 'name',
@@ -41,47 +43,20 @@ class TodoPlan extends Component {
           <Button type="primary" className="m-2">删除</Button>
         </span>
       ),
-    }],
-    data: null
+    }],    
   }
 
-  componentDidMount() {
+  componentDidMount() {   
     if (!this.props.username || !this.props.userToken) {
       this.props.removeUser();
-      // this.props.history.push('/login');
       return;
     }
-    fetch('http://localhost:8082/tasks?status=0', {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${this.props.userToken}`
-      }
-    }).then(res => {
-      // console.log(res)
-      if (res.status == 401) {
-        throw new Error(401)
-      }
-      return res.json()
-    })
-      .then(data => {
-        // console.log('data', data)
-        if (data.code === 0) {
-          this.setState({
-            data: data.data
-          })
-        }
-      }).catch(e => {
-        sessionStorage.removeItem('username');
-        sessionStorage.removeItem('userToken')
-        if (e.message == 401) {
-          // this.props.history.push('/login');
-        }
-      })
+    this.props.getTasks(this.props.userToken);   
   }
 
   render() {
     return (
-      <Table rowKey="id" columns={this.state.columns} dataSource={this.state.data} />
+      <Table rowKey="id" columns={this.state.columns} dataSource={this.props.tasks&&this.props.tasks.filter(task=>task.status===0)} />
     )
   }
 }

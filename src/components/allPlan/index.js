@@ -2,17 +2,21 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { Table, Button } from 'antd';
 
+import Utils from '../../lib/utils';
+
 class AllPlan extends Component {
   static propTypes = {
     username: PropTypes.string,
     userToken: PropTypes.string,
     removeUser: PropTypes.func,
+    getTasks: PropTypes.func,
   }
   state = {
     columns: [{
       title: '创建时间',
       dataIndex: 'creatime',
       key: 'creatime',
+      render: creatime => (<span>{creatime?Utils.dateFormat(new Date(creatime)):''}</span>)
     }, {
       title: '任务名称',
       dataIndex: 'name',
@@ -41,18 +45,15 @@ class AllPlan extends Component {
           <Button type="primary" className="m-2">删除</Button>
         </span>
       ),
-    }],
-    
+    }],    
   }
 
-  componentDidMount() {
-    
-    /* if (!this.props.username || !this.props.userToken) {
-      // this.props.removeUser();
-      
+  componentDidMount() {   
+    if (!this.props.username || !this.props.userToken) {
+      this.props.removeUser();
+      return;
     }
-    // this.props.getTasks(this.props.userToken);
-    */
+    this.props.getTasks(this.props.userToken);   
   }
 
   render() {

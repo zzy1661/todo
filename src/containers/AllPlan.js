@@ -1,7 +1,6 @@
 import { connect } from 'react-redux';
 import AllPlan from '../components/AllPlan';
 import { getTasks, logout } from '../actions/commonActions';
-import {push} from 'connected-react-router';
 
 const mapStateToProps = (state) => {
     return {
@@ -12,12 +11,11 @@ const mapStateToProps = (state) => {
 }
 const mapDispatchToProps = (dispatch) => {
     return {
-
-        removeUser: (username, userToken) => {
-            // dispatch(logout());
+        removeUser: () => {
+            dispatch(logout());
         },
         getTasks: (token) => { 
-            //  return dispatch(getTasks(token));
+             return dispatch(getTasks(token));
         },
     }
 }
