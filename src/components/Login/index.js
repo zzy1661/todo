@@ -45,6 +45,9 @@ class Login extends Component {
 	}
 
 	login = () => {
+		console.log(0)
+		this.props.test();
+		return ;
 		var {username,password} = this.state;
 		fetch('http://localhost:8082/login', {
 			method: 'POST',
