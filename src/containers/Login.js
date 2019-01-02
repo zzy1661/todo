@@ -1,7 +1,7 @@
 import { connect } from 'react-redux';
 import Login from '../components/Login';
 import {push} from 'connected-react-router';
-import {login as loginHandler} from '../actions/asyncActions'
+import {login as loginHandler} from '../actions/commonActions'
 const mapStateToProps = (state) => {
     return {
         router: state.router,

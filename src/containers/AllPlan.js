@@ -1,6 +1,6 @@
 import { connect } from 'react-redux';
 import AllPlan from '../components/AllPlan';
-import { getTasks, logout } from '../actions/asyncActions';
+import { getTasks, logout } from '../actions/commonActions';
 import {push} from 'connected-react-router';
 
 const mapStateToProps = (state) => {

@@ -5,7 +5,7 @@ import './workbench.css';
 import CreateTask from '../../components/CreateTask';
 import EditTask from '../../components/EditTask';
 import { connect } from 'react-redux';
-import {getTasks} from '../../actions/asyncActions';
+import {getTasks} from '../../actions/commonActions';
 
 class Workbench extends Component {
 
