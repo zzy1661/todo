@@ -14,7 +14,6 @@ class TodoPlan extends Component {
       title: '创建时间',
       dataIndex: 'creatime',
       key: 'creatime',
-      render: creatime => (<span>{creatime?Utils.dateFormat(new Date(creatime)):''}</span>)
     }, {
       title: '任务名称',
       dataIndex: 'name',

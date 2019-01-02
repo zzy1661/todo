@@ -11,9 +11,9 @@ const routes = (
         <Redirect exact from="/" to="/general" />
         <Route path="/login" component={Login} />
         <Route path="/general" component={Index} />
-        {/* <Route path="/workbench" component={Index}></Route>
+        <Route path="/workbench" component={Index}></Route>
         <Route path="/statistics" component={Index}></Route>
-        <Redirect to="/login" /> */}
+        <Redirect to="/login" />
     </Switch>
 
 )

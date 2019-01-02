@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import {Upload,Button,Icon} from 'antd';
+import {Upload,Button,Icon, Divider} from 'antd';
 
 class Statistics extends Component {
     constructor(props){
@@ -40,11 +40,12 @@ class Statistics extends Component {
             </Upload>
         );
         return (
-            <div>statistics{this.props.match.params.taskId}
+           /*  <div>statistics{this.props.match.params.taskId}
                 <button onClick={this.onclick}>btn</button>
                 {data?(data.id+data.name):''}
                 {test}
-            </div>
+            </div> */
+            <div>敬请期待</div>
         )
     }
 }

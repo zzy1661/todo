@@ -1,22 +1,25 @@
 import React, { Component } from 'react';
 import { Route, Switch, Redirect } from 'react-router-dom';
+import PropTypes from 'prop-types';
+import { connect } from 'react-redux';
+import { getTasks, logout } from '../../actions/commonActions';
 import { Row, Col, Button } from 'antd';
-import './workbench.css';
 import CreateTask from '../../components/CreateTask';
 import EditTask from '../../components/EditTask';
-import { connect } from 'react-redux';
-import {getTasks} from '../../actions/commonActions';
+
+import './workbench.css';
 
 class Workbench extends Component {
 
-    state = {
-        tasks: [],
-        taskId: null
-    }
+    static propTypes = {
+        username: PropTypes.string,
+        userToken: PropTypes.string,
+        removeUser: PropTypes.func,
+        getTasks: PropTypes.func,
+      }
     componentDidMount() {
         if (!this.props.username || !this.props.userToken) {
             this.props.removeUser();
-            // this.props.history.push('/login');
             return;
           }
           this.props.getTasks(this.props.userToken);
@@ -32,15 +35,15 @@ class Workbench extends Component {
         var allTasks = this.props.tasks;
         var rootTasks = allTasks ? allTasks.filter(item=>item.pid===0) : [];
         let taskItems = rootTasks.map(item=>(
-            <Col key={item.id} span={6}>
-                <div className="media flex-column align-items-center p-1 py-3 bg-primary text-white rounded h-150">
+            <Col key={item.id} span={8} xl={6} >
+                <div className="media flex-column align-items-center p-1 py-3 mb-4 bg-primary text-white rounded h-150">
                     <div></div>
                     <div className="h5">{item.name}</div>
-                    <p className="mb-1 media-body">{item.describe}</p>
+                    <p className="mb-1 media-body">{item.des}</p>
                     <div className="d-flex align-items-center small justify-content-center">
-                        <span>2007-12-14 </span>
+                        <span>{item.creatime}</span>
                         <span className="px-2">~</span>
-                        <span>2014-12-06 </span>
+                        <span>{item.endtime}</span>
                     </div>
                     <div className="mt-2">
                         <Button type="default" className="mr-2" onClick={()=>this.toEdit(item.id)}>编辑</Button>
@@ -83,16 +86,17 @@ class Workbench extends Component {
 const mapStateToProps = (state) => {
     return {
         router: state.router,
-        ...state.basic,       
+        ...state.user,
+        ...state.task
     }
 }
 const mapDispatchToProps = (dispatch) => {
     return {
-        getTasks: (token) => {
-            return dispatch(getTasks(token));
+        removeUser: () => {
+            dispatch(logout());
         },
-        removeUser: (username, userToken) => {          
-            dispatch({ type: 'logout'});
+        getTasks: (token) => { 
+             return dispatch(getTasks(token));
         },
     }
 }
