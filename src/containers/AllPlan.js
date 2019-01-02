@@ -14,10 +14,10 @@ const mapDispatchToProps = (dispatch) => {
     return {
 
         removeUser: (username, userToken) => {
-            dispatch(logout());
+            // dispatch(logout());
         },
         getTasks: (token) => { 
-             return dispatch(getTasks(token));
+            //  return dispatch(getTasks(token));
         },
     }
 }

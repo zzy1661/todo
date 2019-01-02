@@ -17,9 +17,9 @@ export function getTasks(userToken,forceUpdate) {
             }
             return res.json()
         }).then(data => {
-            dispatch({ type: 'saveTasks', tasks: data.data })
+            dispatch({ type: 'SAVETASKS', tasks: data.data })
         }).catch(e => {
-            dispatch({ type: 'removeUser' })
+            dispatch({ type: 'REMOVEUSER' })
             if (e.message == 401) {
                 this.props.history.push('/login');
             }
@@ -35,6 +35,6 @@ export function logout() {
 export function login(username,userToken) {
     return (dispatch,getState) => {
         dispatch({type:'SAVEUSER',username,userToken})
-        // dispatch(push('/'))
+        dispatch(push('/'))
     }
 }
