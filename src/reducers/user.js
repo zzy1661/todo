@@ -1,6 +1,8 @@
 const userReducer = (state, action) => {
     switch (action.type) {
         case 'SAVEUSER':
+            sessionStorage.setItem('username',action.username);
+            sessionStorage.setItem('userToken',action.userToken);
             return { 
                 ...state,
                 username: action.username,
