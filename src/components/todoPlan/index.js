@@ -7,6 +7,7 @@ class TodoPlan extends Component {
     username: PropTypes.string,
     userToken: PropTypes.string,
     removeUser: PropTypes.func,
+    tasks: PropTypes.array,
     getTasks: PropTypes.func,
   }
   state = {
