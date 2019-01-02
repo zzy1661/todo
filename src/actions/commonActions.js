@@ -36,5 +36,6 @@ export function login(username,userToken) {
     return (dispatch,getState) => {
         dispatch({type:'SAVEUSER',username,userToken})
         dispatch(push('/'))
+        
     }
 }

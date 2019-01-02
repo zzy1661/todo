@@ -44,11 +44,11 @@ class Login extends Component {
 		}
 	}
 
-	login = () => {
-		console.log(0)
-		this.props.test();
-		return ;
+	login = () => {		
 		var {username,password} = this.state;
+		console.log(0)
+		this.props.onLogin(username,'111')
+		
 		fetch('http://localhost:8082/login', {
 			method: 'POST',
 			headers: { 
@@ -58,18 +58,16 @@ class Login extends Component {
 		}).then((res) => {
 			return res.json();
 		}).then((data) => {
-			if (data.code === 0) {				
+			if (data.code === 0) {
+				var token = data.data.token;
+				// this.props.onLogin(username,token)			
 				// this.handleLogined(username,data.data.token)
-				this.props.history.push('/');
+				// this.props.history.push('/');
 				
 			}
 		})
 	}
-	handleLogined =(username,token) =>{
-		if (this.props.onLogin) {
-		  this.props.onLogin(username,token)
-		}
-	  }
+
 	setUsername = (e) => {
 		let username = e.target.value;
 		this.setState({
