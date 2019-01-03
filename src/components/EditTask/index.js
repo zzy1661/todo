@@ -20,7 +20,6 @@ class EditTask extends Component {
     }  
     componentDidMount() {
         console.log('edit', this.props)
-        this.props.getTaskById(1);
         let taskId = this.props.match.params.taskId,
         task = this.props.location.state.task;
         if(task) {
@@ -33,22 +32,38 @@ class EditTask extends Component {
             this.props.history.push('/login');
             return ;
         }
-        if (!task) {
-            fetch('https://easy-mock.com/mock/5b8baba761840c7b4033654b/todo/task?id=' + taskId, {
-                method: 'GET'
-            }).then(res => res.json())
-                .then(data => {
-                    if (data.code === 1) {
-                        task = data.data;
-                        this.setState({
-                            task: task
-                        })
-                    }
-                })
+        if(!task) {
+            this.getTaskTreeById(taskId);
         }
 
     }
-
+    getTaskTreeById = (id) => {
+        fetch('http://localhost:8082/tasks/'+id, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${this.props.userToken}`
+            }
+        }).then(res => {
+            if (res.status == 401) {
+                throw new Error(401)
+            }
+            return res.json()
+        }).then(data => {
+            var task = data.data;
+            task.creatime = task.creatime ? Utils.dateFormat(new Date(task.creatime)) : '';
+            task.endtime = task.endtime ? Utils.dateFormat(new Date(task.endtime)) : '';
+            this.setState({
+                task,
+            })
+          
+        }).catch(e => {
+            if(e.message == 401) {
+                this.props.removeUser();
+            } else {
+                console.error(e);
+            }
+        })
+    }
     renderTreeNodes = (tasks) => {
         return tasks.map((item) => {
             var title = (

@@ -33,7 +33,12 @@ export function getTasks(userToken, forceUpdate) {
                 tasks: handledTasks
             });
         }).catch(e => {
-            dispatch(logout())
+            if(e.message == 401) {
+                dispatch(logout())
+            } else {
+                console.error(e);
+            }
+            
            
         })
     }
