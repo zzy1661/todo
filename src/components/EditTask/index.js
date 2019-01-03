@@ -2,7 +2,7 @@ import React, { Component } from 'react';
 import { Switch, Select, Row, Col, Tree, Collapse, Checkbox } from 'antd';
 import { Form, Icon, Input, Button, DatePicker } from 'antd';
 import PropTypes from 'prop-types';
-
+import Utils from '../../lib/utils';
 import Item from 'antd/lib/list/Item';
 import './editTask.css';
 const { RangePicker } = DatePicker;
@@ -16,29 +16,21 @@ class EditTask extends Component {
         getTaskById: PropTypes.func,
       } 
     state = {
-        task: null
+        taskTree: null
     }  
     componentDidMount() {
         console.log('edit', this.props)
-        let taskId = this.props.match.params.taskId,
-        task = this.props.location.state.task;
-        if(task) {
-            this.setState({
-                task, 
-            })
-            return ;
-        }
+        let taskId = this.props.match.params.taskId;
+        // task = this.props.location.state.task;
         if (!taskId) {
             this.props.history.push('/login');
             return ;
         }
-        if(!task) {
-            this.getTaskTreeById(taskId);
-        }
+        this.getTaskTreeById(taskId);
 
     }
     getTaskTreeById = (id) => {
-        fetch('http://localhost:8082/tasks/'+id, {
+        fetch('http://localhost:8082/tasks/tree/'+id, {
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${this.props.userToken}`
@@ -49,11 +41,11 @@ class EditTask extends Component {
             }
             return res.json()
         }).then(data => {
-            var task = data.data;
-            task.creatime = task.creatime ? Utils.dateFormat(new Date(task.creatime)) : '';
-            task.endtime = task.endtime ? Utils.dateFormat(new Date(task.endtime)) : '';
+            var tree = data.data;
+            tree = this.handleTaskTree(tree);
+            
             this.setState({
-                task,
+                taskTree:tree
             })
           
         }).catch(e => {
@@ -63,9 +55,20 @@ class EditTask extends Component {
                 console.error(e);
             }
         })
+        
     }
-    renderTreeNodes = (tasks) => {
-        return tasks.map((item) => {
+    handleTaskTree = (tree) => {
+        tree.creatime = tree.creatime ? Utils.dateFormat(new Date(tree.creatime)) : '';
+        tree.endtime = tree.endtime ? Utils.dateFormat(new Date(tree.endtime)) : '';
+        if(tree.children&&tree.children.length) {
+            tree.children.forEach(t=>{
+                this.handleTaskTree(t)
+            })
+        }
+        return tree;
+    }
+    renderTreeNodes = (tree) => {
+        return tree.map((item) => {
             var title = (
                 <div>
                     <span className="pr-1">{item.name}</span>
@@ -74,10 +77,10 @@ class EditTask extends Component {
                     <Icon className="pr-1 operator-icon" type="plus" />
                 </div>
             );
-            if (item.subTasks) {
+            if (item.children) {
                 return (
                     <TreeNode title={title} key={item.id} dataRef={item}>
-                        {this.renderTreeNodes(item.subTasks)}
+                        {this.renderTreeNodes(item.children)}
                     </TreeNode>
                 );
             }
@@ -86,11 +89,10 @@ class EditTask extends Component {
     }
     render() {
         let taskTree = '';
-        let task = null;
-
-        taskTree = task ? (
+        let tree = this.state.taskTree;
+        taskTree = tree ? (
             <Tree>
-                {this.renderTreeNodes([task])}
+                {this.renderTreeNodes([tree])}
             </Tree>
         ) : '';
 
