@@ -1,39 +1,37 @@
 import React, { Component } from 'react';
-import { Switch, Select, Row, Col, Tree, Collapse, Checkbox } from 'antd';
-import { Form, Icon, Input, Button, DatePicker } from 'antd';
+import { Row, Col, Tree, Form, Icon, Input, Button, DatePicker, Modal } from 'antd';
 import PropTypes from 'prop-types';
 import Utils from '../../lib/utils';
-import Item from 'antd/lib/list/Item';
 import moment from 'moment';
-
 import './editTask.css';
+
 const { RangePicker } = DatePicker;
 const FormItem = Form.Item;
-const Option = Select.Option;
 const TreeNode = Tree.TreeNode;
-const Panel = Collapse.Panel;
+
 
 class EditTask extends Component {
     static propTypes = {
         getTaskById: PropTypes.func,
-      } 
+    }
     state = {
         taskTree: null,
-        toEditTask:null
-    }  
+        toEditTask: null,
+        visible: false
+    }
     componentDidMount() {
         console.log('edit', this.props)
         let taskId = this.props.match.params.taskId;
         // task = this.props.location.state.task;
         if (!taskId) {
             this.props.history.push('/login');
-            return ;
+            return;
         }
         this.getTaskTreeById(taskId);
 
     }
     getTaskTreeById = (id) => {
-        fetch('http://localhost:8082/tasks/tree/'+id, {
+        fetch('http://localhost:8082/tasks/tree/' + id, {
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${this.props.userToken}`
@@ -46,27 +44,27 @@ class EditTask extends Component {
         }).then(data => {
             var tree = data.data;
             tree = this.handleTaskTree(tree);
-            
+
             this.setState({
-                taskTree:tree
+                taskTree: tree
             })
-          
+
         }).catch(e => {
-            if(e.message == 401) {
+            if (e.message == 401) {
                 this.props.removeUser();
             } else {
                 console.error(e);
             }
         })
-        
+
     }
     handleTaskTree = (tree) => {
         tree.creatimeLong = tree.creatime;
         tree.endtimeLong = tree.endtime;
         tree.creatime = tree.creatime ? Utils.dateFormat(new Date(tree.creatime)) : '';
         tree.endtime = tree.endtime ? Utils.dateFormat(new Date(tree.endtime)) : '';
-        if(tree.children&&tree.children.length) {
-            tree.children.forEach(t=>{
+        if (tree.children && tree.children.length) {
+            tree.children.forEach(t => {
                 this.handleTaskTree(t)
             })
         }
@@ -78,19 +76,22 @@ class EditTask extends Component {
         })
     }
     toDelete = (task) => {
-    
+        this.setState({
+            toDeleteTask: task
+        })
+        this.showModal()
     }
     toPlus = (task) => {
-    
+
     }
     renderTreeNodes = (tree) => {
         return tree.map((item) => {
             var title = (
                 <div>
                     <span className="pr-1">{item.name}</span>
-                    <Icon className="pr-1 operator-icon" type="edit" onClick={()=>{this.toEdit(item)}}/>
-                    <Icon className="pr-1 operator-icon" type="delete" onClick={()=>{this.toDelete(item)}}/>
-                    <Icon className="pr-1 operator-icon" type="plus" onClick={()=>{this.toPlus(item)}}/>
+                    <Icon className="pr-1 operator-icon" type="edit" onClick={() => { this.toEdit(item) }} />
+                    <Icon className="pr-1 operator-icon" type="delete" onClick={() => { this.toDelete(item) }} />
+                    <Icon className="pr-1 operator-icon" type="plus" onClick={() => { this.toPlus(item) }} />
                 </div>
             );
             if (item.children) {
@@ -103,6 +104,26 @@ class EditTask extends Component {
             return <TreeNode title={title} key={item.id} dataRef={item} />;
         });
     }
+
+    showModal = () => {
+        this.setState({
+            visible: true,
+        });
+    }
+
+    handleOk = (e) => {
+        this.setState({
+            visible: false,
+        });
+    }
+
+    handleCancel = (e) => {
+        this.setState({
+            visible: false,
+            toDeleteTask: null
+        });
+    }
+
     render() {
         let taskTree = '';
         let tree = this.state.taskTree;
@@ -111,13 +132,20 @@ class EditTask extends Component {
                 {this.renderTreeNodes([tree])}
             </Tree>
         ) : '';
-
         return (
             <div>
                 <header className="workbench-header">
                     <h3>工作台<small className="h6 ml-3">编辑你的任务</small></h3>
                 </header>
                 <Row className="d-flex">
+                    <Modal
+                        title="操作确认"
+                        visible={this.state.visible}
+                        onOk={this.handleOk}
+                        onCancel={this.handleCancel}
+                    >
+                        <p>确定删除任务{this.state.toEditTask && this.state.toEditTask.name}?</p>
+                    </Modal>
                     <Col span={8}>
                         <div className="h5">任务概览</div>
                         <div>
@@ -131,9 +159,7 @@ class EditTask extends Component {
                             </Col>
                         ) : ''
                     }
-                    
                 </Row>
-
             </div>
         )
     }
@@ -143,7 +169,7 @@ export default EditTask;
 class EditForm extends Component {
     static propTypes = {
         task: PropTypes.object,
-      } 
+    }
     handleSubmit = (e) => {
         e.preventDefault();
         this.props.form.validateFields((err, fieldsValue) => {
@@ -175,7 +201,7 @@ class EditForm extends Component {
                         }],
                         initialValue: task.name
                     })(
-                        <Input className="d-inline-block" placeholder="任务名"/>
+                        <Input className="d-inline-block" placeholder="任务名" />
                     )}
                 </FormItem>
                 <FormItem className="mb-1" label="描述">
@@ -195,7 +221,7 @@ class EditForm extends Component {
                             required: true,
                             message: '请输入任务期限',
                         }],
-                        initialValue: [moment(task.creatimeLong),moment(task.endtimeLong)]
+                        initialValue: [moment(task.creatimeLong), moment(task.endtimeLong)]
                     })(
                         <RangePicker className="w-100" placeholder={['开始时间', '结束时间']} />
                     )}

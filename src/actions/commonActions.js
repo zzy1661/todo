@@ -1,6 +1,4 @@
-import {
-    push
-} from 'connected-react-router';
+import { push } from 'connected-react-router';
 import Utils from '../lib/utils';
 
 export function getTasks(userToken, forceUpdate) {
@@ -33,13 +31,13 @@ export function getTasks(userToken, forceUpdate) {
                 tasks: handledTasks
             });
         }).catch(e => {
-            if(e.message == 401) {
+            if (e.message == 401) {
                 dispatch(logout())
             } else {
                 console.error(e);
             }
-            
-           
+
+
         })
     }
 }
