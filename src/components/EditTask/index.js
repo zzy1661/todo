@@ -4,6 +4,8 @@ import { Form, Icon, Input, Button, DatePicker } from 'antd';
 import PropTypes from 'prop-types';
 import Utils from '../../lib/utils';
 import Item from 'antd/lib/list/Item';
+import moment from 'moment';
+
 import './editTask.css';
 const { RangePicker } = DatePicker;
 const FormItem = Form.Item;
@@ -16,7 +18,8 @@ class EditTask extends Component {
         getTaskById: PropTypes.func,
       } 
     state = {
-        taskTree: null
+        taskTree: null,
+        toEditTask:null
     }  
     componentDidMount() {
         console.log('edit', this.props)
@@ -58,6 +61,8 @@ class EditTask extends Component {
         
     }
     handleTaskTree = (tree) => {
+        tree.creatimeLong = tree.creatime;
+        tree.endtimeLong = tree.endtime;
         tree.creatime = tree.creatime ? Utils.dateFormat(new Date(tree.creatime)) : '';
         tree.endtime = tree.endtime ? Utils.dateFormat(new Date(tree.endtime)) : '';
         if(tree.children&&tree.children.length) {
@@ -67,14 +72,25 @@ class EditTask extends Component {
         }
         return tree;
     }
+    toEdit = (task) => {
+        this.setState({
+            toEditTask: task
+        })
+    }
+    toDelete = (task) => {
+    
+    }
+    toPlus = (task) => {
+    
+    }
     renderTreeNodes = (tree) => {
         return tree.map((item) => {
             var title = (
                 <div>
                     <span className="pr-1">{item.name}</span>
-                    <Icon className="pr-1 operator-icon" type="edit" />
-                    <Icon className="pr-1 operator-icon" type="delete" />
-                    <Icon className="pr-1 operator-icon" type="plus" />
+                    <Icon className="pr-1 operator-icon" type="edit" onClick={()=>{this.toEdit(item)}}/>
+                    <Icon className="pr-1 operator-icon" type="delete" onClick={()=>{this.toDelete(item)}}/>
+                    <Icon className="pr-1 operator-icon" type="plus" onClick={()=>{this.toPlus(item)}}/>
                 </div>
             );
             if (item.children) {
@@ -108,9 +124,14 @@ class EditTask extends Component {
                             {taskTree}
                         </div>
                     </Col>
-                    <Col span={16} className="px-2 border-left border-primary">
-                        <WrappedEditForm></WrappedEditForm>
-                    </Col>
+                    {
+                        this.state.toEditTask ? (
+                            <Col span={16} className="px-2 border-left border-primary">
+                                <WrappedEditForm task={this.state.toEditTask} />>
+                            </Col>
+                        ) : ''
+                    }
+                    
                 </Row>
 
             </div>
@@ -120,7 +141,9 @@ class EditTask extends Component {
 export default EditTask;
 
 class EditForm extends Component {
-
+    static propTypes = {
+        task: PropTypes.object,
+      } 
     handleSubmit = (e) => {
         e.preventDefault();
         this.props.form.validateFields((err, fieldsValue) => {
@@ -141,6 +164,7 @@ class EditForm extends Component {
         this.props.form.resetFields();
     }
     render() {
+        let task = this.props.task;
         const { getFieldDecorator } = this.props.form;
         return (
             <Form className="w-mxl m-auto" onSubmit={this.handleSubmit}>
@@ -149,8 +173,9 @@ class EditForm extends Component {
                         rules: [{
                             required: true, message: '请输入任务名',
                         }],
+                        initialValue: task.name
                     })(
-                        <Input className="d-inline-block" placeholder="任务名" />
+                        <Input className="d-inline-block" placeholder="任务名"/>
                     )}
                 </FormItem>
                 <FormItem className="mb-1" label="描述">
@@ -158,6 +183,7 @@ class EditForm extends Component {
                         rules: [{
                             required: false
                         }],
+                        initialValue: task.des
                     })(
                         <Input className="d-inline-block" placeholder="描述" />
                     )}
@@ -169,6 +195,7 @@ class EditForm extends Component {
                             required: true,
                             message: '请输入任务期限',
                         }],
+                        initialValue: [moment(task.creatimeLong),moment(task.endtimeLong)]
                     })(
                         <RangePicker className="w-100" placeholder={['开始时间', '结束时间']} />
                     )}
