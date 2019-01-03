@@ -4,7 +4,7 @@ import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
 import { getTasks, logout } from '../../actions/commonActions';
 import { Row, Col, Button } from 'antd';
-import CreateTask from '../../components/CreateTask';
+import CreateTask from '../CreateTask';
 import EditTask from '../EditTask';
 
 import './workbench.css';
@@ -78,7 +78,7 @@ class Workbench extends Component {
                     <Switch>
                         <Route path="/workbench" exact component={ () => workbenchome }></Route>
                         <Route path="/workbench/edit/:taskId"  component={ EditTask }></Route>
-                        <Route path="/workbench/create"  component={ CreateTask }></Route>               
+                        <Route path="/workbench/create/:pid?"  component={ CreateTask }></Route>               
                     </Switch>
                 </div>           
         )
