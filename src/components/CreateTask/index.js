@@ -34,9 +34,6 @@ class CreateTask extends Component {
         )
         return (
             <div>
-                <header className="workbench-header">
-                    <h3>工作台<small className="h6 ml-3">创建任务</small></h3>
-                </header>
                 {content}
             </div>
         )

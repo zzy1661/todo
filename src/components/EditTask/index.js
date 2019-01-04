@@ -134,9 +134,6 @@ class EditTask extends Component {
         ) : '';
         return (
             <div>
-                <header className="workbench-header">
-                    <h3>工作台<small className="h6 ml-3">编辑你的任务</small></h3>
-                </header>
                 <Row className="d-flex">
                     <Modal
                         title="操作确认"
