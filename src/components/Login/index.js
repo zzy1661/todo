@@ -32,7 +32,7 @@ class Login extends Component {
 			return;
 		}
 		const img = new Image()
-		img.src = 'https://placeimg.com/1920/1080/any';
+		img.src = 'https://placeimg.com/1366/768/any';
 		img.onload = () => {
 			this.setState({
 				imgBgStyle: {

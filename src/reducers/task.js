@@ -4,7 +4,7 @@ const taskReducer = (state, action) => {
       return {...state, tasks: action.tasks}
     default:
       return {
-        tasks: null,
+        ...state
       }
   }
 }

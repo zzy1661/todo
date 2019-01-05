@@ -4,10 +4,10 @@ import Utils from '../lib/utils';
 export function getTasks(userToken, forceUpdate) {
     return (dispatch, getState) => {
         var {
-            tasks
+            task
         } = getState();
         //利用缓存，forceUpdae:强制请求
-        if (!forceUpdate && tasks) {
+        if (!forceUpdate && task.tasks) {
             return;
         }
         fetch('http://localhost:8082/tasks', {
