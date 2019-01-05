@@ -11,7 +11,6 @@ const { Header, Content, Footer } = Layout;
 class Index extends Component {
 
     render() {
-
         return (
             <Layout className="layout index">
                 <Header>

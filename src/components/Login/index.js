@@ -24,23 +24,27 @@ class Login extends Component {
 			password: '',
 		};
 	}
-
-	componentDidMount() {
-
-		if (this.props.username && this.props.userToken) {
-			this.props.history.push('/');
-			return;
+	shouldComponentUpdate(nextProps,nextState) {
+		if(nextProps.username && nextProps.userToken) {
+			this.props.history.push('/general/all');
+			return false;
 		}
+		return true;
+	}
+	componentDidMount() {
 		const img = new Image()
-		img.src = 'https://placeimg.com/1366/768/any';
+		img.src = 'https://placeimg.com/1920/1080/any';
 		img.onload = () => {
-			this.setState({
-				imgBgStyle: {
-					display: 'block',
-					height: '100%',
-					background: `url(${img.src}) 50% 50%/cover no-repeat`
-				}
-			});
+			if(this.wrapDom) {
+				this.setState({
+					imgBgStyle: {
+						display: 'block',
+						height: '100%',
+						background: `url(${img.src}) 50% 50%/cover no-repeat`
+					}
+				});
+			}
+			
 		}
 	}
 
@@ -79,7 +83,7 @@ class Login extends Component {
 	}
 	render() {
 		return (
-			<div className="login-wrapper" >
+			<div className="login-wrapper" ref={(wrapDom)=>{this.wrapDom = wrapDom;}}>
 				<div className="login-bg-img" style={this.state.imgBgStyle}></div>
 				<div className="login-panel">
 					<h1 className="login-logo">TODO</h1>
