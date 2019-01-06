@@ -1,6 +1,6 @@
 import { connect } from 'react-redux';
 import CreateTask from '../components/CreateTask';
-import {  logout } from '../actions/commonActions';
+import { getTasks, logout } from '../actions/commonActions';
 
 const mapStateToProps = (state) => {
     return {
@@ -14,6 +14,15 @@ const mapDispatchToProps = (dispatch) => {
         removeUser: () => {
             dispatch(logout());
         },
+        getTasks: (token) => { 
+             return dispatch(getTasks(token));
+        },
+        updateTasks: (tasks) => {
+            dispatch({
+                type: 'SAVETASKS',
+                tasks: tasks
+            });
+        }
     }
 }
 export default connect(mapStateToProps, mapDispatchToProps)(CreateTask)

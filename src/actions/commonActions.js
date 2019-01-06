@@ -22,7 +22,7 @@ export function getTasks(userToken, forceUpdate) {
             return res.json()
         }).then(data => {
             var handledTasks = data.data.map(task => {
-                task.creatime = task.creatime ? Utils.dateFormat(new Date(task.creatime)) : '';
+                task.startime = task.startime ? Utils.dateFormat(new Date(task.startime)) : '';
                 task.endtime = task.endtime ? Utils.dateFormat(new Date(task.endtime)) : '';
                 return task
             })
@@ -61,7 +61,7 @@ export function getTasks(userToken, forceUpdate) {
             return res.json()
         }).then(data => {
             var handledTasks = data.data.map(task => {
-                task.creatime = task.creatime ? Utils.dateFormat(new Date(task.creatime)) : '';
+                task.startime = task.startime ? Utils.dateFormat(new Date(task.startime)) : '';
                 task.endtime = task.endtime ? Utils.dateFormat(new Date(task.endtime)) : '';
                 return task
             })

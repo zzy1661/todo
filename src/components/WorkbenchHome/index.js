@@ -39,7 +39,7 @@ class WorkbenchHome extends Component {
                     <div className="h5">{item.name}</div>
                     <p className="mb-1 media-body">{item.des}</p>
                     <div className="d-flex align-items-center small justify-content-center">
-                        <span>{item.creatime}</span>
+                        <span>{item.startime}</span>
                         <span className="px-2">~</span>
                         <span>{item.endtime}</span>
                     </div>

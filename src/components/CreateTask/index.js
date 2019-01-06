@@ -15,10 +15,24 @@ class CreateTask extends Component {
     static propTypes = {
         username: PropTypes.string,
         userToken: PropTypes.string,
-        removeUser: PropTypes.func
+        removeUser: PropTypes.func,
+        tasks: PropTypes.array,
+        getTasks: PropTypes.func,
+        updateTasks: PropTypes.func,
+    }
+    state = {
+        pid: null
     }
     componentDidMount() {
         var pid = this.props.match.params.pid;
+        this.setState({
+            pid,
+        })
+        if (!this.props.username || !this.props.userToken) {
+            this.props.removeUser();
+            return;
+        }
+        this.props.getTasks(this.props.userToken);
     }
     getTaskById(id) {
 
@@ -28,7 +42,7 @@ class CreateTask extends Component {
         let content = (
             <div className="px-5 mx-auto" style={{ width: '600px' }}>
                 <div className="">
-                    <WrappedCreateForm />
+                    <WrappedCreateForm tasks={this.props.tasks} pId={this.state.pid} />
                 </div>
             </div>
         )
@@ -42,10 +56,7 @@ class CreateTask extends Component {
 export default CreateTask;
 
 class CreateForm extends React.Component {
-    // state = {
-    //     taskName: '新建任务',
-    //     describe: ''
-    // }
+    
     componentDidMount() {
         this.props.form.setFieldsValue({
             parentask: '父任务'
@@ -59,7 +70,28 @@ class CreateForm extends React.Component {
             }
         });
     }
-
+  
+    createTask = (e) => {
+        fetch('http://localhost:8082/tasks',{
+            method: 'POST',
+            headers: {
+				'Content-Type': 'application/json'
+            },
+            body: this.state.task
+        }).then(res=>res.json()).then(data=>{
+            if(data.code===0) {
+                console.log('success')
+                var handledTasks = data.data.map(task => {
+                    task.startime = task.startime ? Utils.dateFormat(new Date(task.startime)) : '';
+                    task.endtime = task.endtime ? Utils.dateFormat(new Date(task.endtime)) : '';
+                    return task
+                })
+                this.props.updateTasks(handledTasks)
+            }else {
+                console.error('failed')
+            }
+        })
+    }
     render() {
         const { getFieldDecorator } = this.props.form;
         const formItemLayout = {
@@ -74,16 +106,16 @@ class CreateForm extends React.Component {
         };
         const tailFormItemLayout = {
             wrapperCol: {
-              xs: {
-                span: 24,
-                offset: 0,
-              },
-              sm: {
-                span: 16,
-                offset: 8,
-              },
+                xs: {
+                    span: 24,
+                    offset: 0,
+                },
+                sm: {
+                    span: 16,
+                    offset: 8,
+                },
             },
-          };
+        };
         return (
             <Form onSubmit={this.handleSubmit} >
                 <FormItem className="mb-1"  {...formItemLayout} label="任务名称">
@@ -110,24 +142,27 @@ class CreateForm extends React.Component {
                         <RangePicker />
                     )}
                 </FormItem>
-                <FormItem className="mb-1"  {...formItemLayout} label="父任务">
+                {this.props.pid?(<FormItem className="mb-1"  {...formItemLayout} label="父任务">
                     {getFieldDecorator('parentask', {
                         rules: [{ required: false }],
                     })(
                         <Input disabled />
                     )}
-                </FormItem>
-                <FormItem className="mb-1"  {...formItemLayout} label="父任务">
+                </FormItem>):
+                (<FormItem className="mb-1"  {...formItemLayout} label="父任务">
                     {getFieldDecorator('parentask2', {
                         rules: [{ required: false }],
                     })(
                         <Select>
+                            {this.props.tasks?this.props.tasks.map(t=>{
+                                return (<Option value={t.id} key={t.id}>{t.name}</Option>)
+                            }):''}
                             <Option value="jack">Jack</Option>
                             <Option value="lucy">Lucy</Option>
                             <Option value="Yiminghe">yiminghe</Option>
                         </Select>
                     )}
-                </FormItem>
+                </FormItem>)}
                 <FormItem className="mt-5" {...tailFormItemLayout}>
                     <Button type="primary" htmlType="submit" className="login-form-button w-50">提交</Button>
                 </FormItem>
