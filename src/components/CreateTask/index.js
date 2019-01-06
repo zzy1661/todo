@@ -59,7 +59,7 @@ class CreateForm extends React.Component {
     
     componentDidMount() {
         this.props.form.setFieldsValue({
-            parentask: '父任务'
+            parentask: ''
         })
     }
     handleSubmit = (e) => {
@@ -150,7 +150,7 @@ class CreateForm extends React.Component {
                     )}
                 </FormItem>):
                 (<FormItem className="mb-1"  {...formItemLayout} label="父任务">
-                    {getFieldDecorator('parentask2', {
+                    {getFieldDecorator('parentask', {
                         rules: [{ required: false }],
                     })(
                         <Select>
