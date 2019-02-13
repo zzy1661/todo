@@ -4,10 +4,10 @@ import Utils from '../lib/utils';
 export function getTasks(userToken, forceUpdate) {
     return (dispatch, getState) => {
         var {
-            tasks
+            task
         } = getState();
         //利用缓存，forceUpdae:强制请求
-        if (!forceUpdate && tasks) {
+        if (!forceUpdate && task.tasks) {
             return;
         }
         fetch('http://localhost:8082/tasks', {
@@ -62,7 +62,7 @@ export function getTasks(userToken, forceUpdate) {
             return res.json()
         }).then(data => {
             var handledTasks = data.data.map(task => {
-                task.creatime = task.creatime ? Utils.dateFormat(new Date(task.creatime)) : '';
+                task.startime = task.startime ? Utils.dateFormat(new Date(task.startime)) : '';
                 task.endtime = task.endtime ? Utils.dateFormat(new Date(task.endtime)) : '';
                 return task
             })

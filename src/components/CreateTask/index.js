@@ -144,6 +144,9 @@ class CreateForm extends React.Component {
                         rules: [{ required: false }]
                     })(
                         <Select>
+                            {this.props.tasks?this.props.tasks.map(t=>{
+                                return (<Option value={t.id} key={t.id}>{t.name}</Option>)
+                            }):''}
                             <Option value="jack">Jack</Option>
                             <Option value="lucy">Lucy</Option>
                             <Option value="Yiminghe">yiminghe</Option>

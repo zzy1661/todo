@@ -59,9 +59,9 @@ class EditTask extends Component {
 
     }
     handleTaskTree = (tree) => {
-        tree.creatimeLong = tree.creatime;
+        tree.startimeLong = tree.startime;
         tree.endtimeLong = tree.endtime;
-        tree.creatime = tree.creatime ? Utils.dateFormat(new Date(tree.creatime)) : '';
+        tree.startime = tree.startime ? Utils.dateFormat(new Date(tree.startime)) : '';
         tree.endtime = tree.endtime ? Utils.dateFormat(new Date(tree.endtime)) : '';
         if (tree.children && tree.children.length) {
             tree.children.forEach(t => {
@@ -218,7 +218,7 @@ class EditForm extends Component {
                             required: true,
                             message: '请输入任务期限',
                         }],
-                        initialValue: [moment(task.creatimeLong), moment(task.endtimeLong)]
+                        initialValue: [moment(task.startimeLong), moment(task.endtimeLong)]
                     })(
                         <RangePicker className="w-100" placeholder={['开始时间', '结束时间']} />
                     )}
