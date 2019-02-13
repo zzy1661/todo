@@ -22,8 +22,9 @@ export function getTasks(userToken, forceUpdate) {
             return res.json()
         }).then(data => {
             var handledTasks = data.data.map(task => {
-                task.creatime = task.creatime ? Utils.dateFormat(new Date(task.creatime)) : '';
-                task.endtime = task.endtime ? Utils.dateFormat(new Date(task.endtime)) : '';
+                task.creatime = task.creatime ? Utils.dateFormat(new Date(task.creatime),'yyyy-MM-dd'): '';
+                task.startime = task.startime ? Utils.dateFormat(new Date(task.startime),'yyyy-MM-dd') : '';
+                task.endtime = task.endtime ? Utils.dateFormat(new Date(task.endtime),'yyyy-MM-dd') : '';
                 return task
             })
             dispatch({
