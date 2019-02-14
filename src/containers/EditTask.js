@@ -14,6 +14,12 @@ const mapDispatchToProps = (dispatch) => {
         removeUser: () => {
             dispatch(logout());
         },
+        delTask: (task) => {
+            return dispatch({
+                type: 'DELETETASK',
+                delTask: task
+            })
+        }
     }
 }
 export default connect(mapStateToProps, mapDispatchToProps)(EditTask)

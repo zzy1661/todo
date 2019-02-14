@@ -29,7 +29,7 @@ class CreateTask extends Component {
         var pid = this.props.match.params.pid;
     }
     redirecIndex = ()=> {
-        this.props.history.push('/general/all')
+        this.props.history.push('/workbench')
     }
     getTaskById(id) {}
 
