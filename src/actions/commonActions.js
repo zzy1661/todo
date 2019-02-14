@@ -96,3 +96,8 @@ export function login(username, userToken) {
         dispatch(push('/general/all'))
     }
 }
+export function redirec(uri) {
+    return (dispatch,getState) => {
+        dispatch(push(uri))
+    }
+}

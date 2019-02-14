@@ -18,9 +18,8 @@ const mapDispatchToProps = (dispatch) => {
             return dispatch(getTasks(token));
        },
        saveTask: (task) => {
-           console.log('save task dispatch', task)
            return dispatch({type:'APPENDTASK',task})
-       }
+       },
     }
 }
 export default connect(mapStateToProps, mapDispatchToProps)(CreateTask)

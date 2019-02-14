@@ -2,7 +2,7 @@ import React, { Component } from "react";
 import { Switch, Select, Row, Col, Tree, Collapse, Checkbox } from "antd";
 import PropTypes from "prop-types";
 
-import { Form, Icon, Input, Button, DatePicker } from "antd";
+import { Form, Icon, Input, Button, DatePicker, message } from "antd";
 import Item from "antd/lib/list/Item";
 const { RangePicker } = DatePicker;
 const FormItem = Form.Item;
@@ -18,6 +18,7 @@ class CreateTask extends Component {
         tasks: PropTypes.array,
         getTasks: PropTypes.func,
         saveTask: PropTypes.func,
+        redirecIndex: PropTypes.func,
     };
     componentDidMount() {
         if (!this.props.username || !this.props.userToken) {
@@ -29,13 +30,18 @@ class CreateTask extends Component {
         var pid = this.props.match.params.pid;
         console.log('pid',pid)
     }
+    redirecIndex = ()=> {
+        console.log('111',this.props)
+        this.props.history.push('/general/all')
+    }
     getTaskById(id) {}
 
     render() {
         let content = (
             <div className="px-5 mx-auto" style={{ width: "600px" }}>
                 <div className="">
-                    <WrappedCreateForm tasks={[1, 2, 3]} token={this.props.userToken} save={this.props.saveTask}/>
+                    <WrappedCreateForm tasks={[1, 2, 3]} token={this.props.userToken} 
+                    save={this.props.saveTask} redirec={this.redirecIndex} />
                 </div>
             </div>
         );
@@ -77,9 +83,12 @@ class CreateForm extends React.Component {
                 }).then(data=>{
                     if(data.code===0) {
                         task.id = 8;
+                        //本地增加task
+                        this.props.save(task)
+                        message.success('创建成功！')
+                        this.props.redirec();
+                        console.log('form prop',this.props)
                     }
-                    //本地增加task
-                    this.props.save(task)
                 })
             }
         });
