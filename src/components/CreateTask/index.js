@@ -29,8 +29,9 @@ class CreateTask extends Component {
             return;
         }
         this.props.getTasks(this.props.userToken);
+        const task = this.props.location.state ? this.props.location.state.task : null;
         this.setState({
-            pTask: this.props.location.state.task
+            pTask: task
         })
     }
     redirecIndex = ()=> {
@@ -56,12 +57,7 @@ export default CreateTask;
 class CreateForm extends React.Component {
 
     componentDidMount() {
-        this.setState({
-            parent: this.props.parent
-        })
-        // this.props.form.setFieldsValue({
-        //     parentask: '父任务'
-        // })
+
     }
     handleSubmit = e => {
         e.preventDefault();
@@ -71,7 +67,8 @@ class CreateForm extends React.Component {
                     name: values.taskName,
                     des:  values.describe,
                     startime: values.dateRange[0].valueOf(),
-                    endtime: values.dateRange[1].valueOf()
+                    endtime: values.dateRange[1].valueOf(),
+                    pid:values.parentask
                 }
                 fetch('http://localhost:8082/tasks',{
                     method: 'POST',
@@ -101,7 +98,7 @@ class CreateForm extends React.Component {
         });
     }
     getParentSelector = () => {
-        const tasks = this.props.tasks;
+        const tasks = this.props.tasks;        
         if(tasks&&tasks.length) {
             return (
                 <Select>
@@ -142,6 +139,8 @@ class CreateForm extends React.Component {
             }
         };
 
+        const pid = this.props.parent ? this.props.parent.id : '';
+        console.log('pid',pid)
         return (
             <Form onSubmit={this.handleSubmit}>
                 <FormItem className="mb-1" {...formItemLayout} label="任务名称">
@@ -170,7 +169,8 @@ class CreateForm extends React.Component {
 
                 <FormItem className="mb-1" {...formItemLayout} label="父任务">
                     {getFieldDecorator("parentask", {
-                        rules: [{ required: false }]
+                        rules: [{ required: false }],
+                        initialValue:  pid,
                     })(
                         this.getParentSelector()
                     )}
