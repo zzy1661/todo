@@ -19,7 +19,13 @@ const mapDispatchToProps = (dispatch) => {
                 type: 'DELETETASK',
                 delTask: task
             })
-        }
+        },
+        updateTask: (newTask) => {
+            return dispatch({
+                type: 'UPDATETASK',
+                newTask: newTask
+            })
+        },
     }
 }
 export default connect(mapStateToProps, mapDispatchToProps)(EditTask)

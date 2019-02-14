@@ -32,8 +32,7 @@ const taskReducer = (state, action) => {
                         ...tasks.splice(0, index),
                         {
                             ...task,
-                            status: action.newTask.status,
-                            del: action.newTask.del
+                            ...action.newTask
                         },
                         ...tasks.splice(index + 1)
                     ]

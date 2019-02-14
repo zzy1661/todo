@@ -24,6 +24,7 @@ class EditTask extends Component {
         getTaskById: PropTypes.func,
         delTask: PropTypes.func,
         userToken: PropTypes.string,
+        updateTask: PropTypes.func,
     };
     state = {
         taskTree: null,
@@ -174,7 +175,9 @@ class EditTask extends Component {
             toDeleteTask: null
         });
     };
-
+    redirecIndex = () => {
+        this.props.history.push('/workbench')
+    }
     render() {
         let taskTree = "";
         let tree = this.state.taskTree;
@@ -204,7 +207,8 @@ class EditTask extends Component {
                             span={16}
                             className="px-2 border-left border-primary"
                         >
-                            <WrappedEditForm task={this.state.toEditTask} />
+                            <WrappedEditForm task={this.state.toEditTask} token={this.props.userToken} 
+                            update={this.props.updateTask} redirec={this.redirecIndex}/>
                         </Col>
                     ) : (
                         ""
@@ -218,7 +222,10 @@ export default EditTask;
 
 class EditForm extends Component {
     static propTypes = {
-        task: PropTypes.object
+        task: PropTypes.object,
+        token: PropTypes.string,
+        update: PropTypes.func,
+        redirec: PropTypes.func
     };
     handleSubmit = e => {
         e.preventDefault();
@@ -239,6 +246,39 @@ class EditForm extends Component {
     handleReset = () => {
         this.props.form.resetFields();
     };
+    handleSubmit = (e) => {
+        e.preventDefault();
+        this.props.form.validateFields((err, values) => {
+            if (!err) {
+                const newTask = {
+                    ...this.props.task,
+                    name: values.taskName,
+                    des:  values.des,
+                    startime: values.taskAllotime[0].valueOf(),
+                    endtime: values.taskAllotime[1].valueOf(),
+                }
+                fetch('http://localhost:8082/tasks',{
+                    method: 'put',
+                    headers: {
+                        'Authorization': `Bearer ${this.props.token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({task:newTask})
+                }).then(res => {
+                    if (res.status == 401) {
+                        throw new Error(401)
+                    }
+                    return res.json() 
+                }).then(data=>{
+                    if(data.code===0) {
+                        //本地更新task
+                        this.props.update(newTask)
+                        this.props.redirec()
+                    }
+                })
+            }
+        });
+    }
     render() {
         let task = this.props.task;
         const { getFieldDecorator } = this.props.form;
@@ -261,7 +301,7 @@ class EditForm extends Component {
                     )}
                 </FormItem>
                 <FormItem className="mb-1" label="描述">
-                    {getFieldDecorator("desc", {
+                    {getFieldDecorator("des", {
                         rules: [
                             {
                                 required: false

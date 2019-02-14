@@ -49,7 +49,6 @@ class WorkbenchHome extends Component {
                //删除本地task
                this.props.delTask(task)
            }
-
         });
     };
     render() {
