@@ -96,7 +96,15 @@ class EditTask extends Component {
         });
         this.showModal();
     };
-    toPlus = task => {};
+    toPlus = task => {
+        console.log('plus',task)
+        this.props.history.push({
+            pathname: '/workbench/create',
+            state: {
+                task
+            }
+        })
+    };
     renderTreeNodes = tree => {
         return tree.map(item => {
             var title = (

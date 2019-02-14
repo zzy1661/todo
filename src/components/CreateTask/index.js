@@ -20,13 +20,18 @@ class CreateTask extends Component {
         saveTask: PropTypes.func,
         redirecIndex: PropTypes.func,
     };
+    state = {
+        pTask: null
+    }
     componentDidMount() {
         if (!this.props.username || !this.props.userToken) {
             this.props.removeUser();
             return;
         }
         this.props.getTasks(this.props.userToken);
-        var pid = this.props.match.params.pid;
+        this.setState({
+            pTask: this.props.location.state.task
+        })
     }
     redirecIndex = ()=> {
         this.props.history.push('/workbench')
@@ -37,8 +42,9 @@ class CreateTask extends Component {
         let content = (
             <div className="px-5 mx-auto" style={{ width: "600px" }}>
                 <div className="">
-                    <WrappedCreateForm tasks={[1, 2, 3]} token={this.props.userToken} 
-                    save={this.props.saveTask} redirec={this.redirecIndex} />
+                    <WrappedCreateForm token={this.props.userToken} 
+                    save={this.props.saveTask} redirec={this.redirecIndex} 
+                    tasks={this.props.tasks} parent={this.state.pTask}/>
                 </div>
             </div>
         );
@@ -48,7 +54,11 @@ class CreateTask extends Component {
 export default CreateTask;
 
 class CreateForm extends React.Component {
+
     componentDidMount() {
+        this.setState({
+            parent: this.props.parent
+        })
         // this.props.form.setFieldsValue({
         //     parentask: '父任务'
         // })
@@ -90,7 +100,23 @@ class CreateForm extends React.Component {
             }
         });
     }
-
+    getParentSelector = () => {
+        const tasks = this.props.tasks;
+        if(tasks&&tasks.length) {
+            return (
+                <Select>
+                    {tasks.map(t=>{
+                        return (<Option value={t.id} key={t.id}>{t.name}</Option>)
+                    })}
+                </Select>
+            )
+        } else {
+            return (
+                <Select disabled></Select>
+            )
+        }
+       
+    }
     render() {
         const { getFieldDecorator } = this.props.form;
         const formItemLayout = {
@@ -115,6 +141,7 @@ class CreateForm extends React.Component {
                 }
             }
         };
+
         return (
             <Form onSubmit={this.handleSubmit}>
                 <FormItem className="mb-1" {...formItemLayout} label="任务名称">
@@ -140,25 +167,14 @@ class CreateForm extends React.Component {
                         ]
                     })(<RangePicker />)}
                 </FormItem>
+
                 <FormItem className="mb-1" {...formItemLayout} label="父任务">
                     {getFieldDecorator("parentask", {
                         rules: [{ required: false }]
-                    })(<Input disabled />)}
-                </FormItem>
-                {/* <FormItem className="mb-1" {...formItemLayout} label="父任务">
-                    {getFieldDecorator("parentask2", {
-                        rules: [{ required: false }]
                     })(
-                        <Select>
-                            {this.props.tasks?this.props.tasks.map(t=>{
-                                return (<Option value={t.id} key={t.id}>{t.name}</Option>)
-                            }):''}
-                            <Option value="jack">Jack</Option>
-                            <Option value="lucy">Lucy</Option>
-                            <Option value="Yiminghe">yiminghe</Option>
-                        </Select>
+                        this.getParentSelector()
                     )}
-                </FormItem> */}
+                </FormItem>
                 <FormItem className="mt-5" {...tailFormItemLayout}>
                     <Button
                         type="primary"

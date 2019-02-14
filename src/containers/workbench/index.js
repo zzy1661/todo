@@ -54,7 +54,7 @@ class Workbench extends Component {
                 <Switch>
                     <Route exact path="/workbench" exact component={WorkbenchHome}></Route>
                     <Route path="/workbench/edit/:taskId" component={EditTask}></Route>
-                    <Route path="/workbench/create/:pid?" component={CreateTask}></Route>
+                    <Route path="/workbench/create" component={CreateTask}></Route>
                 </Switch>
             </div>
         )
