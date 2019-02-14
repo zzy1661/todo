@@ -23,7 +23,6 @@ class Index extends Component {
 
     setActiveMenu = path => {
         path = path || this.props.match.path;
-
         this.setState({
             current: path
         });
@@ -33,7 +32,7 @@ class Index extends Component {
         return (
             <Layout className="layout index">
                 <Header>
-                    <div className="logo"> TODO </div>{" "}
+                    <div className="logo"> TODO </div>
                     <Menu
                         theme="dark"
                         mode="horizontal"
@@ -43,64 +42,56 @@ class Index extends Component {
                         selectedKeys={[this.state.current]}
                     >
                         <Menu.Item className="px-0" key="/general">
-                            {" "}
                             <NavLink
                                 className="px-4 w-lsm text-center"
                                 to="/general"
                                 activeClassName="ant-menu-item-selected"
                             >
-                                {" "}
-                                一览{" "}
+                                一览
                             </NavLink>
                         </Menu.Item>
                         <Menu.Item className="px-0" key="/workbench">
-                            {" "}
                             <NavLink
                                 className="px-4 w-lsm text-center"
                                 to="/workbench"
                                 activeClassName="ant-menu-item-selected"
                             >
-                                {" "}
-                                工作台{" "}
+                                工作台
                             </NavLink>
                         </Menu.Item>
                         <Menu.Item className="px-0" key="/statistics">
-                            {" "}
                             <NavLink
                                 className="px-4 w-lsm text-center"
                                 to="/statistics"
                                 activeClassName="ant-menu-item-selected"
                             >
-                                {" "}
-                                统计{" "}
+                                统计
                             </NavLink>
                         </Menu.Item>
                         <Menu.Item key="5" className="float-right">
                             <Avatar src="http://placeimg.com/60/60/any" />
-                        </Menu.Item>{" "}
+                        </Menu.Item>
                         <Menu.Item key="4" className="float-right">
-                            {" "}
-                            <Timer />{" "}
-                        </Menu.Item>{" "}
-                    </Menu>{" "}
-                </Header>{" "}
+                            <Timer />
+                        </Menu.Item>
+                    </Menu>
+                </Header>
                 <Content className="content">
                     <Switch>
-                        <Route path="/general" component={General} />{" "}
-                        <Route path="/workbench" component={Workbench} />{" "}
-                        <Route path="/statistics" component={Statistics} />{" "}
-                    </Switch>{" "}
-                </Content>{" "}
+                        <Route path="/general" component={General} />
+                        <Route path="/workbench" component={Workbench} />
+                        <Route path="/statistics" component={Statistics} />
+                    </Switch>
+                </Content>
                 <Footer className="footer">
-                    TODO© 2018 Created by Zachary Zhou{" "}
+                    TODO© 2018 Created by Zachary Zhou
                     <address>
-                        github:{" "}
+                        github:
                         <a href="https://github.com/zzy1661/todo">
-                            {" "}
                             https: //github.com/zzy1661/todo
                         </a>
-                    </address>{" "}
-                </Footer>{" "}
+                    </address>
+                </Footer>
             </Layout>
         );
     }
