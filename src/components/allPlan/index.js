@@ -1,7 +1,7 @@
 import React, { Component } from "react";
 import PropTypes from "prop-types";
-import { Table, Button } from "antd";
-
+import { Table } from "antd";
+import TaskBtns from '../TaskBtns';
 class AllPlan extends Component {
     static propTypes = {
         username: PropTypes.string,
@@ -10,8 +10,16 @@ class AllPlan extends Component {
         tasks: PropTypes.array,
         getTasks: PropTypes.func
     };
-    state = {
-        columns: [
+
+    componentDidMount() {
+        if (!this.props.username || !this.props.userToken) {
+            this.props.removeUser();
+            return;
+        }
+        this.props.getTasks(this.props.userToken);
+    }
+    render() {
+        let columns =  [
             {
                 title: "创建时间",
                 dataIndex: "creatime",
@@ -41,7 +49,6 @@ class AllPlan extends Component {
                         "进行中",
                         "已完成",
                         "暂停",
-                        "终止",
                         "超时",
                         "未开始"
                     ];
@@ -57,38 +64,14 @@ class AllPlan extends Component {
                 title: "操作",
                 key: "action",
                 render: (text, record) => (
-                    <span>
-                        <Button type="primary" className="m-2">
-                            {" "}
-                            完成{" "}
-                        </Button>{" "}
-                        <Button type="primary" className="m-2">
-                            {" "}
-                            封存{" "}
-                        </Button>{" "}
-                        <Button type="primary" className="m-2">
-                            {" "}
-                            删除{" "}
-                        </Button>{" "}
-                    </span>
+                    <TaskBtns task={record} token={this.props.userToken} update={this.props.updateTask} del={this.props.delTask}></TaskBtns>
                 )
             }
-        ]
-    };
-
-    componentDidMount() {
-        if (!this.props.username || !this.props.userToken) {
-            this.props.removeUser();
-            return;
-        }
-        this.props.getTasks(this.props.userToken);
-    }
-
-    render() {
+        ];
         return (
             <Table
                 rowKey="id"
-                columns={this.state.columns}
+                columns={columns}
                 dataSource={this.props.tasks}
             />
         );

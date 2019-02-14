@@ -14,8 +14,8 @@ class TodoPlan extends Component {
         columns: [
             {
                 title: "创建时间",
-                dataIndex: "startime",
-                key: "startime"
+                dataIndex: "creatime",
+                key: "creatime"
             },
             {
                 title: "任务名称",
@@ -41,7 +41,6 @@ class TodoPlan extends Component {
                         "进行中",
                         "已完成",
                         "暂停",
-                        "终止",
                         "超时",
                         "未开始"
                     ];

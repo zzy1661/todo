@@ -14,8 +14,8 @@ class FinishedPlan extends Component {
         columns: [
             {
                 title: "创建时间",
-                dataIndex: "startime",
-                key: "startime"
+                dataIndex: "creatime",
+                key: "creatime"
             },
             {
                 title: "任务名称",
@@ -41,7 +41,6 @@ class FinishedPlan extends Component {
                         "进行中",
                         "已完成",
                         "暂停",
-                        "终止",
                         "超时",
                         "未开始"
                     ];
@@ -59,17 +58,14 @@ class FinishedPlan extends Component {
                 render: (text, record) => (
                     <span>
                         <Button type="primary" className="m-2">
-                            {" "}
-                            完成{" "}
-                        </Button>{" "}
+                            完成
+                        </Button>
                         <Button type="primary" className="m-2">
-                            {" "}
-                            封存{" "}
-                        </Button>{" "}
+                            封存
+                        </Button>
                         <Button type="primary" className="m-2">
-                            {" "}
-                            删除{" "}
-                        </Button>{" "}
+                            删除
+                        </Button>
                     </span>
                 )
             }
