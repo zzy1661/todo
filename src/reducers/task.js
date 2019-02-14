@@ -59,7 +59,7 @@ const taskReducer = (state, action) => {
             }
         default:
             return {
-                tasks: null,
+                ...state
             }
     }
 }

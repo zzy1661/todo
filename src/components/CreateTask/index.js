@@ -1,7 +1,7 @@
 import React, { Component } from "react";
 import { Switch, Select, Row, Col, Tree, Collapse, Checkbox } from "antd";
 import PropTypes from "prop-types";
-
+import Utils from '../../lib/utils';
 import { Form, Icon, Input, Button, DatePicker, message } from "antd";
 import Item from "antd/lib/list/Item";
 const { RangePicker } = DatePicker;
@@ -26,12 +26,9 @@ class CreateTask extends Component {
             return;
         }
         this.props.getTasks(this.props.userToken);
-        console.log('tasks',this.props.tasks)
         var pid = this.props.match.params.pid;
-        console.log('pid',pid)
     }
     redirecIndex = ()=> {
-        console.log('111',this.props)
         this.props.history.push('/general/all')
     }
     getTaskById(id) {}
@@ -60,14 +57,12 @@ class CreateForm extends React.Component {
         e.preventDefault();
         this.props.form.validateFields((err, values) => {
             if (!err) {
-                console.log("Received values of form: ", values);
                 const task = {
                     name: values.taskName,
                     des:  values.describe,
                     startime: values.dateRange[0].valueOf(),
                     endtime: values.dateRange[1].valueOf()
                 }
-                console.log('token',this.props)
                 fetch('http://localhost:8082/tasks',{
                     method: 'POST',
                     headers: {
@@ -82,12 +77,14 @@ class CreateForm extends React.Component {
                     return res.json() 
                 }).then(data=>{
                     if(data.code===0) {
-                        task.id = 8;
                         //本地增加task
-                        this.props.save(task)
+                        let newTask = data.data;
+                        newTask.creatime = newTask.creatime ? Utils.dateFormat(new Date(newTask.creatime),'yyyy-MM-dd'): '';
+                        newTask.startime = newTask.startime ? Utils.dateFormat(new Date(newTask.startime),'yyyy-MM-dd') : '';
+                        newTask.endtime = newTask.endtime ? Utils.dateFormat(new Date(newTask.endtime),'yyyy-MM-dd') : '';
+                        this.props.save(newTask)
                         message.success('创建成功！')
                         this.props.redirec();
-                        console.log('form prop',this.props)
                     }
                 })
             }
