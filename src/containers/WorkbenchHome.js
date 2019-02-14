@@ -17,6 +17,12 @@ const mapDispatchToProps = (dispatch) => {
         getTasks: (token) => { 
              return dispatch(getTasks(token));
         },
+        delTask: (task) => {
+            return dispatch({
+                type: 'DELETETASK',
+                delTask: task
+            })
+        }
     }
 }
 export default connect(mapStateToProps, mapDispatchToProps)(WorkbenchHome)
