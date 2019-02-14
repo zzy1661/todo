@@ -271,7 +271,7 @@ class EditForm extends Component {
                         'Authorization': `Bearer ${this.props.token}`,
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({task:newTask})
+                    body: JSON.stringify({task:newTask,type:'edit'})
                 }).then(res => {
                     if (res.status == 401) {
                         throw new Error(401)
