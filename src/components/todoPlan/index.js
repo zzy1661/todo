@@ -1,6 +1,7 @@
 import React, { Component } from "react";
 import PropTypes from "prop-types";
 import { Table, Button } from "antd";
+import TaskBtns from '../TaskBtns';
 
 class TodoPlan extends Component {
     static propTypes = {
@@ -8,7 +9,9 @@ class TodoPlan extends Component {
         userToken: PropTypes.string,
         removeUser: PropTypes.func,
         tasks: PropTypes.array,
-        getTasks: PropTypes.func
+        getTasks: PropTypes.func,
+        updateTask: PropTypes.func,
+        delTask: PropTypes.func
     };
     state = {
         columns: [
@@ -56,17 +59,7 @@ class TodoPlan extends Component {
                 title: "操作",
                 key: "action",
                 render: (text, record) => (
-                    <span>
-                        <Button type="primary" className="m-2">
-                            完成
-                        </Button>
-                        <Button type="primary" className="m-2">
-                            封存
-                        </Button>
-                        <Button type="primary" className="m-2">
-                            删除
-                        </Button>
-                    </span>
+                    <TaskBtns task={record} token={this.props.userToken} update={this.props.updateTask} del={this.props.delTask}></TaskBtns>
                 )
             }
         ]

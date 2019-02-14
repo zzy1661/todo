@@ -17,6 +17,18 @@ const mapDispatchToProps = (dispatch) => {
         getTasks: (token) => { 
              return dispatch(getTasks(token));
         },
+        updateTask: (newTask) => {
+            return dispatch({
+                type: 'UPDATETASK',
+                newTask: newTask
+            })
+        },
+        delTask: (task) => {
+            return dispatch({
+                type: 'DELETETASK',
+                delTask: task
+            })
+        }
     }
 }
 export default connect(mapStateToProps, mapDispatchToProps)(TodoPlan)

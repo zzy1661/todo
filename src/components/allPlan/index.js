@@ -8,7 +8,9 @@ class AllPlan extends Component {
         userToken: PropTypes.string,
         removeUser: PropTypes.func,
         tasks: PropTypes.array,
-        getTasks: PropTypes.func
+        getTasks: PropTypes.func,
+        updateTask: PropTypes.func,
+        delTask: PropTypes.func
     };
 
     componentDidMount() {
