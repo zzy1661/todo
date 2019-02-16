@@ -2,7 +2,8 @@ import React from 'react';
 import { connect } from 'dva';
 import Login from '../components/Login';
 
-const LoginPage = ({ dispatch, user}) => {
+const LoginPage = (props) => {
+    const { dispatch, user} = props
     function save(user) {
         dispatch({
             type: 'user/save',

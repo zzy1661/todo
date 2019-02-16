@@ -2,6 +2,8 @@ import React, {
 	Component
 } from 'react';
 import PropTypes from 'prop-types'
+import { withRouter } from "dva/router";
+
 import { Form, Input, Button, message } from 'antd';
 
 import './Login.css';
@@ -12,11 +14,11 @@ class Login extends Component {
         user: PropTypes.object,
         saveUser: PropTypes.func,
         removeUser: PropTypes.func,
+        redirect: PropTypes.func
 	  }
   
 	constructor(props) {
         super(props);
-
 		this.state = {
 			imgBgStyle: {
 				display: 'none'
@@ -63,9 +65,11 @@ class Login extends Component {
             }
 		})
 	}
-	handleLogined =(username,token) =>{
+	handleLogined =(username,userToken) =>{
 		if (this.props.saveUser) {
-		  this.props.saveUser(username,token)
+          this.props.saveUser({username,userToken});
+          console.log(this.props)
+          this.props.history.push('/general')
 		}
 	  }
 	setUsername = (e) => {
@@ -103,4 +107,4 @@ class Login extends Component {
 	}
 }
 
-export default Login;
+export default withRouter(Login);
