@@ -1,0 +1,44 @@
+.login-wrapper {
+	background: #56bc8a ;
+	height: 100%;
+}
+.login-bg-img {
+	height: 100%;
+	display: none;
+}
+.login-bg-img:before {
+	content: "";
+	background-color: #000;
+	position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    opacity: .6;
+    background-color: rgba(0,0,0,.3);
+    -webkit-transition: all .5s;
+    transition: all .5s;
+}
+.login-panel {
+	position: absolute;
+	margin: auto;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	top: 0;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	flex-direction: column;
+}
+.login-logo {
+	color: #fff;
+	text-align: center;
+	font-size: 128px;
+	font-family: "comic sans ms";
+	user-select: none;
+}
+.login-panel form {
+	width: 200px;
+	height: 300px;
+}
