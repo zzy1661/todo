@@ -1,4 +1,5 @@
 {
+    "disableCSSModules": true,
     "extraBabelPlugins": [
     ["import", {
       "libraryName": "antd",
