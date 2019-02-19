@@ -1,19 +1,26 @@
 import React, { Component } from "react";
 import { Layout, Menu, Avatar } from "antd";
 import { NavLink, Route, Switch, Redirect, withRouter } from "dva/router";
-// import General from "../general";
-// import Workbench from "../workbench";
-// import Statistics from "../statistics";
 import Timer from "./Timer";
+import PropTypes from 'prop-types'
 import "./Index.css";
+
 const { Header, Content, Footer } = Layout;
 
 class Index extends Component {
-    state = {
+    static propTypes = {
+        user: PropTypes.object,
+        removeUser: PropTypes.func,
+      }
+      state = {
         current: "/general"
     };
     componentDidMount() {
-        // console.log('index',this.props)
+        console.log('index.js',this.props)
+        if(!this.props.user.userToken) {
+            this.props.removeUser()
+            return;
+        }
         this.setActiveMenu();
     }
     componentWillReceiveProps(nextPs) {
@@ -79,11 +86,6 @@ class Index extends Component {
                 </Header>
                 <Content className="content">
                         {this.props.children}
-                    {/* <Switch>
-                        <Route path="/general" component={General} />
-                        <Route path="/workbench" component={Workbench} />
-                        <Route path="/statistics" component={Statistics} />
-                    </Switch> */}
                 </Content>
                 <Footer className="footer">
                     TODO© 2018 Created by Zachary Zhou

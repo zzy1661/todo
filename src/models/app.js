@@ -14,9 +14,9 @@ export default {
         //   yield put({ type: 'save' });
         // },
         // 路由跳转
-        * redirect({ payload }, { put }) {
-            yield put(routerRedux.push(payload.pathname));
-        },
+        // * redirect({ payload }, { put }) {
+        //     yield put(routerRedux.push(payload.pathname));
+        // },
     },
 
     reducers: {

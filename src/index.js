@@ -7,6 +7,9 @@ const app = dva({
     user: {
         username:sessionStorage.getItem('username'),
         userToken:sessionStorage.getItem('userToken')
+    },
+    tasks: {
+        list: []
     }
   },
 });
@@ -16,6 +19,7 @@ const app = dva({
 
 // 3. Model
 app.model(require('./models/user').default);
+app.model(require('./models/tasks').default);
 
 // 4. Router
 app.router(require('./router').default);

@@ -1,3 +1,4 @@
+import {routerRedux} from 'dva/router'
 export default {
     namespace: 'user',
     state: {},
@@ -7,25 +8,30 @@ export default {
       },
     
       effects: {
-        // *fetch({ payload }, { call, put }) {  // eslint-disable-line
-        //   yield put({ type: 'save' });
-        // },
+          *watchUser({payload},{call,put,takeLatest}) {
+            yield takeLatest('user/remove',function* (){
+                yield put(routerRedux.push('/login'))
+            })
+          },
+        *toLogin({ payload }, { call, put }) {  // eslint-disable-line
+          yield put(routerRedux.push('/login'));
+        },
       },
     
       reducers: {
           save(state,action) {
-            sessionStorage.setItem('username',action.username);
-            sessionStorage.setItem('userToken',action.userToken);
+            sessionStorage.setItem('username',action.payload.username);
+            sessionStorage.setItem('userToken',action.payload.userToken);
             return { 
                 ...state,
                 ...action.payload,
-                // username: action.username,
-                // userToken: action.userToken
             }   
           },
-          remove(state,action) {
+          remove(state) {
+              console.log('user to remove')
             sessionStorage.removeItem('username');
             sessionStorage.removeItem('userToken');
+            
             return { 
                 ...state,
                 username: '',

@@ -2,9 +2,6 @@ import React, { Component } from 'react';
 import { Menu, Icon } from 'antd';
 
 import { Route, Link, Switch, Redirect, withRouter } from 'dva/router';
-// import All from '../AllPlan';
-// import Finished from '../FinishedPlan';
-// import Todo from '../TodoPlan';
 import './General.css';
 const SubMenu = Menu.SubMenu;
 const MenuItemGroup = Menu.ItemGroup;
@@ -50,12 +47,7 @@ class General extends Component {
           </Menu.Item>
         </Menu>
         <div className="plan-panel">
-          {/* <Switch>
-            <Redirect exact from="/general" to="/general/all"></Redirect>
-            <Route path="/general/all" component={All}></Route>
-            <Route path="/general/finished" component={Finished}></Route>
-            <Route path="/general/todo" component={Todo}></Route>
-          </Switch> */}
+            {this.props.children}
         </div>
       </div>
     );
