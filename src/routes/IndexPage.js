@@ -1,6 +1,9 @@
 import React from 'react';
 import { connect } from 'dva';
 import Index from '../components/Index';
+import GeneralPage from './GeneralPage';
+import WorkbenchPage from './WorkbenchPage'
+import { Route, Link, Switch, Redirect, withRouter } from 'dva/router';
 
 const IndexPage = ({ dispatch, user}) => {
 
@@ -26,7 +29,13 @@ const IndexPage = ({ dispatch, user}) => {
     }
 
     return (
-        <Index user={user} />
+        <Index user={user} > 
+            <Switch>
+                <Route path="/general" component={GeneralPage} />
+                <Route path="/workbench" component={WorkbenchPage} />
+                {/* <Route path="/statistics" component={Statistics} /> */}
+            </Switch>
+        </Index>
     )
 }
   

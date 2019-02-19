@@ -13,6 +13,7 @@ class Index extends Component {
         current: "/general"
     };
     componentDidMount() {
+        // console.log('index',this.props)
         this.setActiveMenu();
     }
     componentWillReceiveProps(nextPs) {
@@ -77,6 +78,7 @@ class Index extends Component {
                     </Menu>
                 </Header>
                 <Content className="content">
+                        {this.props.children}
                     {/* <Switch>
                         <Route path="/general" component={General} />
                         <Route path="/workbench" component={Workbench} />
