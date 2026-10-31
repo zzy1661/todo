@@ -1,0 +1,167 @@
+/*
+ * 全局样式：设计 token + 全局重置 + macOS 兼容层。
+ *
+ * 浅色单一主题；界面全中文；颜色 / 间距统一走本文件的 CSS 变量。
+ * 分类色通过 `--cat` / `--cat-soft` 注入（见 src/data/methods.ts 的 CATEGORY_META）。
+ */
+
+:root {
+  /* 面 */
+  --color-bg: #f4f6fa;
+  --color-surface: #ffffff;
+  --color-surface-2: #f8fafc;
+
+  /* 线与文字 */
+  --color-border: #e3e8f0;
+  --color-text: #1f2329;
+  --color-text-secondary: #646a73;
+  --color-text-muted: #9aa1ac;
+
+  /* 语义色 */
+  --color-primary: #2f6bff;
+  --color-primary-soft: #eaf0ff;
+  --color-danger: #ff4d4f;
+  --color-warning: #faad14;
+  --color-success: #52c41a;
+
+  /* 圆角 */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+
+  /* 阴影 */
+  --shadow-sm: 0 1px 3px rgba(31, 35, 41, 0.06);
+  --shadow-md: 0 4px 16px rgba(31, 35, 41, 0.08);
+
+  /* 字体栈：PingFang SC 优先（macOS 中文主字体），保留 Windows 栈保证视觉契约一致 */
+  --font-family: "PingFang SC", "Microsoft YaHei", "Segoe UI", system-ui,
+    -apple-system, sans-serif;
+
+  /* 滚动条尺寸 */
+  --scrollbar-size: 8px;
+}
+
+/* ---------------------------------------------------------------- 全局重置 */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--font-family);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--color-text);
+  background: var(--color-bg);
+  /* 界面默认不可选中，减少误触；输入框另行放开 */
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1,
+h2,
+h3,
+h4,
+p,
+figure {
+  margin: 0;
+}
+
+ul,
+ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+button {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+input,
+textarea,
+select {
+  font-family: inherit;
+  font-size: inherit;
+  color: var(--color-text);
+}
+
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+/* ------------------------------------------------ macOS 兼容层（设计 §6.2） */
+
+/*
+ * 1) 输入框内必须可选择文本，否则「复制备注」不可用。
+ *    Safari 17 不支持无前缀 user-select，需要与 -webkit- 前缀同写。
+ */
+input,
+textarea,
+[contenteditable="true"] {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/*
+ * 2) 遮罩模糊：Safari 17 只认 -webkit-backdrop-filter，无前缀写法自 Safari 18 起才支持。
+ *    两条必须同写，否则桌面版编辑器遮罩无模糊（MR-02）。
+ */
+.backdrop-blur {
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+
+/* 3) 自定义滚动条：样式化后即为常驻滚动条，跨平台行为一致 */
+::-webkit-scrollbar {
+  width: var(--scrollbar-size);
+  height: var(--scrollbar-size);
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(31, 35, 41, 0.18);
+  border-radius: calc(var(--scrollbar-size) / 2);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(31, 35, 41, 0.28);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* 4) 原生日期控件在 WKWebView 中宽度自适应，不写死 width（MR-04） */
+input[type="date"] {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* 5) 焦点可见性：macOS 默认不显示 focus ring，这里保留键盘可达性 */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
