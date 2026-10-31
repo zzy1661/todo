@@ -125,12 +125,12 @@ console.log('\n[3] 当日待办面板（FR-DAY-01 / FR-DAY-02 / FR-DAY-05 / AC-1
 check('头部日期文案', (await text(page.locator('.day-title'))) === TODAY_TEXT, await text(page.locator('.day-title')));
 check('今天徽章', (await text(page.locator('.today-badge'))) === '今天');
 check('新建按钮文案', (await text(page.locator('.new-btn'))) === '+ 新建待办');
-check('统计：共 0 项', (await text(page.locator('.panel-stats'))).includes('共 0 项'));
-check('统计：已完成 0 项', (await text(page.locator('.panel-stats'))).includes('已完成 0 项'));
-check('N = 0 时不显示完成率', (await page.locator('.stat-rate').count()) === 0);
-check('空态文案 ES-01', (await text(page.locator('.empty-title'))) === '这一天还没有待办');
-check('空态按钮「创建第一条待办」', (await text(page.locator('.empty-action'))) === '创建第一条待办');
-check('空态标记 data-empty=no-todos', (await page.getAttribute('.empty-state', 'data-empty')) === 'no-todos');
+check('统计：共 0 项', (await text(page.locator('.todo-panel .panel-stats'))).includes('共 0 项'));
+check('统计：已完成 0 项', (await text(page.locator('.todo-panel .panel-stats'))).includes('已完成 0 项'));
+check('N = 0 时不显示完成率', (await page.locator('.todo-panel .stat-rate').count()) === 0);
+check('空态文案 ES-01', (await text(page.locator('.todo-panel .empty-title'))) === '这一天还没有待办');
+check('空态按钮「创建第一条待办」', (await text(page.locator('.todo-panel .empty-action'))) === '创建第一条待办');
+check('空态标记 data-empty=no-todos', (await page.getAttribute('.todo-panel .empty-state', 'data-empty')) === 'no-todos');
 
 /* ---------------------------------------------------------------- 增删勾选 */
 
@@ -150,9 +150,9 @@ await createTodo('校对日历四态');
 await createTodo('补齐空态插画');
 await createTodo('整理稳定选择器');
 
-check('列表 4 条', (await page.locator('.todo-item').count()) === 4, `实际 ${await page.locator('.todo-item').count()}`);
-check('共 4 项', (await text(page.locator('.panel-stats'))).includes('共 4 项'));
-check('4 条时显示完成率 0%', (await text(page.locator('.stat-rate'))) === '完成率 0%');
+check('列表 4 条', (await page.locator('.todo-panel .todo-item').count()) === 4, `实际 ${await page.locator('.todo-panel .todo-item').count()}`);
+check('共 4 项', (await text(page.locator('.todo-panel .panel-stats'))).includes('共 4 项'));
+check('4 条时显示完成率 0%', (await text(page.locator('.todo-panel .stat-rate'))) === '完成率 0%');
 check('4 条时圆点 + `+`', (await todayCell.locator('.dot-count').count()) === 1);
 check('`+` 文本为 +', (await text(todayCell.locator('.dot-count'))) === '+');
 
@@ -160,7 +160,7 @@ check('`+` 文本为 +', (await text(todayCell.locator('.dot-count'))) === '+');
 check('新建后今天格出现圆点', (await todayCell.locator('.dot').count()) === 1);
 
 // 行内只有四个元素（FR-ITEM-01）
-const firstRow = page.locator('.todo-item').first();
+const firstRow = page.locator('.todo-panel .todo-item').first();
 const rowClasses = await firstRow.evaluate((el) =>
   [...el.querySelectorAll('button')].map((b) => b.className.split(' ')[0])
 );
@@ -173,21 +173,21 @@ check('行内无铅笔 / 垃圾桶按钮', !(await firstRow.innerHTML()).include
 
 // 勾选 1 条 → 完成率 25%（AC-14 的口径验证：分母为总条数）
 await firstRow.locator('.check').click();
-await page.waitForFunction(() => document.querySelector('.panel-stats')?.textContent?.includes('已完成 1 项'));
-check('勾选后 已完成 1 项', (await text(page.locator('.panel-stats'))).includes('已完成 1 项'));
-check('勾选后完成率 25%', (await text(page.locator('.stat-rate'))) === '完成率 25%');
+await page.waitForFunction(() => document.querySelector('.todo-panel .panel-stats')?.textContent?.includes('已完成 1 项'));
+check('勾选后 已完成 1 项', (await text(page.locator('.todo-panel .panel-stats'))).includes('已完成 1 项'));
+check('勾选后完成率 25%', (await text(page.locator('.todo-panel .stat-rate'))) === '完成率 25%');
 
 // 优先级循环 低 → 中 → 高 → 低（FR-ITEM-03）
 // 改优先级会改变排序位置，因此按条目的 data-todo-id 定位，不依赖「第一行」
 const todoId = await firstRow.getAttribute('data-todo-id');
-const tagOfTodo = (id) => page.locator(`.todo-item[data-todo-id="${id}"] .priority-tag`);
+const tagOfTodo = (id) => page.locator(`.todo-panel .todo-item[data-todo-id="${id}"] .priority-tag`);
 const seen = [await text(tagOfTodo(todoId))];
 for (const expected of ['高', '低', '中']) {
   await tagOfTodo(todoId).click();
   await page.waitForFunction(
     ({ id, value }) =>
       document
-        .querySelector(`.todo-item[data-todo-id="${id}"] .priority-tag`)
+        .querySelector(`.todo-panel .todo-item[data-todo-id="${id}"] .priority-tag`)
         ?.textContent?.trim() === value,
     { id: todoId, value: expected }
   );
@@ -196,19 +196,19 @@ for (const expected of ['高', '低', '中']) {
 check('优先级循环 中→高→低→中', seen.join('') === '中高低中', seen.join('→'));
 
 // 排序：同优先级新建者在前，高优先级排到最前（BR-02 / FR-DAY-06）
-const titleOrder = (await page.locator('.todo-item .item-title').allInnerTexts()).map((s) => s.trim());
+const titleOrder = (await page.locator('.todo-panel .todo-item .item-title').allInnerTexts()).map((s) => s.trim());
 check(
   '同优先级下新建者在前',
   titleOrder.join('|') === '整理稳定选择器|补齐空态插画|校对日历四态|写 S2 验收脚本',
   titleOrder.join('|')
 );
-const lastTodoId = await page.locator('.todo-item').last().getAttribute('data-todo-id');
-await page.locator(`.todo-item[data-todo-id="${lastTodoId}"] .priority-tag`).click();
+const lastTodoId = await page.locator('.todo-panel .todo-item').last().getAttribute('data-todo-id');
+await page.locator(`.todo-panel .todo-item[data-todo-id="${lastTodoId}"] .priority-tag`).click();
 await page.waitForFunction(
-  (id) => document.querySelector('.todo-item')?.getAttribute('data-todo-id') === id,
+  (id) => document.querySelector('.todo-panel .todo-item')?.getAttribute('data-todo-id') === id,
   lastTodoId
 );
-check('高优先级条目排到最前', (await page.locator('.todo-item').first().getAttribute('data-todo-id')) === lastTodoId);
+check('高优先级条目排到最前', (await page.locator('.todo-panel .todo-item').first().getAttribute('data-todo-id')) === lastTodoId);
 
 await page.screenshot({ path: `${OUT}/02-day-panel-4-todos.png` });
 
@@ -216,16 +216,16 @@ await page.screenshot({ path: `${OUT}/02-day-panel-4-todos.png` });
 
 console.log('\n[5] 三页签筛选与两种空态（FR-DAY-03 / FR-DAY-05 / FR-DAY-08 / AC-11）');
 
-const tabLabels = (await page.locator('.filter-tab').allInnerTexts()).map((s) => s.trim());
+const tabLabels = (await page.locator('.todo-panel .filter-tab').allInnerTexts()).map((s) => s.trim());
 check('页签 全部 / 未完成 / 已完成', tabLabels.join('|') === '全部|未完成|已完成', tabLabels.join('|'));
 
-await page.click('.filter-tab[data-filter="done"]');
-check('已完成页签只剩 1 条', (await page.locator('.todo-item').count()) === 1);
-check('筛选不改变统计分母', (await text(page.locator('.panel-stats'))).includes('共 4 项'));
-check('筛选中完成率仍为 25%', (await text(page.locator('.stat-rate'))) === '完成率 25%');
+await page.click('.todo-panel .filter-tab[data-filter="done"]');
+check('已完成页签只剩 1 条', (await page.locator('.todo-panel .todo-item').count()) === 1);
+check('筛选不改变统计分母', (await text(page.locator('.todo-panel .panel-stats'))).includes('共 4 项'));
+check('筛选中完成率仍为 25%', (await text(page.locator('.todo-panel .stat-rate'))) === '完成率 25%');
 
-await page.click('.filter-tab[data-filter="active"]');
-check('未完成页签 3 条', (await page.locator('.todo-item').count()) === 3);
+await page.click('.todo-panel .filter-tab[data-filter="active"]');
+check('未完成页签 3 条', (await page.locator('.todo-panel .todo-item').count()) === 3);
 
 // 模块切换不重置本模块的筛选状态（BR-21 / FR-NAV-03）
 await page.click('.nav-item[data-nav-id="daily"]');
@@ -234,12 +234,12 @@ check('日历模块随切换隐藏', !(await page.locator('.calendar-module').is
 check('导航选中态跟随切换', (await page.locator('.nav-item.active').getAttribute('data-nav-id')) === 'daily');
 await page.click('.nav-item[data-nav-id="calendar"]');
 check('切回日历后日历可见', await page.locator('.calendar-module').isVisible());
-check('切回日历后筛选仍为「未完成」', (await text(page.locator('.filter-tab.active'))) === '未完成');
+check('切回日历后筛选仍为「未完成」', (await text(page.locator('.todo-panel .filter-tab.active'))) === '未完成');
 
 await page.screenshot({ path: `${OUT}/03-filter-active.png` });
 
 // 造一条全完成的日期，验证 ES-02
-await page.click('.filter-tab[data-filter="all"]');
+await page.click('.todo-panel .filter-tab[data-filter="all"]');
 
 /* ---------------------------------------------------------------- 切换日期：筛选重置 + 空态 */
 
@@ -254,8 +254,8 @@ await otherCell.click();
 
 check('右栏切换到所点日期', (await text(page.locator('.day-title'))) ===
   `${dayjs(otherDate).format('M月D日')} 周${WEEK_CN[dayjs(otherDate).day()]}`);
-check('切换日期后筛选重置为「全部」', (await text(page.locator('.filter-tab.active'))) === '全部');
-check('空日期显示 ES-01 空态', (await text(page.locator('.empty-title'))) === '这一天还没有待办');
+check('切换日期后筛选重置为「全部」', (await text(page.locator('.todo-panel .filter-tab.active'))) === '全部');
+check('空日期显示 ES-01 空态', (await text(page.locator('.todo-panel .empty-title'))) === '这一天还没有待办');
 check('空日期不显示今天徽章', (await page.locator('.today-badge').count()) === 0);
 check('所选日期格高亮', (await page.locator(`.day-cell[data-date="${otherDate}"]`).getAttribute('class')).includes('selected'));
 // 非选中态下，今天数字必须是主色加粗（FR-CAL-03 ②）
@@ -266,16 +266,16 @@ check('今天数字为主色 #2f6bff（非选中时）', todayColorIdle === 'rgb
 
 // ES-02：该日有数据但当前筛选命中 0 条（无创建按钮）
 await createTodo('只在这一天的一条');
-check('新日期下新增 1 条', (await page.locator('.todo-item').count()) === 1);
-await page.click('.filter-tab[data-filter="done"]');
-check('筛选无结果文案 ES-02', (await text(page.locator('.empty-title'))) === '没有符合筛选的待办');
-check('ES-02 不显示创建按钮', (await page.locator('.empty-action').count()) === 0);
-check('ES-02 标记 data-empty=no-match', (await page.getAttribute('.empty-state', 'data-empty')) === 'no-match');
+check('新日期下新增 1 条', (await page.locator('.todo-panel .todo-item').count()) === 1);
+await page.click('.todo-panel .filter-tab[data-filter="done"]');
+check('筛选无结果文案 ES-02', (await text(page.locator('.todo-panel .empty-title'))) === '没有符合筛选的待办');
+check('ES-02 不显示创建按钮', (await page.locator('.todo-panel .empty-action').count()) === 0);
+check('ES-02 标记 data-empty=no-match', (await page.getAttribute('.todo-panel .empty-state', 'data-empty')) === 'no-match');
 
 // 切回今天：筛选必须重置为「全部」（FR-DAY-04 / AC-46）
 await todayCell.click();
-check('切回今天后筛选回到「全部」', (await text(page.locator('.filter-tab.active'))) === '全部');
-check('今天仍是 4 条', (await page.locator('.todo-item').count()) === 4);
+check('切回今天后筛选回到「全部」', (await text(page.locator('.todo-panel .filter-tab.active'))) === '全部');
+check('今天仍是 4 条', (await page.locator('.todo-panel .todo-item').count()) === 4);
 
 /* ---------------------------------------------------------------- 翻月与今天 */
 
@@ -337,7 +337,7 @@ check('Esc 关闭菜单', (await page.locator('.ctx-menu').count()) === 0);
 await firstRow.hover();
 await firstRow.locator('.more-btn').click();
 await page.waitForSelector('.ctx-menu');
-await page.locator('.panel-stats').click();
+await page.locator('.todo-panel .panel-stats').click();
 await page.waitForSelector('.ctx-menu', { state: 'detached' });
 check('点击菜单外关闭', (await page.locator('.ctx-menu').count()) === 0);
 
@@ -353,11 +353,11 @@ check('菜单已完全显示', (await page.locator('.ctx-menu').evaluate((el) =>
 await page.screenshot({ path: `${OUT}/05-context-menu.png` });
 
 await page.locator('.ctx-menu .ctx-item', { hasText: '删除' }).click();
-await page.waitForFunction(() => document.querySelectorAll('.todo-item').length === 3);
-check('删除后剩 3 条', (await page.locator('.todo-item').count()) === 3);
+await page.waitForFunction(() => document.querySelectorAll('.todo-panel .todo-item').length === 3);
+check('删除后剩 3 条', (await page.locator('.todo-panel .todo-item').count()) === 3);
 check('删到 3 条后 `+` 消失（AC-07）', (await todayCell.locator('.dot-count').count()) === 0);
 check('删到 3 条仍有圆点', (await todayCell.locator('.dot').count()) === 1);
-check('删除后共 3 项', (await text(page.locator('.panel-stats'))).includes('共 3 项'));
+check('删除后共 3 项', (await text(page.locator('.todo-panel .panel-stats'))).includes('共 3 项'));
 
 /* ---------------------------------------------------------------- 编辑器细节 */
 
@@ -372,11 +372,11 @@ check('卡片宽度约 400px', cardWidth >= 380 && cardWidth <= 420, `${cardWidt
 await page.fill('.editor input[type="text"]', '回车提交验证');
 await page.press('.editor input[type="text"]', 'Enter');
 await page.waitForSelector('.editor', { state: 'detached' });
-check('标题框回车即保存', (await page.locator('.todo-item').count()) === 4);
+check('标题框回车即保存', (await page.locator('.todo-panel .todo-item').count()) === 4);
 await page.screenshot({ path: `${OUT}/06-calendar-final.png` });
 
 // 编辑态按钮文案
-await page.locator('.todo-item').first().locator('.item-body').click();
+await page.locator('.todo-panel .todo-item').first().locator('.item-body').click();
 await page.waitForSelector('.editor');
 check('编辑态按钮文案为「保存修改」', (await text(page.locator('.editor-save'))) === '保存修改');
 check('编辑态回填标题', (await page.inputValue('.editor input[type="text"]')).length > 0);
@@ -411,7 +411,7 @@ check(
 check('900×600 仍渲染 42 格', (await page.locator('.day-cell').count()) === 42);
 
 for (let i = 0; i < 6; i += 1) await createTodo(`批量条目 ${i + 1}`);
-check('10 条时统计为 共 10 项', (await text(page.locator('.panel-stats'))).includes('共 10 项'), await text(page.locator('.panel-stats')));
+check('10 条时统计为 共 10 项', (await text(page.locator('.todo-panel .panel-stats'))).includes('共 10 项'), await text(page.locator('.todo-panel .panel-stats')));
 
 const listMetrics = await page.locator('.todo-list').evaluate((el) => ({
   scrollHeight: el.scrollHeight,
