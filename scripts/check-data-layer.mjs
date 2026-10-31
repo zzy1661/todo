@@ -116,9 +116,28 @@ check(one.method_id === '5w2h', '推送覆盖后 method_id 未更新');
 check(one.manual === true, '推送覆盖后 manual 未更新');
 check((await fetchDailyPick('2026-11-02')) === null, '不存在的推送未返回 null');
 
+// 8. 入参归一化：缺省 note / priority 时两条后端行为一致
+const t7 = await createTodo({ title: 'G', date: '2026-11-04' });
+check(t7.note === '', `缺省 note 应归一化为空串，实际 ${JSON.stringify(t7.note)}`);
+check(t7.priority === 1, `缺省 priority 应归一化为 1，实际 ${t7.priority}`);
+check(
+  t7.done === false,
+  '新建待办应为未完成（布尔），与 SQLite 的 0 语义等价'
+);
+
+// 9. 数据损坏时抛错而非静默回退为空集合（EX-01：不静默丢数据）
+globalThis.localStorage.setItem('todo_local_db', '{ 坏掉的 JSON');
+let threw = false;
+try {
+  await fetchTodos();
+} catch {
+  threw = true;
+}
+check(threw, 'localStorage 数据损坏时应抛错，不得静默回退为空集合');
+
 if (errors.length > 0) {
   console.error(`失败 ${errors.length} 项：`);
   for (const e of errors) console.error(`  ✗ ${e}`);
   process.exit(1);
 }
-console.log('数据层 localStorage 路径自检 PASS（8 组断言）');
+console.log('数据层 localStorage 路径自检 PASS（9 组断言）');

@@ -220,6 +220,12 @@ async function sqliteUpsertDailyPick(pick: DailyPick): Promise<void> {
 // localStorage 实现
 // ---------------------------------------------------------------------------
 
+/**
+ * 读取并解析 localStorage 中的 JSON 值。
+ *
+ * 解析失败时**抛错**而不是回退到空集合：回退会让界面显示「没有待办」，
+ * 等于静默丢数据（EX-01）。抛错由上层阻断并提示，原文留在 localStorage 里不覆盖。
+ */
 const readJson = <T>(key: string, fallback: T): T => {
   if (typeof localStorage === 'undefined') return fallback;
   const raw = localStorage.getItem(key);
@@ -227,10 +233,8 @@ const readJson = <T>(key: string, fallback: T): T => {
   try {
     const parsed = JSON.parse(raw) as T;
     return parsed ?? fallback;
-  } catch {
-    // 数据损坏时不静默丢数据：保留原文并回退到空集合，交由上层提示（EX-01）
-    console.error(`localStorage 键 ${key} 解析失败，已回退为空集合`);
-    return fallback;
+  } catch (e) {
+    throw new Error(`localStorage 键 ${key} 数据损坏，无法解析：${String(e)}`);
   }
 };
 
@@ -364,7 +368,18 @@ export function fetchTodosByMonth(
 
 /** 新建待办，返回落库后的完整行 */
 export function createTodo(draft: TodoDraft): Promise<Todo> {
-  return isTauriEnv() ? sqliteCreateTodo(draft) : localCreateTodo(draft);
+  // 在分叉之前归一化入参：两条后端拿到完全相同的字段，
+  // 避免 SQLite 因 NOT NULL 约束报错、而 localStorage 却存下 undefined 的分歧。
+  const normalized: TodoDraft = {
+    title: draft.title,
+    date: draft.date,
+    // 新建默认中优先级（BR-03），与表结构的 DEFAULT 1 一致
+    priority: draft.priority ?? 1,
+    note: draft.note ?? '',
+  };
+  return isTauriEnv()
+    ? sqliteCreateTodo(normalized)
+    : localCreateTodo(normalized);
 }
 
 /** 更新待办：只为显式传入的字段赋值，并自动刷新更新时间 */
