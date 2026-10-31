@@ -59,6 +59,21 @@ export function permutationFor(date: string, ids: string[] = METHOD_IDS): string
 /** 方法库条数 */
 export const librarySize = METHODS.length;
 
+/**
+ * 安全查找方法条目。
+ *
+ * METHOD_MAP 是普通对象，继承自 Object.prototype，
+ * 因此 `METHOD_MAP['toString']` 之类的键是真值 —— 用普通的真值判断，
+ * 一个不存在的 method_id（如 'toString'）会被误判为存在，
+ * 让 EX-06 的回退逻辑失效、并把原型上的函数当成方法返回。
+ * 这里只认自有属性。
+ */
+function findMethod(id: string): WorkMethod | null {
+  if (!Object.prototype.hasOwnProperty.call(METHOD_MAP, id)) return null;
+  const found = METHOD_MAP[id];
+  return found && typeof found === 'object' ? found : null;
+}
+
 const state = reactive({
   /** 全部推送记录 */
   picks: [] as DailyPick[],
@@ -83,6 +98,8 @@ export function init(): Promise<void> {
       state.error = '';
     } catch (e) {
       state.error = String(e);
+      // 清掉缓存的失败 promise，让后续调用可以重试（否则一次瞬时失败会永久卡死）
+      state.initPromise = null;
       throw e;
     }
   })();
@@ -127,11 +144,14 @@ export async function ensurePick(date: string): Promise<DailyPick> {
     return fresh;
   }
 
-  if (!METHOD_MAP[stored.method_id]) {
-    // 推送记录指向已不存在的条目：回退为当日确定性首推并覆盖写回
+  if (!findMethod(stored.method_id)) {
+    // 推送记录指向已不存在的条目：回退为当日确定性首推并覆盖写回。
+    // 回退后是「当日首推」而非「换一条」，manual 必须复位为 false，
+    // 否则会违反 PRD 附录 A 第 4 条（manual=1 时下标 = 首推下标 + 1）。
     const fixed: DailyPick = {
       ...stored,
       method_id: order[0],
+      manual: false,
       updated_at: Date.now(),
     };
     await upsertDailyPick(fixed);
@@ -166,10 +186,10 @@ export async function refresh(date: string): Promise<DailyPick> {
 
 /** 取某天当前展示的方法（预览态优先） */
 export function methodOf(date: string): WorkMethod | null {
-  if (state.previewId) return METHOD_MAP[state.previewId] ?? null;
+  if (state.previewId) return findMethod(state.previewId);
   const pick = state.picks.find((p) => p.date === date);
   if (!pick) return null;
-  return METHOD_MAP[pick.method_id] ?? null;
+  return findMethod(pick.method_id);
 }
 
 /** 设置 / 清除方法库预览态 */

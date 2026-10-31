@@ -227,7 +227,6 @@ async function sqliteUpsertDailyPick(pick: DailyPick): Promise<void> {
  * 等于静默丢数据（EX-01）。抛错由上层阻断并提示，原文留在 localStorage 里不覆盖。
  */
 const readJson = <T>(key: string, fallback: T): T => {
-  if (typeof localStorage === 'undefined') return fallback;
   const raw = localStorage.getItem(key);
   if (!raw) return fallback;
   try {
@@ -239,7 +238,11 @@ const readJson = <T>(key: string, fallback: T): T => {
 };
 
 const writeJson = (key: string, value: unknown): void => {
-  if (typeof localStorage === 'undefined') return;
+  // localStorage 不可用时必须报错而不是静默跳过写入：
+  // 静默跳过会让「新建待办」看起来成功，实际什么也没存，等于丢数据（EX-02）。
+  if (typeof localStorage === 'undefined') {
+    throw new Error('localStorage 不可用，无法写入数据');
+  }
   localStorage.setItem(key, JSON.stringify(value));
 };
 

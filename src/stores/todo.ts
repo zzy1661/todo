@@ -56,6 +56,8 @@ export function init(): Promise<void> {
       state.error = '';
     } catch (e) {
       state.error = String(e);
+      // 清掉缓存的失败 promise，让后续调用可以重试（否则一次瞬时失败会永久卡死）
+      state.initPromise = null;
       throw e;
     }
   })();
@@ -93,11 +95,10 @@ export async function add(draft: TodoDraft): Promise<Todo> {
 /** 更新待办（只为显式传入的字段赋值） */
 export async function patch(id: number, p: Partial<TodoDraft> & { done?: boolean }): Promise<void> {
   await updateTodo(id, p);
-  const index = state.todos.findIndex((t) => t.id === id);
-  if (index !== -1) {
-    const current = state.todos[index];
-    state.todos[index] = { ...current, ...p };
-  }
+  // 回读整表而不是在内存里拼：updated_at 由数据库生成，
+  // 内存自行拼装会与库里的值不一致（FR-DB-07 要求每次更新自动刷新更新时间）。
+  // 数据量是个人待办级别，整表回读的开销可以忽略。
+  state.todos = await fetchTodos();
   state.todos.sort(compareTodos);
   // 改了日期就必须重查当月（BR-09）
   if (p.date !== undefined) await refreshCurrentMonth();
