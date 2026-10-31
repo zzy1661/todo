@@ -69,9 +69,9 @@ pub fn run() {
                 .build(),
         )
         .setup(|app| {
-            // 迁移执行失败时不启动业务界面，避免半迁移状态（EX-03）。
-            // plugin-sql 在首次连接该库时按版本号顺序执行迁移，
-            // 迁移失败会让连接失败，上层据此阻断界面。
+            // 迁移在插件 setup 阶段执行（tauri.conf.json 的 plugins.sql.preload），
+            // 早于窗口创建：迁移失败会让 build() 直接返回错误，
+            // 业务界面根本不会启动，避免半迁移状态（EX-03）。
             ensure_app_data_dir(app.handle())?;
             Ok(())
         })

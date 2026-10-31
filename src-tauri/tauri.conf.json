@@ -25,6 +25,11 @@
       "csp": null
     }
   },
+  "plugins": {
+    "sql": {
+      "preload": ["sqlite:todo.db"]
+    }
+  },
   "bundle": {
     "active": true,
     "targets": ["app", "dmg"],
