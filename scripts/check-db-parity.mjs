@@ -16,6 +16,8 @@
  * 用法：node scripts/check-db-parity.mjs
  */
 import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DatabaseSync } from 'node:sqlite';
 
@@ -54,7 +56,13 @@ const visible = (todo) => ({
 /** 采集一条后端的可见结果 */
 async function collect(db) {
   const all = await db.fetchTodos();
+  const raw = await db.fetchTodoSyncRows(null);
   return {
+    /** 软删除：墓碑行仍在库、但对界面不可见（FR-SYNC-08 / FR-SYNC-13） */
+    tombstones: raw.filter((row) => row.deleted).length,
+    rawTotal: raw.length,
+    uuidUnique: raw.every((row) => typeof row.uuid === 'string' && row.uuid.length > 0) &&
+      new Set(raw.map((row) => row.uuid)).size === raw.length,
     all: all.map(visible),
     byDate: (await db.fetchTodosByDate('2026-11-01')).map(visible),
     byMonth: (await db.fetchTodosByMonth(2026, 11)).map(visible),
@@ -125,6 +133,15 @@ CREATE TABLE IF NOT EXISTS daily_picks (
 );
 `;
 
+/**
+ * v3 迁移：直接读 `src-tauri/migrations/0003_sync_columns.sql`（与 Rust 侧 include_str! 同一份），
+ * 避免脚本里再抄一份加列语句。v1 / v2 仍逐字照抄 lib.rs。
+ */
+const SYNC_COLUMNS_SQL = fs.readFileSync(
+  path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'src-tauri', 'migrations', '0003_sync_columns.sql'),
+  'utf8'
+);
+
 /** 把 node:sqlite 的行对象转成普通对象（与插件返回的结构一致） */
 const rowsFrom = (rows) =>
   rows.map((row) => {
@@ -176,6 +193,7 @@ async function runBackend(mode) {
   if (mode === 'sqlite') {
     const transport = installSqliteTransport();
     transport.connect('sqlite:todo.db').exec(SCHEMA);
+    transport.connect('sqlite:todo.db').exec(SYNC_COLUMNS_SQL);
   } else {
     globalThis.window = { localStorage: new MemoryStorage() };
     globalThis.localStorage = globalThis.window.localStorage;
@@ -231,6 +249,9 @@ if (modeArg !== -1) {
   compare('fetchDailyPicks()', localResult.picks, sqliteResult.picks);
   compare('fetchDailyPick(2026-11-01)', localResult.onePick, sqliteResult.onePick);
   compare('fetchDailyPick(2026-01-01) 不存在', localResult.missingPick, sqliteResult.missingPick);
+  compare('软删除墓碑数', localResult.tombstones, sqliteResult.tombstones);
+  compare('含墓碑的总行数', localResult.rawTotal, sqliteResult.rawTotal);
+  compare('uuid 唯一且非空', localResult.uuidUnique, sqliteResult.uuidUnique);
 
   console.log('双后端等价性对拍（scripts/check-db-parity.mjs）');
   console.log(`  操作序列        ${OP_SEQUENCE.length} 步`);

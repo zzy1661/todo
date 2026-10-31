@@ -26,6 +26,7 @@ import {
   init as initDailyMethod,
   setCurrentDate,
 } from './stores/dailyMethod.ts';
+import { disposeSync, initSync } from './stores/sync.ts';
 import type { ModuleId, Todo, TodoDraft } from './types/index.ts';
 
 /** 当前模块，默认日历（FR-NAV-01） */
@@ -115,10 +116,14 @@ onMounted(async () => {
     // EX-01：读库失败走阻断式提示，不静默丢数据
     initError.value = String(e);
   }
+  // 同步是可选层：本地界面已经可用之后才初始化，未配置 key / 未登录时零请求
+  // 且不等待（不阻塞首屏，FR-SYNC-01 / FR-SYNC-10）。
+  if (!initError.value) void initSync();
 });
 
 onBeforeUnmount(() => {
   if (noticeTimer) clearTimeout(noticeTimer);
+  disposeSync();
 });
 </script>
 

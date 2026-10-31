@@ -50,6 +50,11 @@ export type TodoPriority = 0 | 1 | 2;
 /** 待办条目 */
 export interface Todo {
   id: number;
+  /**
+   * 跨设备的稳定主键（PRD FR-SYNC-12 / NEG-06）。
+   * 本地自增 `id` 只在单机内有效，绝不作为同步主键。
+   */
+  uuid: string;
   title: string;
   /** `YYYY-MM-DD` */
   date: string;
@@ -60,6 +65,18 @@ export interface Todo {
   created_at: string;
   /** 本地时间字符串 `YYYY-MM-DD HH:mm:ss` */
   updated_at: string;
+  /**
+   * 毫秒时间戳，LWW 冲突判定的唯一依据（PRD BR-28）。
+   * 取客户端时钟（R-T-13 时钟偏移风险已登记，规则不因此改动）。
+   */
+  updated_at_ms: number;
+  /**
+   * 软删除标记（PRD FR-SYNC-08）。
+   * 所有本地读取路径必须过滤 `deleted = 0`（FR-SYNC-13）：
+   * 数据层在 `readLiveTodos` / SQL 的 `deleted = 0` 处统一过滤，
+   * 上层 store 与组件永远看不到已删条目。
+   */
+  deleted: boolean;
 }
 
 /** 新建待办的入参 */

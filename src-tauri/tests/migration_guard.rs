@@ -6,15 +6,27 @@
 //!
 //! 用法：cargo test --test migration_guard
 
-use std::process::Command;
+use std::io::Write;
+use std::process::{Command, Stdio};
 
-/// 执行一段 SQL 并返回标准输出
+/// 执行一段 SQL 并返回标准输出。
+///
+/// SQL 走 stdin 而不是命令行参数：以 `--` 开头的注释会被 sqlite3 CLI 当成选项解析。
 fn sql(db: &str, stmt: &str) -> String {
-    let out = Command::new("sqlite3")
+    let mut child = Command::new("sqlite3")
         .arg(db)
-        .arg(stmt)
-        .output()
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
         .unwrap_or_else(|e| panic!("无法执行 sqlite3 命令（macOS 自带）：{e}"));
+    child
+        .stdin
+        .as_mut()
+        .expect("sqlite3 stdin 不可用")
+        .write_all(stmt.as_bytes())
+        .expect("写入 SQL 失败");
+    let out = child.wait_with_output().expect("等待 sqlite3 失败");
     assert!(
         out.status.success(),
         "SQL 执行失败: {stmt}\n{}",
@@ -157,6 +169,141 @@ fn migration_sql_is_additive_only() {
             assert!(
                 !upper.contains(forbidden),
                 "迁移 SQL 出现破坏性语句（{forbidden}）: {line}"
+            );
+        }
+    }
+}
+
+/// v3 迁移：只给 todos 加 uuid / updated_at_ms / deleted，并幂等回填（AC-64 / TC-076）
+///
+/// 这个测试跑在真实 `sqlite3` 上，用的 SQL 与 Rust 侧 `include_str!` 进来的是同一个文件。
+#[test]
+fn v3_migration_adds_sync_columns_to_todos_only() {
+    let db_path = temp_db_path();
+    let db = db_path.to_str().unwrap();
+    let _ = std::fs::remove_file(&db_path);
+
+    // v2 结构（与 lib.rs 的 v1 / v2 逐字一致）
+    sql(
+        db,
+        "CREATE TABLE IF NOT EXISTS todos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            date TEXT NOT NULL,
+            priority INTEGER NOT NULL DEFAULT 1,
+            note TEXT NOT NULL DEFAULT '',
+            done INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
+            updated_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_todos_date ON todos(date);",
+    );
+    sql(
+        db,
+        "CREATE TABLE IF NOT EXISTS daily_picks (
+            date TEXT PRIMARY KEY,
+            method_id TEXT NOT NULL,
+            manual INTEGER NOT NULL DEFAULT 0,
+            updated_at INTEGER NOT NULL DEFAULT 0
+        );",
+    );
+    sql(
+        db,
+        "INSERT INTO todos (title, date, priority) VALUES ('历史甲', '2026-11-01', 1), ('历史乙', '2026-11-02', 2);",
+    );
+
+    let v3 = std::fs::read_to_string(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("migrations/0003_sync_columns.sql"),
+    )
+    .expect("读取 v3 迁移文件失败");
+    sql(db, &v3);
+
+    // 三列存在，且 daily_picks 未被加列（D-19）
+    let todo_cols = sql(db, "SELECT group_concat(name, ',') FROM pragma_table_info('todos');");
+    for required in ["uuid", "updated_at_ms", "deleted"] {
+        assert!(
+            todo_cols.split(',').any(|name| name == required),
+            "todos 缺少 {required} 列，实际 {todo_cols}"
+        );
+    }
+    let pick_cols = sql(db, "SELECT group_concat(name, ',') FROM pragma_table_info('daily_picks');");
+    for forbidden in ["uuid", "updated_at_ms", "deleted"] {
+        assert!(
+            !pick_cols.split(',').any(|name| name == forbidden),
+            "daily_picks 不应出现 {forbidden}，实际 {pick_cols}"
+        );
+    }
+
+    // 回填：uuid 唯一非空、deleted 默认 0、updated_at_ms 为正
+    assert_eq!(
+        sql(db, "SELECT count(*) FROM todos WHERE uuid IS NULL OR uuid = '';"),
+        "0",
+        "历史行 uuid 未回填"
+    );
+    assert_eq!(
+        sql(db, "SELECT count(DISTINCT uuid) FROM todos;"),
+        sql(db, "SELECT count(*) FROM todos;"),
+        "回填的 uuid 出现重复"
+    );
+    assert_eq!(sql(db, "SELECT sum(deleted) FROM todos;"), "0", "deleted 默认应为 0");
+    assert!(
+        sql(db, "SELECT min(updated_at_ms) FROM todos;")
+            .parse::<i64>()
+            .expect("updated_at_ms 不是整数")
+            > 0,
+        "updated_at_ms 未回填"
+    );
+
+    // 幂等：再次执行回填语句不改变已有 uuid
+    let before = sql(db, "SELECT group_concat(uuid) FROM todos ORDER BY id;");
+    sql(
+        db,
+        "UPDATE todos SET updated_at_ms = CAST(strftime('%s', updated_at, 'utc') AS INTEGER) * 1000
+         WHERE updated_at_ms IS NULL;",
+    );
+    assert_eq!(
+        sql(db, "SELECT group_concat(uuid) FROM todos ORDER BY id;"),
+        before,
+        "重复执行回填改变了已有 uuid"
+    );
+
+    // 软删除：行仍在库
+    sql(db, "UPDATE todos SET deleted = 1 WHERE id = 1;");
+    assert_eq!(sql(db, "SELECT count(*) FROM todos;"), "2", "软删除后行数不应变化");
+    assert_eq!(sql(db, "SELECT deleted FROM todos WHERE id = 1;"), "1");
+
+    let _ = std::fs::remove_file(db_path);
+}
+
+/// v3 迁移文件本身只允许 ADD COLUMN：不得 DROP、不得改 daily_picks
+#[test]
+fn v3_migration_is_additive_only() {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("migrations/0003_sync_columns.sql");
+    let content = std::fs::read_to_string(&path).expect("读取 v3 迁移文件失败");
+
+    for line in content.lines() {
+        let trimmed = line.trim_start();
+        if trimmed.starts_with("--") {
+            continue; // 注释里可以出现「绝不 DROP」这类说明
+        }
+        let upper = line.to_uppercase();
+        assert!(
+            !upper.contains("DROP "),
+            "v3 迁移出现 DROP: {line}"
+        );
+        assert!(
+            !upper.contains("DELETE "),
+            "v3 迁移出现 DELETE: {line}"
+        );
+        assert!(
+            !upper.contains("DAILY_PICKS"),
+            "v3 迁移不得改动 daily_picks（D-19）: {line}"
+        );
+        if upper.contains("ALTER ") {
+            assert!(
+                upper.contains("ALTER TABLE TODOS ADD COLUMN"),
+                "v3 迁移只允许 ALTER TABLE todos ADD COLUMN: {line}"
             );
         }
     }

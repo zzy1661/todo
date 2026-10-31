@@ -84,6 +84,16 @@ export async function refreshCurrentMonth(): Promise<void> {
   await loadMonth(y, m);
 }
 
+/**
+ * 云端合并后整表重读（同步层专用：拉取 / 登录成功后列表要立刻反映，FR-SYNC-05/06）。
+ * 按 id 合并的 `loadMonth` 不足以反映墓碑与远端新增，因此走整表。
+ */
+export async function reloadAfterSync(): Promise<void> {
+  state.todos = await fetchTodos();
+  state.todos.sort(compareTodos);
+  await refreshCurrentMonth();
+}
+
 /** 新建待办 */
 export async function add(draft: TodoDraft): Promise<Todo> {
   const created = await createTodo(draft);

@@ -2,11 +2,12 @@
 /**
  * 左侧边导航（P-01 / C-02、C-03）。
  *
- * 结构自上而下固定：品牌区 → 导航项 → 底部「● 数据本地存储」（FR-NAV-02）。
+ * 结构自上而下固定：品牌区 → 导航项 → 底部「● 数据本地存储」（FR-NAV-02）→ C-16 同步状态区。
  * 图标按模块 id 分支渲染，未知 id 回退默认时钟图标（FR-NAV-04）。
- * 底部标识是静态文本，不提供跳转、不提供设置入口（FR-NAV-07）。
+ * 底部标识是静态文本，不提供跳转；同步入口只在 C-16（AC-44 / AC-58），不在 `<nav>` 内。
  */
 import { NAV_ITEMS } from './navItems.ts';
+import SyncPanel from './SyncPanel.vue';
 
 defineProps<{
   /** 当前模块 id */
@@ -97,6 +98,9 @@ const pathsFor = (id: string): string[] => ICONS[id] ?? CLOCK_ICON;
       <span class="nav-local-dot" aria-hidden="true">●</span>
       <span class="nav-local-text">数据本地存储</span>
     </div>
+
+    <!-- C-16 同步状态与登录区：登录入口只在这里，不在导航内（AC-44 / AC-58） -->
+    <SyncPanel />
   </aside>
 </template>
 

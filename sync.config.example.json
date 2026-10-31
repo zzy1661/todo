@@ -1,0 +1,6 @@
+{
+  "_comment": "复制本文件到应用数据目录并改名为 sync.config.json，填入 anon public key 后重启应用；仓库里不得提交真实 key（AC-67）。",
+  "enabled": true,
+  "supabaseUrl": "https://bbaspdboyysqmjhqhdhj.supabase.co",
+  "anonKey": "<在这里填 anon public key，绝不要填 service_role>"
+}
