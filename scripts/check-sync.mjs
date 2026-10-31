@@ -137,7 +137,25 @@ const eq = (actual, expected, message) =>
     JSON.stringify(actual) === JSON.stringify(expected),
     `${message}（期望 ${JSON.stringify(expected)}，实际 ${JSON.stringify(actual)}）`
   );
-const section = (title) => console.log(`\n── ${title}`);
+let sectionTitle = '';
+let sectionChecks = 0;
+let sectionFailures = 0;
+const section = (title) => {
+  sectionTitle = title;
+  sectionChecks = checks;
+  sectionFailures = failures.length;
+  console.log(`\n── ${title}`);
+};
+/** 每组末尾打印逐条 PASS：验收要求「5 条路径逐条 PASS」，不能只有一句总结 */
+const endSection = () => {
+  const total = checks - sectionChecks;
+  const failed = failures.length - sectionFailures;
+  console.log(
+    failed === 0
+      ? `   ✓ ${sectionTitle} PASS（${total} 项断言）`
+      : `   ✗ ${sectionTitle} FAIL（${total} 项断言，${failed} 项失败）`
+  );
+};
 
 /* ----------------------------------------------------------------- 测试数据 */
 
@@ -185,9 +203,8 @@ const syncRows = async (uuids = null) => db.fetchTodoSyncRows(uuids);
  * stub 配置：走环境变量这条注入路径（与「桌面端读 sync.config.json」并列的另一条来源），
  * 同时验证 base URL / anon key 确实可注入（FR-SYNC-15）。
  */
-const ANON_KEY = `eyJhbGciOiJIUzI1NiJ9.${Buffer.from(
-  JSON.stringify({ role: 'anon' })
-).toString('base64url')}.sig`;
+// 只是占位串：stub 不校验 apikey，仓库里也不该出现任何真实密钥
+const ANON_KEY = 'stub-anon-key';
 
 const config = (url) => {
   process.env.SUPABASE_URL = url;
@@ -340,6 +357,7 @@ section('① 5 秒防抖推送（TC-065 / TC-066 / TC-067）');
   off();
   engine.dispose();
   await stub.close();
+  endSection();
 }
 
 /* ================================================================= 路径 ② */
@@ -374,6 +392,7 @@ section('② 启动拉取合并 / 登录后立即拉取（TC-068 / TC-069）');
   restarted.off();
   restarted.engine.dispose();
   await stub.close();
+  endSection();
 }
 
 /* ================================================================= 路径 ③ */
@@ -448,6 +467,7 @@ section('③ LWW 与同毫秒稳定序（TC-070 / TC-071 / TC-072）');
     '时钟偏移场景按 LWW 判定（远端胜），规则不因风险改动'
   );
   console.log('   · R-T-13 已登记：updated_at_ms 取客户端时钟，快 6 小时的设备会一直胜出');
+  endSection();
 }
 
 /* ================================================================= 路径 ④ */
@@ -518,6 +538,7 @@ section('④ 墓碑终结与软删除（TC-073 / TC-074 / TC-075）');
   engine.dispose();
   await stub.close();
   void session;
+  endSection();
 }
 
 /* ================================================================= 路径 ⑤ */
@@ -565,6 +586,7 @@ section('⑤ 401 失效 → 刷新重试 / 刷新失败重登（AC-58 会话语�
   off();
   engine.dispose();
   await stub.close();
+  endSection();
 }
 
 /* ================================================================= 路径 ⑥ */
@@ -602,6 +624,7 @@ section('⑥ 未配置时零请求（AC-57）');
   off();
   engine.dispose();
   await stub.close();
+  endSection();
 }
 
 /* ================================================================ 迁移证据 */
@@ -688,6 +711,7 @@ section('v3 迁移结构证据（TC-076 / AC-64，只给 todos 加列）');
   console.log(`   · 回填 uuid → ${uuidBefore}`);
   console.log(`   · 软删除后 deleted → ${sqlite('SELECT group_concat(id || ":" || deleted) FROM todos;')}`);
   fs.rmSync(dbPath, { force: true });
+  endSection();
 }
 
 /* ==================================================================== 收尾 */
