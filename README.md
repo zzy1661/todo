@@ -3,9 +3,9 @@
 基于 Tauri 2 + Vue 3 + TypeScript 的**本地**日程与待办应用。数据全部保存在本机，
 不依赖任何云端服务，不发起任何网络请求。
 
-> 本仓库当前处于 **S3 应用外壳 + 日历 + 当日待办面板 + 每日工作法模块** 阶段：工程基座、
-> 数据层、内容库与确定性推送算法已就绪；日历页、当日待办面板与「每日工作法」模块
-> 均可完整操作，「全部待办」模块的视图在 S4 实现。
+> 本仓库当前处于 **S4 三个模块全部可用** 阶段：工程基座、数据层、内容库与确定性推送算法已就绪；
+> 日历页、当日待办面板、「每日工作法」与「全部待办」四个界面均可完整操作，
+> 待办条目、右键菜单与编辑器已收口。E2E 套件（S5）与打包（S6）尚未开始。
 
 ## 技术栈
 
@@ -42,6 +42,7 @@ node scripts/check-data-layer.mjs  # 数据层 localStorage 路径行为自检�
 node scripts/check-db-parity.mjs   # 双后端等价性对拍：同一操作序列下两条后端结果一致
 node scripts/check-s2-ui.mjs       # S2 界面自证：真实浏览器跑外壳/日历/当日面板，截图落 docs/evidence/s2/
 node scripts/check-s3-ui.mjs       # S3 界面自证：每日工作法七区块/渐隐/换一条/往期/方法库，截图落 docs/evidence/s3/
+node scripts/check-s4-ui.mjs       # S4 界面自证：全部待办分组/菜单五条件/翻转/编辑器，截图落 docs/evidence/s4/
 ```
 
 `check-s2-ui.mjs` 需要先另开一个 `npm run dev`（它直接驱动 1420 端口的开发服务器，
@@ -49,6 +50,12 @@ node scripts/check-s3-ui.mjs       # S3 界面自证：每日工作法七区块/
 
 `check-s3-ui.mjs` 同样需要先起 dev server，断言 107 条，覆盖 AC-20 / AC-21 / AC-23 ~ AC-26 /
 AC-28 / AC-29 / AC-51；溢出与渐隐的强制夹具是 `5w2h` 与 `rice-scoring`。
+
+`check-s4-ui.mjs` 同样需要先起 dev server，断言 109 条，覆盖 AC-12 / AC-15 ~ AC-19 / AC-31 ~ AC-33 /
+AC-47 / AC-48 / BR-20 / BR-21：跨日期分组与 ` · 今天`、组内 `已完成/总数`、三页签筛选、
+两个视图的筛选互相独立、菜单按日期分支、复制到今日 / 移动到今日 / 移动明日、五种关闭条件、
+贴边翻转（pad 8）、键盘导航与编辑器两种模式。夹具直接写 `todo_local_db`（20 条 / 4 组），
+跑完清空 localStorage，不碰桌面版的 `todo.db`（BR-14）。
 
 Rust 侧：
 
@@ -77,6 +84,9 @@ src/
    ├─ daily/DailyMethodMini.vue  日历页内的工作法小卡片
    └─ todo/
       ├─ TodoListView.vue      当日待办面板（统计 / 三页签 / 两种空态）
+      ├─ TodosAllView.vue      全部待办模块（跨日期分组、组内 已完成/总数、独立筛选）
+      ├─ TodoStats.vue         统计行（两个视图共用，完成率分母为视图总条数）
+      ├─ TodoFilterTabs.vue    筛选页签（两个视图共用，选中值由父组件各自持有）
       ├─ TodoItem.vue          条目行（圆圈 / 标题 / 优先级 / ⋯）
       ├─ TodoContextMenu.vue   右键菜单（按日期分支、五种关闭条件）
       └─ TodoEditor.vue        待办编辑器（新建 / 编辑）
@@ -92,6 +102,24 @@ docs/design/                   技术设计
 docs/test/                     测试计划
 _ctx/                          Windows 基线事实材料
 ```
+
+## 稳定选择器（E2E 与自证脚本唯一允许的定位口径）
+
+> 三个模块用 `v-show` 同时挂在 DOM 里（BR-21：切模块不重置界面状态），所以
+> **`.todo-item` / `.filter-tab` / `.panel-stats` / `.empty-state` 在两个视图里各有一份**。
+> 任何列表级选择器都必须带容器前缀 `.todo-panel`（当日面板）或 `.all-view`（全部待办），
+> 否则会命中隐藏视图或在 strict mode 下直接报错。禁止用文本推断位置。
+
+| 区块 | 容器 | 元素选择器 |
+| --- | --- | --- |
+| 应用外壳 | `main.app-main` | `[data-module="calendar"｜"daily"｜"todos"]` |
+| 侧边导航 | `.side-nav` | `.nav-item[data-nav-id="calendar"｜"daily"｜"todos"]`、`.nav-item.active` |
+| 月历 | `.cal-card` | `.month-title`、`.month-prev`、`.month-next`、`.today-btn`、`.legend`、`.day-cell[data-date="YYYY-MM-DD"]`、`.day-cell[data-outside]`、`.day-cell.today`、`.day-cell.selected`、`.day-num`、`.dot`、`.dot-count` |
+| 当日面板 | `.todo-panel` | `.day-title`、`.today-badge`、`.new-btn`、`.panel-stats`、`.stat-rate`、`.filter-tab[data-filter="all"｜"active"｜"done"]`、`.filter-tab.active`、`.empty-state[data-empty="no-todos"｜"no-match"]`、`.empty-title`、`.empty-action` |
+| 全部待办 | `.all-view` | `.all-title`、`.panel-stats`、`.stat-rate`、`.filter-tab[data-filter=…]`、`.filter-tab.active`、`.group[data-group-date="YYYY-MM-DD"]`、`.group-title`、`.group-count`、`.group-items`、`.empty-state[data-empty=…]`、`.empty-title` |
+| 待办条目 | `.todo-panel` / `.all-view` | `.todo-item[data-todo-id="<id>"]`、`[data-done="true"｜"false"]`、`[data-priority="0"｜"1"｜"2"]`、`.check`、`.item-body`、`.item-title`、`.item-note`、`.priority-tag`、`.more-btn` |
+| 右键菜单 | `body > .ctx-menu` | `.ctx-menu`、`.ctx-item`、`.ctx-item.active`、`.ctx-item.danger`、`.ctx-sep`、`.ctx-item[data-action="copy-today"｜"move-today"｜"move-tomorrow"｜"edit"｜"delete"]` |
+| 编辑器 | `.editor[data-editor-mode="create"｜"edit"]` | `.editor-card`、`.editor-title`、`input[data-field="title"]`、`input[data-field="date"]`、`textarea[data-field="note"]`、`.priority-option[data-priority=…]`、`.priority-option.active`、`.editor-cancel[data-action="cancel"]`、`.editor-save[data-action="save"]` |
 
 ## 数据存储
 
