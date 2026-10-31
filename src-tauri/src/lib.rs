@@ -4,7 +4,8 @@ use tauri_plugin_sql::{Builder, Migration, MigrationKind};
 
 /// 数据库文件所在目录：Tauri 的 app config dir。
 ///
-/// macOS 上为 `~/Library/Application Support/com.poisson.todo/`，
+/// 该目录**由 `identifier` 决定，两端各自落到平台约定的位置**（macOS 与 Windows
+/// 的具体路径见 README「数据存放」；此处不写死任一端，避免把某一端的路径带进代码）。
 /// plugin-sql 会把 `sqlite:todo.db` 解析到该目录下的 `todo.db`。
 ///
 /// 实测（2026-11-01）：plugin-sql 在 `auto_create` 为真时（默认值）会自行
