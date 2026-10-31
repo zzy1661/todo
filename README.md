@@ -3,8 +3,9 @@
 基于 Tauri 2 + Vue 3 + TypeScript 的**本地**日程与待办应用。数据全部保存在本机，
 不依赖任何云端服务，不发起任何网络请求。
 
-> 本仓库当前处于 **S1 工程基座** 阶段：数据层、内容库、确定性推送算法已就绪，
-> 界面模块（日历 / 每日工作法 / 全部待办）将在 S2 实现。
+> 本仓库当前处于 **S2 应用外壳 + 日历 + 当日待办面板** 阶段：工程基座、数据层、
+> 内容库与确定性推送算法已就绪；日历页与当日待办面板可完整操作，
+> 「每日工作法」与「全部待办」两个模块的视图在 S3 / S4 实现。
 
 ## 技术栈
 
@@ -29,7 +30,7 @@ npm run dev            # 前端开发服务器（端口固定 1420，strictPort�
 npm run build          # vue-tsc --noEmit && vite build —— 类型检查是构建的一部分
 npm run tauri dev      # 桌面应用开发模式
 npm run tauri build    # 桌面发布构建
-npx playwright test    # E2E（S2 起）
+npx playwright test    # E2E（S5 / T-14 起）
 ```
 
 ## 校验脚本
@@ -39,7 +40,11 @@ node scripts/check-cases.mjs       # 内容库校验（CFL-07 口径）：总数
 node scripts/check-permutation.mjs # 推送确定性比对：7 个抽样日期 + 落库与「换一条」规则
 node scripts/check-data-layer.mjs  # 数据层 localStorage 路径行为自检（9 组断言）
 node scripts/check-db-parity.mjs   # 双后端等价性对拍：同一操作序列下两条后端结果一致
+node scripts/check-s2-ui.mjs       # S2 界面自证：真实浏览器跑外壳/日历/当日面板，截图落 docs/evidence/s2/
 ```
+
+`check-s2-ui.mjs` 需要先另开一个 `npm run dev`（它直接驱动 1420 端口的开发服务器，
+不通过 Playwright 的 webServer 自启），断言 106 条，覆盖 AC-06 ~ AC-11 / AC-14 / AC-45 / AC-46。
 
 Rust 侧：
 
@@ -51,7 +56,7 @@ cd src-tauri && cargo test --test migration_guard   # SQLite 路径语义 + 迁�
 
 ```
 src/
-├─ App.vue                     模块路由 + 编辑器状态（S2 重写，当前为最小占位）
+├─ App.vue                     模块切换（currentModule）+ 编辑器状态 + 日历页两栏
 ├─ types/index.ts              唯一类型来源
 ├─ styles/main.css             设计 token + 全局重置 + macOS 兼容层
 ├─ data/methods.ts             65 条内容库（原样搬运，零改动）
@@ -59,7 +64,16 @@ src/
 ├─ stores/
 │  ├─ todo.ts                  待办状态 + 优先级元数据
 │  └─ dailyMethod.ts           每日推送状态 + 确定性排列算法
-└─ components/                 界面组件（S2 实现）
+└─ components/
+   ├─ layout/SideNav.vue       侧边导航（注册表驱动，底部「数据本地存储」）
+   ├─ layout/navItems.ts       导航注册表（新增模块只改这里 + App 分支 + 新组件）
+   ├─ calendar/CalendarView.vue  42 格月历（data-date / data-outside、四态、圆点 + `+`）
+   ├─ daily/DailyMethodMini.vue  日历页内的工作法小卡片
+   └─ todo/
+      ├─ TodoListView.vue      当日待办面板（统计 / 三页签 / 两种空态）
+      ├─ TodoItem.vue          条目行（圆圈 / 标题 / 优先级 / ⋯）
+      ├─ TodoContextMenu.vue   右键菜单（按日期分支、五种关闭条件）
+      └─ TodoEditor.vue        待办编辑器（新建 / 编辑）
 
 src-tauri/
 ├─ src/lib.rs                  SQL 迁移定义（v1 todos / v2 daily_picks，纯新增）
