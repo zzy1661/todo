@@ -264,10 +264,12 @@ async function sqliteUpdateTodo(id: number, patch: TodoPatch): Promise<void> {
   values.push(now);
 
   values.push(id);
-  await db.execute(
+  const result = await db.execute(
     `UPDATE todos SET ${sets.join(', ')} WHERE id = ? AND deleted = 0`,
     values
   );
+  // 没改到任何行（不存在或已软删）就不广播：否则同步层会去推一条其实没变的记录
+  if (result.rowsAffected === 0) return;
   const rows = await db.select<{ uuid: string }[]>(
     `SELECT uuid FROM todos WHERE id = ? -- sync-all-rows`,
     [id]
@@ -279,10 +281,12 @@ async function sqliteDeleteTodo(id: number): Promise<void> {
   const db = await getDb();
   // 软删除：行必须留在库里（FR-SYNC-08 / NEG-03）
   const now = nowMs();
-  await db.execute(
+  const result = await db.execute(
     `UPDATE todos SET deleted = 1, updated_at = ?, updated_at_ms = ? WHERE id = ? AND deleted = 0`,
     [localTimestamp(now), now, id]
   );
+  // 已经是墓碑（重复删除）时不再广播
+  if (result.rowsAffected === 0) return;
   const rows = await db.select<{ uuid: string }[]>(
     `SELECT uuid FROM todos WHERE id = ? -- sync-all-rows`,
     [id]
