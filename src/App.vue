@@ -7,14 +7,14 @@
  *   编辑器挂在 `<main>` 之外，是 `position: fixed` 的遮罩弹层（设计 §6.1）；
  * - 日历页两栏：左栏月历，右栏自上而下「工作法小卡片 + 当日待办面板」（FR-CAL-09）。
  */
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { onBeforeUnmount, onMounted, ref } from 'vue';
 import dayjs from 'dayjs';
 import SideNav from './components/layout/SideNav.vue';
-import { NAV_ITEMS } from './components/layout/navItems.ts';
 import CalendarView from './components/calendar/CalendarView.vue';
 import DailyMethodMini from './components/daily/DailyMethodMini.vue';
 import DailyMethodView from './components/daily/DailyMethodView.vue';
 import TodoListView from './components/todo/TodoListView.vue';
+import TodosAllView from './components/todo/TodosAllView.vue';
 import TodoEditor from './components/todo/TodoEditor.vue';
 import {
   add as addTodo,
@@ -54,11 +54,6 @@ function setNotice(message: string): void {
     noticeTimer = null;
   }, 5000);
 }
-
-/** 当前模块标题（占位页用；S3 / S4 接入真实视图后删除） */
-const placeholderTitle = computed(
-  () => NAV_ITEMS.find((item) => item.id === currentModule.value)?.label ?? ''
-);
 
 function selectModule(id: string): void {
   currentModule.value = id as ModuleId;
@@ -160,13 +155,8 @@ onBeforeUnmount(() => {
           <DailyMethodView :date="selectedDate" @select-date="selectDailyDate" @error="setNotice" />
         </section>
 
-        <section
-          v-show="currentModule === 'todos'"
-          class="module-placeholder"
-          :data-placeholder="currentModule"
-        >
-          <p class="placeholder-title">{{ placeholderTitle }}</p>
-          <p class="placeholder-note">该模块将在后续阶段实现</p>
+        <section v-show="currentModule === 'todos'" class="todos-module">
+          <TodosAllView @edit="openEdit" @error="setNotice" />
         </section>
       </template>
 
@@ -216,6 +206,12 @@ onBeforeUnmount(() => {
   min-height: 0;
 }
 
+/* 全部待办模块：单个卡片撑满内容区，列表内部滚动 */
+.todos-module {
+  height: 100%;
+  min-height: 0;
+}
+
 .todo-col {
   display: flex;
   flex-direction: column;
@@ -256,29 +252,6 @@ onBeforeUnmount(() => {
   font-size: 12px;
   color: var(--color-text-secondary);
   word-break: break-all;
-}
-
-.module-placeholder {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: var(--color-text-muted);
-  background: var(--color-surface);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
-}
-
-.placeholder-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--color-text-secondary);
-}
-
-.placeholder-note {
-  font-size: 12px;
 }
 
 .app-notice {

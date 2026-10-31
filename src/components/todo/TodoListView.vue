@@ -10,7 +10,9 @@ import { computed, ref, watch } from 'vue';
 import dayjs from 'dayjs';
 import { byDate } from '../../stores/todo.ts';
 import type { Todo, TodoFilter } from '../../types/index.ts';
+import TodoFilterTabs from './TodoFilterTabs.vue';
 import TodoItem from './TodoItem.vue';
+import TodoStats from './TodoStats.vue';
 
 const props = defineProps<{
   /** 选中日期 `YYYY-MM-DD` */
@@ -25,12 +27,6 @@ const emit = defineEmits<{
 
 const WEEK_CN = ['日', '一', '二', '三', '四', '五', '六'] as const;
 
-const FILTERS: { value: TodoFilter; label: string }[] = [
-  { value: 'all', label: '全部' },
-  { value: 'active', label: '未完成' },
-  { value: 'done', label: '已完成' },
-];
-
 const today = dayjs().format('YYYY-MM-DD');
 
 const filter = ref<TodoFilter>('all');
@@ -40,7 +36,6 @@ const actionError = ref('');
 const todos = computed<Todo[]>(() => byDate(props.date));
 const total = computed(() => todos.value.length);
 const doneCount = computed(() => todos.value.filter((t) => t.done).length);
-const rate = computed(() => Math.round((doneCount.value / total.value) * 100));
 
 /** 当前筛选命中的条目 */
 const visible = computed<Todo[]>(() => {
@@ -80,27 +75,9 @@ function onError(message: string): void {
       <button type="button" class="new-btn" @click="emit('create', date)">+ 新建待办</button>
     </header>
 
-    <div class="panel-stats">
-      <span class="stat">共 {{ total }} 项</span>
-      <span class="stat">已完成 {{ doneCount }} 项</span>
-      <span v-if="total > 0" class="stat stat-rate">完成率 {{ rate }}%</span>
-    </div>
+    <TodoStats :total="total" :done="doneCount" />
 
-    <div class="filter-tabs" role="tablist">
-      <button
-        v-for="item in FILTERS"
-        :key="item.value"
-        type="button"
-        class="filter-tab"
-        :class="{ active: filter === item.value }"
-        :data-filter="item.value"
-        role="tab"
-        :aria-selected="filter === item.value"
-        @click="filter = item.value"
-      >
-        {{ item.label }}
-      </button>
-    </div>
+    <TodoFilterTabs v-model="filter" />
 
     <p v-if="actionError" class="panel-error">{{ actionError }}</p>
 
@@ -200,43 +177,6 @@ function onError(message: string): void {
 
 .new-btn:hover {
   background: #dfe8ff;
-}
-
-.panel-stats {
-  display: flex;
-  gap: 12px;
-  padding: 0 16px 8px;
-  font-size: 12px;
-  color: var(--color-text-secondary);
-}
-
-.stat-rate {
-  color: var(--color-success);
-}
-
-.filter-tabs {
-  display: flex;
-  gap: 4px;
-  padding: 0 16px 8px;
-}
-
-.filter-tab {
-  padding: 4px 12px;
-  font-size: 12px;
-  color: var(--color-text-secondary);
-  background: var(--color-surface-2);
-  border-radius: 999px;
-  transition: color 0.15s ease, background-color 0.15s ease;
-}
-
-.filter-tab:hover {
-  color: var(--color-primary);
-}
-
-.filter-tab.active {
-  color: var(--color-primary);
-  background: var(--color-surface);
-  box-shadow: var(--shadow-sm);
 }
 
 .panel-error {
