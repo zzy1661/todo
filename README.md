@@ -36,8 +36,15 @@ npx playwright test    # E2E（S2 起）
 
 ```bash
 node scripts/check-cases.mjs       # 内容库校验（CFL-07 口径）：总数 65 / 分类 17·17·12·7·12
-node scripts/check-permutation.mjs # 推送确定性比对：7 个抽样日期与参考实现逐条一致
-node scripts/check-data-layer.mjs  # 数据层 localStorage 路径行为自检（8 组断言）
+node scripts/check-permutation.mjs # 推送确定性比对：7 个抽样日期 + 落库与「换一条」规则
+node scripts/check-data-layer.mjs  # 数据层 localStorage 路径行为自检（9 组断言）
+node scripts/check-db-parity.mjs   # 双后端等价性对拍：同一操作序列下两条后端结果一致
+```
+
+Rust 侧：
+
+```bash
+cd src-tauri && cargo test --test migration_guard   # SQLite 路径语义 + 迁移只增不改
 ```
 
 ## 目录结构
