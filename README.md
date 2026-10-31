@@ -3,9 +3,10 @@
 基于 Tauri 2 + Vue 3 + TypeScript 的**本地**日程与待办应用。数据全部保存在本机，
 不依赖任何云端服务，不发起任何网络请求。
 
-> 本仓库当前处于 **S4 三个模块全部可用** 阶段：工程基座、数据层、内容库与确定性推送算法已就绪；
-> 日历页、当日待办面板、「每日工作法」与「全部待办」四个界面均可完整操作，
-> 待办条目、右键菜单与编辑器已收口。E2E 套件（S5）与打包（S6）尚未开始。
+> 本仓库当前处于 **S5 E2E 体系就绪** 阶段：工程基座、数据层、内容库与确定性推送算法、
+> 日历页、当日待办面板、「每日工作法」、「全部待办」四个界面均已完整可操作，
+> 待办条目、右键菜单与编辑器已收口；Playwright 6 个用例（5 功能 + 1 巡览）全绿，
+> 巡览截图与录屏已落 `screenshots/` `videos/`。桌面打包（S6）尚未开始。
 
 ## 技术栈
 
@@ -30,7 +31,7 @@ npm run dev            # 前端开发服务器（端口固定 1420，strictPort�
 npm run build          # vue-tsc --noEmit && vite build —— 类型检查是构建的一部分
 npm run tauri dev      # 桌面应用开发模式
 npm run tauri build    # 桌面发布构建
-npx playwright test    # E2E（S5 / T-14 起）
+npx playwright test    # E2E：6 个用例（5 功能 + 1 巡览）
 ```
 
 ## 校验脚本
@@ -62,6 +63,27 @@ Rust 侧：
 ```bash
 cd src-tauri && cargo test --test migration_guard   # SQLite 路径语义 + 迁移只增不改
 ```
+
+## E2E（Playwright）
+
+```bash
+npx playwright test                      # 全量 6 个用例（5 功能 + 1 巡览），需 6 passed
+npx playwright test e2e/tour.spec.ts     # 只重生成巡览证据：screenshots/ 14 张 + videos/ 1 段
+E2E_NOW=2026-11-15 npx playwright test   # 把浏览器时钟固定到指定日期复跑（日期无关性）
+```
+
+| 用例 | 文件 | 内容 |
+| --- | --- | --- |
+| 1 · 应用加载 | `e2e/todo.spec.ts` | 外壳与导航、42 格月历（周日起始）、今天/补位格/选中态、当日空态与「今天」按钮 |
+| 2 · 完整链路 | `e2e/todo.spec.ts` | 编辑器造数 → 圆点与 `+` → 优先级循环 → 完成率 33/100/67% → 跨月补位格与数据加载 |
+| 3 · 每日工作法 | `e2e/todo.spec.ts` | 确定性推送（对照独立参考实现）、换一条、往期 7 天、65 条方法库、预览不落库、`5w2h` 内滚动与渐隐、小卡片刷新 |
+| 4 · 全部待办 | `e2e/todo.spec.ts` | 跨日期分组与 ` · 今天`、组内 `已完成/总数`、筛选同步、与当日面板筛选独立、清库后的中性空态 |
+| 5 · 条目与编辑器 | `e2e/todo.spec.ts` | 行内四元素、菜单按日期分支、三种关闭条件（点外部/Esc/滚动）、贴边翻转、编辑器空标题禁用与回车提交 |
+| 6 · 巡览 | `e2e/tour.spec.ts` | 自包含造数，逐页 14 张截图 + 1 段连续录屏，落 `screenshots/` `videos/` |
+
+`playwright.config.ts` 用 Playwright 自带 Chromium（无 `channel`），`fullyParallel: false` + `workers: 1` 串行，
+`video: 'on'`、`trace: 'retain-on-failure'`，webServer 复用 1420 端口。`screenshots/` 与 `videos/` 刻意放在
+`test-results/` 之外（后者每次运行会被清空）。TC 覆盖对照与未自动化项见 `e2e/COVERAGE.md`。
 
 ## 目录结构
 
@@ -97,6 +119,10 @@ src-tauri/
 └─ capabilities/default.json   窗口权限（core:default + sql:default + sql:allow-execute）
 
 scripts/                       校验脚本
+e2e/                           Playwright：todo.spec.ts（5 功能）/ tour.spec.ts（巡览）/ support/ / COVERAGE.md
+playwright.config.ts           E2E 配置（自带 Chromium、workers 1、video on、trace 失败留存）
+screenshots/                   巡览截图 01~14（长期留存，不在 test-results/ 下）
+videos/                        巡览录屏 1 段 webm（同上）
 docs/requirements/             PRD（需求唯一口径）
 docs/design/                   技术设计
 docs/test/                     测试计划
