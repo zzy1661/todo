@@ -14,7 +14,7 @@ fn sql(db: &str, stmt: &str) -> String {
         .arg(db)
         .arg(stmt)
         .output()
-        .expect("sqlite3 命令不可用");
+        .unwrap_or_else(|e| panic!("无法执行 sqlite3 命令（macOS 自带）：{e}"));
     assert!(
         out.status.success(),
         "SQL 执行失败: {stmt}\n{}",
@@ -23,11 +23,20 @@ fn sql(db: &str, stmt: &str) -> String {
     String::from_utf8_lossy(&out.stdout).trim().to_string()
 }
 
+/// 造一个本次运行独有的临时库文件名，避免并行跑测试时互相覆盖
+fn temp_db_path() -> std::path::PathBuf {
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("系统时间早于 Unix 纪元")
+        .as_nanos();
+    std::env::temp_dir().join(format!("todo_s1_semantics_{nanos}.db"))
+}
+
 #[test]
 fn sqlite_path_matches_localstorage_semantics() {
-    let db = std::env::temp_dir().join("todo_s1_semantics_test.db");
-    let db = db.to_str().unwrap();
-    let _ = std::fs::remove_file(db);
+    let db_path = temp_db_path();
+    let db = db_path.to_str().unwrap();
+    let _ = std::fs::remove_file(&db_path);
 
     // 与 lib.rs 的 v1 / v2 迁移逐字一致
     sql(
@@ -126,25 +135,29 @@ fn sqlite_path_matches_localstorage_semantics() {
     let row = sql(db, "SELECT method_id, manual FROM daily_picks WHERE date = '2026-11-01';");
     assert_eq!(row, "5w2h|1", "推送覆盖失败");
 
-    let _ = std::fs::remove_file(db);
+    let _ = std::fs::remove_file(db_path);
 }
 
 /// 迁移只增不改：lib.rs 的迁移 SQL 里不得出现破坏性语句
+///
+/// BR-08 禁止的不只是 DROP / ALTER，还有对既有表的 DELETE / UPDATE。
 #[test]
 fn migration_sql_is_additive_only() {
     let lib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/lib.rs");
     let content = std::fs::read_to_string(&lib).expect("读取 lib.rs 失败");
 
     for line in content.lines() {
-        let upper = line.to_uppercase();
         // 注释行不参与判定
         let trimmed = line.trim_start();
         if trimmed.starts_with("//") || trimmed.starts_with("///") {
             continue;
         }
-        assert!(
-            !upper.contains("DROP ") && !upper.contains("ALTER "),
-            "迁移 SQL 出现破坏性语句: {line}"
-        );
+        let upper = line.to_uppercase();
+        for forbidden in ["DROP ", "ALTER ", "DELETE ", "UPDATE "] {
+            assert!(
+                !upper.contains(forbidden),
+                "迁移 SQL 出现破坏性语句（{forbidden}）: {line}"
+            );
+        }
     }
 }
