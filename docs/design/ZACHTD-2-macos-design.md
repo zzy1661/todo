@@ -59,11 +59,15 @@
 
 ### 1.3 明确不做
 
-功能增量、云同步 / 账号 / 自动更新、番茄钟、Windows 版回归、签名与公证、universal 二进制、git 同步与远端协作、Windows 专项脚本（`.ps1` / UI Automation / PrintWindow）。
+功能增量（**云同步 / 账号除外**——v1.2 起它是本期范围内的可选层，见 §12）、自动更新、番茄钟、Windows 版回归、签名与公证、universal 二进制、git 远端协作（≠ 数据同步，见 PRD NS-03）、Windows 专项脚本（`.ps1` / UI Automation / PrintWindow）。
+
+> 旧版把「云同步 / 账号」列在本节属范围变更后的遗留表述；PRD v1.2 §16 起同步是**可选层**的实现范围，
+> 与「功能增量」区分对待：不做的是「除 §16 以外的顺手加」。
 
 ### 1.4 验收口径
 
-以 PRD §13 的 **44 条 AC** 为准；本设计的每个 T- 任务都显式映射到 FR- / AC-，映射关系见 §8。
+以 PRD §13 的 **67 条 AC** 为准（AC-01 ~ AC-44 原基线 + AC-45 ~ AC-56 GAP 转正 + AC-57 ~ AC-67 数据同步；
+PRD v1.3 未新增 AC-68）；本设计的每个 T- 任务都显式映射到 FR- / AC-，映射关系见 §8。
 
 ---
 
@@ -104,7 +108,7 @@ Windows 基线用 `.ps1` + UI Automation + `PrintWindow` 做自动化实机验�
 **判定：① + ② + 人工 checklist 三层证据链**（§7.4），不产出自动化实机脚本（与 OP-09 默认一致）。
 
 **权衡 4：`.app` 与 `.dmg` 都产出，但不做 universal。**
-`bundle.targets: ["app", "dmg"]`（保留脚手架现值，与 OP-04「`.app` + `.dmg`」一致）。`.app` 用于「拖到 /Applications 直接跑」和自动化验证；`.dmg` 用于分发（体积大、拖拽体验好）。架构只做 arm64（`aarch64`），universal 会使 Rust 全量重编译两遍并显著拉长构建（OP-04 已定 arm64）。**判定：采纳**。
+macOS overlay 的 `bundle.targets: ["app", "dmg"]`（基础 conf **不写** targets，S6 已改为「基础中立 + 平台 overlay」，与 OP-04「`.app` + `.dmg`」一致）。`.app` 用于「拖到 /Applications 直接跑」和自动化验证；`.dmg` 用于分发（体积大、拖拽体验好）。架构只做 arm64（`aarch64`），universal 会使 Rust 全量重编译两遍并显著拉长构建（OP-04 已定 arm64）。**判定：采纳**。
 
 ---
 
@@ -678,7 +682,9 @@ const isTauriEnv = () => typeof window !== 'undefined' && '__TAURI_INTERNALS__' 
   },
   "bundle": {
     "active": true,
-    "targets": ["app", "dmg"],              // ADP-01
+    // 注意：基础 conf **不写 targets**（S6 已落地「基础中立 + 平台 overlay」）：
+    // macOS overlay 给 ["app","dmg"]（ADP-01），Windows overlay 给 ["nsis","msi"]。
+    // 把 targets 写进基础 conf 会让两个平台互相覆盖，是旧版设计的错误写法。
     "category": "Productivity",
     "shortDescription": "本地日程与待办，日历、每日工作法、全部待办三模块",
     "macOS": {
@@ -782,6 +788,7 @@ flowchart LR
 | **T-17** | 桌面版取证与人工 checklist：`scripts/mac-window-id.swift` + `screencapture` 抓图流程 + §7.4 的 M-01 ~ M-12 checklist + 调研 Tauri 应用内截图可行性 | T-14、T-15 | 取证脚本 + checklist 文档 | FR-QA-10、AC-15、AC-19（④）、AC-29、AC-41、ADP-06/10/11、MR-06/09/10 | 8 |
 | **T-18** | 数据完整性复核与升级回归：升级前后 `diff`、迁移版本只增、`rm -rf .app` 后重装数据保留、E2E 与桌面版数据隔离复核 | T-05、T-15 | 复核脚本 / 记录 | AC-34 ~ AC-38、BR-14、ADP-05/19、FR-DB-10 | 6 |
 | **T-19** | 依赖克制与 Windows 残留自检：附录 B.9 / B.10 命令固化进收尾清单；`.ps1` / NSIS / `%APPDATA%` / `msedge` / Win32 概念零残留 | T-01 ~ T-18 | 自检清单 | AC-42、AC-43、BR-15、ADP-11/12 | 3 |
+| **T-20** | 同步层（§12）：v3 迁移、软删除与读取过滤、防抖推送、启动/登录后拉取、LWW + 墓碑终结、C-16 状态区、本地 stub 回归脚本、同步 E2E 隔离 | T-04、T-05、T-16 | `src/sync/**`、`supabase/schema.sql`、`scripts/check-sync.mjs`、`e2e-sync/` | FR-SYNC-01~16、AC-57~AC-67、BR-24~33 | 24 |
 
 **合计约 137 人时**（不含设计评审与等待）。关键路径：T-01 → T-03/T-04/T-05 → T-08 ~ T-13 → T-14 → T-15 → T-16 ~ T-19。
 
@@ -796,6 +803,9 @@ flowchart LR
 | `scripts/check-cases.mjs` | 总数 65；分类 17/17/12/7/12；`case.type` 仅 practice/story，分布 18/47；**`steps.length >= 2`（CFL-07 口径），并打印真实分布 3–7 与 4 条超限条目 id**；案例正文 126–240 字；id 唯一；必填字段齐全 | AC-26、AC-27 |
 | `scripts/check-permutation.mjs` | 附录 A 参考实现对 7 个抽样日期：排列序列与首条一致；重复计算 3 次一致 | AC-24、KPI-06 |
 | `scripts/verify-fix.mjs` | 回归校验（排序 / 完成率 / 菜单分支 / 迁移 SQL 无破坏性语句） | AC-37、BR-02、BR-11 |
+| `scripts/check-sync.mjs` | 本地 stub 上跑防抖合并、启动/登录后拉取、LWW（双向 + 同毫秒 + 6 小时偏移）、墓碑终结、401 重登、未配置零请求；另出 v3 迁移的 SQLite 结构证据 | AC-57、AC-60~AC-64，TC-065~TC-077 |
+| `scripts/check-deleted-filter.mjs` | 静态检索 `FROM todos`：不带 `deleted = 0` 且不带 `-- sync-all-rows` 即失败；禁止物理 `DELETE FROM todos` | FR-SYNC-13、RISK-14 |
+| `playwright.sync.config.ts` | 同步 E2E（`e2e-sync/`，独立 testDir）：零云端请求、无登录拦截、状态区关闭不丢状态 | AC-57、AC-58、FR-SYNC-16 |
 
 **口径声明**：CFL-07 的断言「`steps` ≥ 2」对真实数据（最小 3）成立，是**上界松弛但永不为假**的安全断言；**不得**把断言改回「2–4」——那会在正确数据上误报失败（G2 冤判的根因）。
 
@@ -844,7 +854,7 @@ page.locator('.day-cell:not(.out-month)')
 | 数据库文件 | `~/Library/Application Support/com.poisson.todo/todo.db` |
 | `.app` 产物 | `src-tauri/target/release/bundle/macos/日程待办.app` |
 | `.dmg` 产物 | `src-tauri/target/release/bundle/dmg/日程待办_0.1.0_aarch64.dmg` |
-| `bundle.targets` | `["app", "dmg"]` |
+| `bundle.targets` | **基础 conf 不写**；macOS overlay `["app","dmg"]`、Windows overlay `["nsis","msi"]` |
 | `bundle.macOS.minimumSystemVersion` | `"12.0"` |
 | `bundle.macOS.hardenedRuntime` | `false`（本期不签名） |
 | `identifier` / `productName` | `com.poisson.todo` / `日程待办` |
@@ -871,7 +881,145 @@ page.locator('.day-cell:not(.out-month)')
 | 产出文件 | `docs/design/ZACHTD-2-macos-design.md`（本文） |
 | 覆盖 | ADP-01 ~ ADP-19 **逐条**替换方案 + 验证方式；落地值速查表；技术选型与权衡；架构与目录；数据模型与接口契约；前端（含 macOS 渲染差异与 CFL-07 卡片尺寸推导）；Rust 侧与三层验证体系；19 条 T- 任务（映射 FR-/AC-）；风险与回滚 |
 | 本轮**未做** | 实现代码、工程初始化、git 操作、deploy 目标、签名公证、依赖安装、任何构建/测试执行 |
+| S10 增量（2026-11-01） | 新增 §12 同步层设计：v3 字段与迁移、时序、LWW 与墓碑终结、RLS 与密钥边界、七个可测性注入点、五条风险（含时钟 R-SYNC-01）；同时修正 §1.3 / §1.4 / §7.2 / §10 四处与 PRD 不一致的旧表述 |
 | 与其他 agent 的交接 | ① @ProductManager：`steps` 表述更正为「断言 ≥ 2；真实分布 3–7（3×6 / 4×55 / 5×3 / 7×1）」；② @Tester：E2E 溢出夹具用 `5w2h` / `rice-scoring`；人工 checklist 见 §7.4 M-01 ~ M-12；③ @Reviewer：Q-01 ~ Q-05 需拍板项见 §0.3 |
+
+---
+
+## 12. 同步层增量设计（S10 · Supabase，对应 PRD §16 / FR-SYNC-01~16）
+
+> 本节是设计**增量**，不改写前 11 节。与 PRD v1.2/v1.3 §16 冲突时以 PRD 为准；
+> 本节只补实现口径（字段、时序、规则唯一实现处、注入点、风险）。
+> 一句话：**本地优先不变，同步是加在基线之上的可选层，未配置时与基线逐条一致。**
+
+### 12.1 范围与不变量
+
+| 项 | 口径 |
+| --- | --- |
+| 同步范围 | **只有 `todos`**；`daily_picks` 是本机「今天推了哪条」的状态，不同步、不加列（D-07 / D-19） |
+| 不变量 1 | 无 key / 未登录 / 断网时与基线完全一致：无登录页、无遮罩、无强制登录（FR-SYNC-01） |
+| 不变量 2 | `sync.enabled = false` 时 `rest/v1` 与 `auth/v1` **都零请求**（FR-SYNC-10 原文，比测试计划 TC-057 更严） |
+| 不变量 3 | 既有 6 个 E2E 用例的断言不改；同步断言只放 `e2e-sync/`（FR-SYNC-16 / BR-33） |
+| 不变量 4 | 迁移只增不改：v1 / v2 逐字不动，v3 只做 `ALTER TABLE todos ADD COLUMN` + 回填 + 建索引 |
+| 不变量 5 | `service_role` 不出现在客户端代码、仓库、打包产物任何一处（AC-67） |
+
+### 12.2 字段与 v3 迁移
+
+`src-tauri/migrations/0003_sync_columns.sql`（由 `lib.rs` 用 `include_str!` 引入同一个文件，
+Rust 测试与 Node 检查脚本读的也是它，避免三处各抄一份）：
+
+| 列 | 类型 | 语义 |
+| --- | --- | --- |
+| `uuid` | TEXT | 跨设备稳定主键（NEG-06）。新建时 `crypto.randomUUID()` 生成并落库；历史行用 `randomblob` 拼 v4 回填，唯一索引 `idx_todos_uuid` |
+| `updated_at_ms` | INTEGER | LWW 唯一依据；由**注入时钟**（`nowMs()`）写入，与 `updated_at` 同一时刻。历史行按 `strftime('%s', updated_at, 'utc') * 1000` 回填（`'utc'` 修饰符把本地时间串换算成 UTC 纪元，避免整体偏移一个时区） |
+| `deleted` | INTEGER NOT NULL DEFAULT 0 | 软删除标记；删除只写 1，**不删行**（NEG-03） |
+
+**回填幂等**：迁移版本号由 `tauri-plugin-sql` 记录，二次启动不再执行；即便重复执行回填语句，
+`WHERE uuid IS NULL` / `WHERE updated_at_ms IS NULL` 也只补空缺行，已生成 uuid 不变（AC-64）。
+**`daily_picks` 不加列**（D-19），`PRAGMA table_info(daily_picks)` 必须看不到这三列。
+
+**读取路径的过滤方式**：SQL 侧把 `deleted = 0` 写进唯一常量
+`TODOS_LIVE = SELECT ... FROM todos WHERE deleted = 0`，所有 `sqliteFetch*` 从它拼接；
+localStorage 侧收敛到 `readLiveTodos() = readAllLocalTodos().filter(t => !t.deleted)`。
+同步网关需要的**含墓碑读取**必须显式带 `-- sync-all-rows` 标记，
+`scripts/check-deleted-filter.mjs` 逐行扫描 `FROM todos`：不带 `deleted = 0` 且不带该标记即非零退出，
+同时禁止物理 `DELETE FROM todos`。这条脚本就是 RISK-14 / FR-SYNC-13 的机械保证。
+
+### 12.3 时序（可观察行为）
+
+```
+启动 ─┬─ 未配置 ─────────────────→ 状态「未配置」；零请求；三模块照常
+      ├─ 已配置未登录 ───────────→ 状态「未登录」；零请求
+      └─ 已登录 ─→ 拉取一次 → LWW 合并 → 刷新界面 → 状态「上次同步 …」
+
+登录（用户点击 C-16 的 GitHub 登录）
+  └─ loopback 监听(127.0.0.1:随机端口) → 打开浏览器授权(PKCE S256) →
+     回环收到 code → 校验 state → 换 token → 存钥匙串 → **立即拉取一次**
+
+任意本地变更（新建/编辑/勾选/搬日期/软删除）
+  └─ 触摸 5 秒防抖（窗口内多次变更合并）→ 推送本窗口改动的条目
+       ├─ 成功 → 记录上次同步时间与结果
+       └─ 失败 → 1s/2s/4s/8s/16s 指数退避；耗尽后状态「同步失败，可手动重试」；本地数据不回滚
+```
+
+退出前**不 flush** 未到期的防抖（OPEN-02 默认），未推送的改动留在本地库，下一次变更会带上。
+
+### 12.4 冲突规则：LWW + 墓碑终结（规则唯一实现处 `src/sync/merge.ts`）
+
+按优先级三条，**不在任何存储适配器里另写一套**：
+
+1. **墓碑终结**（OPEN-01 已裁定 / D-10）：任一侧 `deleted = 1`，结果就是 `deleted = 1`。
+   已删条目**不因任何非删除记录复活**，含 `updated_at_ms` 更大的记录；
+   本地侧对 `deleted = 1` 的行也拒绝接受编辑。
+2. **LWW**：两侧都未删时 `updated_at_ms` 大者胜。
+3. **稳定序**（保证「两种到达顺序结果逐字节相同」，AC-62 / TC-071）：
+   `updated_at_ms` 相同 → `uuid` 字典序**较大**者胜；同一 `uuid` 同毫秒但内容不同 →
+   再按**规范化内容**（固定字段顺序拼接）字典序较大者胜。
+   三级比较构成全序，因此合并结果与到达顺序无关。
+
+**落败值不回写**（NEG-04）：推送队列只由本地写操作填充（`onLocalTodoChange` 的 create/update/delete），
+拉取合并产生的 `merge` 事件被忽略；因此拉到的旧值永远不会被当成「本地改动」推回云端。
+
+### 12.5 RLS 与密钥边界
+
+| 项 | 做法 |
+| --- | --- |
+| 云表 | `supabase/schema.sql`：只建 `public.todos`，主键 `(user_id, uuid)`，`updated_at_ms` 索引 |
+| RLS | `alter table public.todos enable row level security`；select / insert / update / delete 四条策略，`using (auth.uid() = user_id)`（写策略带 `with check`，防伪造 user_id） |
+| 密钥类型 | **只接受 anon key**。`parseSyncConfig` 会解出 JWT 的 `role`，`service_role` / `supabase_admin` 直接拒绝并保持「未配置」（AC-67 的运行期兜底） |
+| 配置来源 | 桌面端运行期读 app data 目录的 `sync.config.json`（仓库只有 `.example`，已进 `.gitignore`）；Node 检查脚本走环境变量/注入。**不编译期注入**，避免 key 被打进 bundle |
+| 会话存储 | macOS 登录钥匙串（`security` 命令行，service `com.poisson.todo.sync`）。**不写 localStorage、不写明文文件、不进日志**；唯一出现 token 的位置是短命的子进程参数（见 R-SYNC-02） |
+| 传输 | `apikey` + `Authorization: Bearer <access_token>`；401 先刷新一次再重试，刷新失败清会话并退到「未登录」 |
+
+### 12.6 可测性注入点（FR-SYNC-15，硬性）
+
+`SyncEngine` 的七个依赖全部由构造参数注入，生产环境与 stub 用同一份代码：
+
+| 注入点 | 生产实现 | stub 实现（`scripts/check-sync.mjs`） |
+| --- | --- | --- |
+| `config`（base URL + anon key） | `sync.config.json` | 指向 `http://127.0.0.1:<port>` 的假云端 |
+| `api` | `SupabaseRestApi`（注入 `fetch`） | 同上，请求全部落到本地 HTTP stub 并记账 |
+| `sessionStore` | 钥匙串 | 内存实现（可观察「重启后会话还在不在」） |
+| `oauth`（listen/open/wait） | Rust `TcpListener` + `/usr/bin/open` | 真打 stub 的 `/auth/v1/authorize`，读 302 的 `Location` |
+| `clock.now()` | 系统时钟 | 手动推进的假时钟（`updated_at_ms` 与防抖共用） |
+| `timers` | 全局定时器 | 手动队列 `advance(ms)`（5 秒窗口可推进） |
+| `local`（读写本地库） | `src/db/database.ts` | **同一份数据层**（localStorage 路径，语义与 SQLite 对拍） |
+
+五组路径与用例的对应：防抖/合并/软删 payload → TC-065~067；启动与登录后拉取 → TC-068~069；
+LWW 双向 + 同毫秒收敛 + 6 小时偏移 → TC-070~072；墓碑终结与本地软删 → TC-073~075；
+401 刷新重试 / 刷新失败重登 → 401 路径（S10.5 会按同一 harness 补齐）。
+
+### 12.7 风险登记
+
+| 编号 | 风险 | 处置 |
+| --- | --- | --- |
+| **R-SYNC-01（= R-T-13 / RISK-13）** | **LWW 依赖客户端时钟**：某设备快 6 小时，「新改动」会永远输给旧数据，用户表现为「同步不上」 | **规则不改**（D-18 已确认）。**本期选定：仍用客户端时钟，不采用服务端 `now()`，也不采用 `max(本地, 服务端)`** —— 离线优先要求写路径完全不依赖服务端，`max()` 会让同一改动在两台设备算出不同时间戳，反而破坏「同毫秒 → uuid 稳定序」的可判定性，且需要多一次网络往返才能写库。TC-072 按 6 小时偏移如实记录，stub 已复现「快时钟一直胜出」 |
+| **R-SYNC-02** | 会话写入钥匙串时，token 会作为 `/usr/bin/security` 的子进程参数出现一次（同用户进程理论上可在瞬间读到） | 记录在案。缓解：token 绝不落盘明文、绝不进日志、绝不进 localStorage；只写一次（登录/刷新时）。加固方案是引入 `security-framework` crate 直接调 API（需新增 Rust 依赖），本期按「新增依赖最小化」不做 |
+| **R-SYNC-03** | 无 key 期间云端能力长期 `NOT-VERIFIED`，报告容易看起来「全绿」 | 交付评论与 README 单列 NOT-VERIFIED 三项：真实 Supabase 读写 / 真实 GitHub OAuth 往返 / 云侧 RLS 越权不可见 |
+| **R-SYNC-04** | 软删除漏过滤导致「已删待办复活」 | 见 §12.2：读取收敛到两处入口 + `check-deleted-filter.mjs` 静态断言 + 三模块读取的运行时断言（`check-sync.mjs` 路径④） |
+| **R-SYNC-05** | 推送途中又有新改动被误清 | 待推集合按 `uuid → 代数` 记账，推送成功只清「代数未变」的条目，期间的新改动留到下一窗口 |
+
+### 12.8 新增依赖与文件
+
+**新增运行时依赖：0**。登录用 loopback + PKCE 手写（WebCrypto 计算 S256），REST 只用四条固定端点，
+用注入的 `fetch` 直连；**不引 `@supabase/supabase-js`** —— 它的会话持久化默认写 localStorage，
+与「token 不得进 localStorage」相冲突，且会削弱 base URL / key 的注入点。Rust 侧未新增 crate。
+
+| 文件 | 作用 |
+| --- | --- |
+| `src/sync/{engine,merge,api,oauth,config,clock,timers,sessionStore,events,types}.ts` | 同步核心（框架无关，可在 Node 直接跑） |
+| `src/stores/sync.ts`、`src/components/layout/SyncPanel.vue` | C-16 状态区与登录/重试动作 |
+| `src-tauri/migrations/0003_sync_columns.sql`、`src-tauri/src/lib.rs` | v3 迁移 + 配置读取 / 钥匙串 / OAuth 回环命令 |
+| `scripts/mock-supabase.mjs`、`scripts/check-sync.mjs`、`scripts/check-deleted-filter.mjs` | 本地 stub 与五组路径回归、软删除静态断言 |
+| `e2e-sync/`、`playwright.sync.config.ts` | 同步 E2E（与主套件隔离） |
+| `supabase/schema.sql`、`sync.config.example.json` | 云表 + RLS 策略、配置样板 |
+
+### 12.9 本节的已知局限（NOT-VERIFIED）
+
+- 真实 Supabase 读写、真实 GitHub OAuth 往返（含 GitHub 侧应用配置）、云侧 RLS 越权不可见：**无 anon key，未验证**；
+- 桌面端钥匙串写入与回环监听的真实行为：代码已接入，但自动化只覆盖到「注入实现」层，
+  实机点击登录需 key 到位后由 S10.5 补跑；
+- Windows 侧同步行为：不在本期范围（`scripts` 与 `src/sync` 跨平台，但未验证）。
 
 ---
 

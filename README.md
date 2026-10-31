@@ -1,12 +1,15 @@
 # 日程待办 · Schedule Todo
 
-基于 Tauri 2 + Vue 3 + TypeScript 的**本地**日程与待办应用。数据全部保存在本机 SQLite，
-不依赖云端服务，不发起任何网络请求。
+基于 Tauri 2 + Vue 3 + TypeScript 的**本地优先**日程与待办应用。数据保存在本机 SQLite，
+开箱即用、不要求登录、默认不发起任何网络请求。多设备同步是**可选层**（Supabase），
+未配置 key 时与本地版完全一致。
 
-> **当前阶段：S6 打包与交付说明（中间版）**
-> macOS 侧已在本机产出 `.app` + `.dmg` 并实机启动；Windows 侧交付的是**可构建能力**
-> （配置 + CI），**安装包未在本机产出**（Tauri 无交叉编译），详见「Windows」一节。
-> 同步（Supabase）能力属后续阶段，本版**不含**任何登录 / 同步入口。
+> **当前阶段：S10 同步层（实现完成，云端真实连通待 key）**
+> macOS 侧已产出 `.app` + `.dmg`；Windows 侧交付的是**可构建能力**（配置 + CI），
+> **安装包未在本机产出**（Tauri 无交叉编译），详见「Windows」一节。
+> 同步逻辑（登录登出、5 秒防抖推送、启动/登录后拉取、LWW、软删除、RLS SQL）已落地并用本地
+> stub 验证；**真实 Supabase / GitHub OAuth / 云侧 RLS 一律 `NOT-VERIFIED`**（无 key），
+> 见「五、同步（可选）」与「已知边界」。
 
 ---
 
@@ -138,6 +141,70 @@ npm run tauri build    # 桌面发布构建（含前端构建）
 npx playwright test    # E2E：6 个用例（5 功能 + 1 巡览），基线 6 passed
 ```
 
+## 五、同步（可选）：填 key 才启用，不填就是纯本地
+
+同步是加在本地版之上的**可选层**：没有配置、没有登录、断网时，应用与本地版**完全一致**，
+且**不发起任何 `rest/v1` / `auth/v1` 请求**（`sync.enabled = false` 时整个同步层短路）。
+
+### 1. 如何填 key 开启同步
+
+Anon key 只在**运行期**读取，不会打进安装包、也不进仓库：
+
+1. 复制 `sync.config.example.json`，改名为 `sync.config.json`；
+2. 把 `anonKey` 换成 Supabase 项目里的 **anon public key**（**绝不要填 `service_role`**，
+   应用会直接拒绝并保持「未配置」）；
+3. 放到应用数据目录：
+
+   ```bash
+   cp sync.config.json "$HOME/Library/Application Support/com.poisson.todo/sync.config.json"
+   ```
+
+4. 重启应用 → 侧栏底部出现「同步 · 未登录」→ 点开 → **GitHub 登录**；
+5. 首次登录会在系统里打开浏览器做 GitHub 授权，回调地址是 `http://127.0.0.1:<随机端口>`
+   （loopback + PKCE，不用隐式流程）；授权完成后浏览器页面会提示「可以关闭」，回到应用即已登录。
+
+云端表结构与 RLS 策略见 `supabase/schema.sql`（`enable row level security` + `auth.uid() = user_id`），
+由项目管理员在 Supabase SQL Editor 执行一次。**本版没有 key，这一步与真实连通都未验证。**
+
+### 2. 未配置 / 未登录 / 断网时
+
+| 情形 | 表现 |
+| --- | --- |
+| 未配置 key | 状态区显示「未配置」，GitHub 登录按钮禁用；功能与本地版完全一致，云端请求 0 次 |
+| 已配置但未登录 | 状态区显示「未登录」；不拉取、不推送；本地功能照常 |
+| 断网 | 本地功能完整可用；同步失败只反映在状态区，**不弹阻断式错误、不回滚本地数据** |
+| 启动 | 直接进日历：**没有登录页、没有全屏遮罩、没有强制登录** |
+
+### 3. 同步失败时的降级表现
+
+- 推送失败：按 **1s → 2s → 4s → 8s → 16s** 退避重试，期间界面照常可用；
+  五次都失败后状态区显示「同步失败，可手动重试」，点「立即重试」再试一次。
+- 拉取失败：本地数据保持不动，状态区提示「拉取失败，本地数据不受影响」。
+- 登录过期（401）：自动用刷新令牌续期并重试一次；续期也失败则退到「未登录，请重新登录」，
+  不会反复重试、不会阻塞任何操作。
+- 上次同步时间与结果会一直显示在状态区；状态区**关闭只是隐藏**，重新打开不会丢登录态。
+
+### 4. 同步规则（一眼看完）
+
+- 触发：任意数据变更后 **5 秒防抖**推送一次，窗口内的多次改动合并；启动时拉取一次，登录成功后立即再拉一次。
+- 冲突：`last-write-wins`（`updated_at_ms` 大者胜；同毫秒按 `uuid` 字典序，结果与到达顺序无关）；
+  落败值只丢弃，**不回写云端**。
+- 删除：软删除（`deleted = 1`）；**墓碑终结**——已删条目不会被任何非删除记录复活。
+- 范围：**只同步 `todos`**；`daily_picks`（今天推了哪条方法）是本机状态，不同步。
+- 密钥：只接受 anon key；`service_role` 不在客户端代码、仓库、打包产物任何一处出现（可用
+  `grep -rn "service_role\|SUPABASE_SERVICE"` 与产物 `strings` 复核）。
+
+### 5. 自证命令
+
+```bash
+node scripts/check-sync.mjs            # 本地 stub：防抖 / 拉取合并 / LWW / 墓碑 / 401 + v3 迁移结构
+node scripts/check-deleted-filter.mjs  # 软删除静态断言
+npx playwright test -c playwright.sync.config.ts   # 同步 E2E（零云端请求 / 无登录拦截 / 状态区）
+```
+
+> **NOT-VERIFIED**：真实 Supabase 读写、真实 GitHub OAuth 往返、云侧 RLS 越权不可见。
+> 这三项要等 anon key 到位后由 S10.5 补跑，**不计入通过率**。
+
 ## 技术栈
 
 | 层 | 选型 |
@@ -161,6 +228,8 @@ node scripts/check-permutation.mjs   # 推送确定性比对：7 个抽样日期
 node scripts/check-data-layer.mjs    # 数据层 localStorage 路径行为自检（9 组断言）
 node scripts/check-db-parity.mjs     # 双后端等价性对拍：同一操作序列下两条后端结果一致
 node scripts/check-bundle-config.mjs # S6 打包配置自证：三份 conf 合并 + schema + workflow 结构（44 条断言）
+node scripts/check-sync.mjs          # S10 同步自检：防抖/拉取/LWW/墓碑/401 五组路径 + v3 迁移结构（75 条断言）
+node scripts/check-deleted-filter.mjs # S10 软删除静态断言：FROM todos 未带 deleted = 0 即失败
 node scripts/check-s2-ui.mjs         # S2 界面自证：外壳/日历/当日面板，截图落 docs/evidence/s2/
 node scripts/check-s3-ui.mjs         # S3 界面自证：每日工作法七区块/渐隐/换一条/往期/方法库，截图落 docs/evidence/s3/
 node scripts/check-s4-ui.mjs         # S4 界面自证：全部待办分组/菜单五条件/翻转/编辑器，截图落 docs/evidence/s4/
@@ -188,6 +257,7 @@ swift scripts/mac-desktop-probe.swift                          # 桌面探针：
 
 ```bash
 npx playwright test                      # 全量 6 个用例（5 功能 + 1 巡览），需 6 passed
+npx playwright test -c playwright.sync.config.ts   # 同步套件（e2e-sync/，4 用例，与主套件隔离）
 npx playwright test e2e/tour.spec.ts     # 只重生成巡览证据：screenshots/ 14 张 + videos/ 1 段
 E2E_NOW=2026-11-15 npx playwright test   # 把浏览器时钟固定到指定日期复跑（日期无关性）
 ```
@@ -214,11 +284,20 @@ src/
 ├─ styles/main.css             设计 token + 全局重置 + macOS 兼容层
 ├─ data/methods.ts             65 条内容库（原样搬运，零改动）
 ├─ db/database.ts              数据层：SQLite / localStorage 双实现
+├─ sync/                       同步核心（全部依赖注入，可在 Node stub 上真跑）
+│  ├─ engine.ts                防抖推送 / 拉取合并 / 重试退避 / 401 重登
+│  ├─ merge.ts                 LWW + 墓碑终结（规则唯一实现处）
+│  ├─ api.ts / oauth.ts        Supabase REST 客户端 / loopback + PKCE
+│  ├─ config.ts                运行期配置校验（拒绝 service_role）
+│  ├─ clock.ts / timers.ts     可注入时间源与定时器（FR-SYNC-15）
+│  └─ events.ts                数据层写操作 → 引擎的变更总线
 ├─ stores/
 │  ├─ todo.ts                  待办状态 + 优先级元数据
+│  ├─ sync.ts                  同步状态区状态与登录/重试动作（C-16）
 │  └─ dailyMethod.ts           每日推送状态 + 确定性排列算法
 └─ components/
-   ├─ layout/SideNav.vue       侧边导航（注册表驱动，底部「数据本地存储」）
+   ├─ layout/SideNav.vue       侧边导航（注册表驱动，底部「数据本地存储」+ C-16 同步区）
+   ├─ layout/SyncPanel.vue     C-16 同步状态与登录区（v-show 收起，不丢会话）
    ├─ layout/navItems.ts       导航注册表（新增模块只改这里 + App 分支 + 新组件）
    ├─ calendar/CalendarView.vue  42 格月历（data-date / data-outside、四态、圆点 + `+`）
    ├─ daily/DailyMethodView.vue  每日工作法模块（顶栏步进 / 主卡片 / 往期 7 天 / 65 条方法库）
@@ -234,7 +313,8 @@ src/
       └─ TodoEditor.vue        待办编辑器（新建 / 编辑）
 
 src-tauri/
-├─ src/lib.rs                  SQL 迁移定义（v1 todos / v2 daily_picks，纯新增）
+├─ src/lib.rs                  SQL 迁移定义（v1 todos / v2 daily_picks / v3 同步列）+ 同步用的 Rust 命令
+├─ migrations/0003_sync_columns.sql  v3：todos 加 uuid / updated_at_ms / deleted + 幂等回填
 ├─ tauri.conf.json             平台中立基线：productName 日程待办 / identifier com.poisson.todo
 ├─ tauri.macos.conf.json       macOS overlay：app+dmg / 最低 12.0 / 不签名 / DMG 布局
 ├─ tauri.windows.conf.json     Windows overlay：nsis+msi / currentUser / zh-CN
@@ -242,9 +322,13 @@ src-tauri/
 └─ capabilities/default.json   窗口权限（core:default + sql:default + sql:allow-execute）
 
 .github/workflows/build.yml    CI：macOS + Windows 双平台打包（含 E2E 前置门禁）
-scripts/                       校验脚本 + macOS 桌面取证脚本
+scripts/                       校验脚本（含 check-sync.mjs / mock-supabase.mjs）+ macOS 桌面取证脚本
 e2e/                           Playwright：todo.spec.ts（5 功能）/ tour.spec.ts（巡览）/ support/ / COVERAGE.md
-playwright.config.ts           E2E 配置（自带 Chromium、workers 1、video on、trace 失败留存）
+e2e-sync/                      同步套件（4 用例，独立目录，不并入主套件）
+playwright.config.ts           主套件配置（自带 Chromium、workers 1、video on、trace 失败留存）
+playwright.sync.config.ts      同步套件配置（testDir e2e-sync/、产物落 test-results-sync/）
+supabase/schema.sql            云表结构与 RLS 策略（auth.uid() = user_id）
+sync.config.example.json       运行期同步配置样板（真实 sync.config.json 不入库）
 screenshots/                   巡览截图 01~14（长期留存，不在 test-results/ 下）
 videos/                        巡览录屏 1 段 webm（同上）
 docs/requirements/             PRD（需求唯一口径）
@@ -270,6 +354,7 @@ _ctx/                          Windows 基线事实材料
 | 全部待办 | `.all-view` | `.all-title`、`.panel-stats`、`.stat-rate`、`.filter-tab[data-filter=…]`、`.filter-tab.active`、`.group[data-group-date="YYYY-MM-DD"]`、`.group-title`、`.group-count`、`.group-items`、`.empty-state[data-empty=…]`、`.empty-title` |
 | 待办条目 | `.todo-panel` / `.all-view` | `.todo-item[data-todo-id="<id>"]`、`[data-done="true"｜"false"]`、`[data-priority="0"｜"1"｜"2"]`、`.check`、`.item-body`、`.item-title`、`.item-note`、`.priority-tag`、`.more-btn` |
 | 右键菜单 | `body > .ctx-menu` | `.ctx-menu`、`.ctx-item`、`.ctx-item.active`、`.ctx-item.danger`、`.ctx-sep`、`.ctx-item[data-action="copy-today"｜"move-today"｜"move-tomorrow"｜"edit"｜"delete"]` |
+| 同步状态区（C-16） | `.sync-area[data-region="C-16"]` | `[data-sync-entry]`、`.sync-panel`、`.sync-state[data-phase=…]`、`.sync-login`、`.sync-logout`、`.sync-retry`、`.sync-close`、`.sync-last` |
 | 编辑器 | `.editor[data-editor-mode="create"｜"edit"]` | `.editor-card`、`.editor-title`、`input[data-field="title"]`、`input[data-field="date"]`、`textarea[data-field="note"]`、`.priority-option[data-priority=…]`、`.priority-option.active`、`.editor-cancel[data-action="cancel"]`、`.editor-save[data-action="save"]` |
 
 ## 表结构与迁移
@@ -280,10 +365,17 @@ _ctx/                          Windows 基线事实材料
 | --- | --- | --- |
 | 1 | `create_todos_table` | 待办表 `todos`（含 `AUTOINCREMENT` 主键与日期索引） |
 | 2 | `create_daily_picks_table` | 每日推送记录表 `daily_picks` |
+| 3 | `add_sync_columns_to_todos` | `todos` 增列 `uuid` / `updated_at_ms` / `deleted`（`src-tauri/migrations/0003_sync_columns.sql`），幂等回填历史行 |
 
-所有迁移均为**纯新增**（`CREATE TABLE IF NOT EXISTS`），不会修改或删除既有表与既有数据；
-版本号只增不减。升级（覆盖安装）与卸载重装都不会丢数据，复核结果见
+v1 / v2 **逐字未动**；v3 只对 `todos` 做 `ADD COLUMN` + 回填 + 建索引，**没有** `DROP`、没有重建表，
+`daily_picks` 不加列（它不参与同步）。版本号只增不减，插件记录版本号，二次启动不会重复回填
+（uuid 不会被重新生成）。升级（覆盖安装）与卸载重装都不会丢数据，复核结果见
 `docs/verification/mac-desktop.md`。
+
+**软删除**：`deleteTodo` 只写 `deleted = 1`，行留在库里（跨设备才能传播删除）。
+所有本地读取路径（当日面板 / 全部待办 / 月历圆点 / 统计与完成率 / 往期回顾）都经数据层的
+`deleted = 0` 过滤；`node scripts/check-deleted-filter.mjs` 逐行扫描 `FROM todos`，
+漏一处即非零退出（唯一的例外是同步网关带 `-- sync-all-rows` 标记的含墓碑读取）。
 
 ## 已知边界与遗留
 
@@ -295,7 +387,8 @@ _ctx/                          Windows 基线事实材料
 | 系统菜单栏 | 框架默认英文（Q-01），见「一、3」 |
 | Windows 产物 | **未在本机验证**（无交叉编译），验证路径是 CI 的 `windows-latest` job |
 | 桌面人工 checklist | M-01 ~ M-14 的执行情况见 `docs/verification/mac-desktop.md`；受 TCC 权限限制的项已标 BLOCKED 并给出复现命令 |
-| 同步 / 账号 | 本版**不含**；相关能力与说明在后续阶段补入本文档 |
+| 同步（可选） | 逻辑已交付并用本地 stub 验证；**真实 Supabase 读写 / GitHub OAuth 往返 / 云侧 RLS 均未验证**（无 anon key），见「五、同步（可选）」 |
+| 同步的时钟前提 | `updated_at_ms` 取客户端时钟；某台设备时钟偏快会「永远胜出」（PRD R-T-13 / RISK-13，规则不因此改动） |
 
 ## 文档
 
