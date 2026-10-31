@@ -1,4 +1,5 @@
 import { reactive } from 'vue';
+import dayjs from 'dayjs';
 import { METHODS, METHOD_MAP } from '../data/methods.ts';
 import {
   fetchDailyPick,
@@ -122,13 +123,29 @@ function syncPick(pick: DailyPick): void {
 }
 
 /**
- * 取某天的确定性首推 id。
+ * 同一日期的并发保护：多个组件同时挂载 / 同时切日时，
+ * 共用同一次读库 + 落库，避免重复写入（FR-DM-15）。
+ */
+const inflight = new Map<string, Promise<DailyPick>>();
+
+/**
+ * 取某天的确定性首推（必要时落库）。
  *
  * 若已落库记录中的 method_id 不在内容库里（EX-06），回退为确定性首推并覆盖写回。
  */
-export async function ensurePick(date: string): Promise<DailyPick> {
+export function ensurePick(date: string): Promise<DailyPick> {
+  const running = inflight.get(date);
+  if (running) return running;
+  const task = ensurePickOnce(date).finally(() => inflight.delete(date));
+  inflight.set(date, task);
+  return task;
+}
+
+async function ensurePickOnce(date: string): Promise<DailyPick> {
   await init();
   const order = permutationFor(date);
+  // 以库里记录为准（EX-06 要求能发现并覆盖写回失效的 method_id），
+  // 并发重复调用已由上面的 inflight 合并，不会重复读库 / 重复落库。
   const stored = await fetchDailyPick(date);
 
   if (!stored) {
@@ -184,12 +201,35 @@ export async function refresh(date: string): Promise<DailyPick> {
   return next;
 }
 
-/** 取某天当前展示的方法（预览态优先） */
+/**
+ * 该日推送的方法（不含预览态）。
+ *
+ * 预览是「每日工作法模块」自己的界面态，不能污染其它模块：
+ * 日历页的小卡片也调用本函数，若这里优先返回预览条目，
+ * 在模块里点一次方法库就会把小卡片一起换掉。
+ */
 export function methodOf(date: string): WorkMethod | null {
-  if (state.previewId) return findMethod(state.previewId);
   const pick = state.picks.find((p) => p.date === date);
   if (!pick) return null;
   return findMethod(pick.method_id);
+}
+
+/**
+ * 只读预览某天的方法：有落库记录取记录，否则返回确定性首推。
+ *
+ * 用于往期回顾等「仅展示、不查看」的场景——不得因此写入 `daily_picks`
+ * （写入只发生在真正查看该日时，FR-DM-01）。
+ */
+export function peekMethod(date: string): WorkMethod | null {
+  const picked = methodOf(date);
+  if (picked) return picked;
+  return findMethod(permutationFor(date)[0]);
+}
+
+/** 主卡片当前要展示的方法（预览态优先，FR-DM-06） */
+export function displayedMethod(date: string): WorkMethod | null {
+  if (state.previewId) return findMethod(state.previewId);
+  return methodOf(date);
 }
 
 /** 设置 / 清除方法库预览态 */
@@ -205,13 +245,10 @@ export function setCurrentDate(date: string): void {
 
 /** 含当天在内的最近 N 天（由早到晚） */
 export function recentDates(count: number, endDate: string): string[] {
-  const end = new Date(`${endDate}T00:00:00`);
+  const end = dayjs(endDate);
   const out: string[] = [];
-  for (let i = count - 1; i >= 0; i--) {
-    const d = new Date(end);
-    d.setDate(end.getDate() - i);
-    const p = (n: number) => String(n).padStart(2, '0');
-    out.push(`${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`);
+  for (let i = count - 1; i >= 0; i -= 1) {
+    out.push(end.subtract(i, 'day').format('YYYY-MM-DD'));
   }
   return out;
 }

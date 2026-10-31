@@ -28,7 +28,12 @@ const emit = defineEmits<{
 
 const today = dayjs().format('YYYY-MM-DD');
 
-const method = ref<WorkMethod | null>(null);
+/**
+ * 直接读 store 派生，而不是在本地缓存一份：
+ * 每日工作法模块里「换一条」会改写当日推送，小卡片必须同步跟着变，
+ * 否则同一天会出现「小卡片是 A、主卡片是 B」的不一致。
+ */
+const method = computed<WorkMethod | null>(() => methodOf(props.date));
 const refreshing = ref(false);
 
 const title = computed(() =>
@@ -52,7 +57,6 @@ const themeStyle = computed(() =>
 async function load(): Promise<void> {
   try {
     await ensurePick(props.date);
-    method.value = methodOf(props.date);
   } catch (e) {
     emit('error', `工作法加载失败：${String(e)}`);
   }
@@ -64,7 +68,6 @@ async function onRefresh(): Promise<void> {
   refreshing.value = true;
   try {
     await refresh(props.date);
-    method.value = methodOf(props.date);
   } catch (e) {
     emit('error', `换一条失败：${String(e)}`);
   } finally {

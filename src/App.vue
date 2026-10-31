@@ -13,6 +13,7 @@ import SideNav from './components/layout/SideNav.vue';
 import { NAV_ITEMS } from './components/layout/navItems.ts';
 import CalendarView from './components/calendar/CalendarView.vue';
 import DailyMethodMini from './components/daily/DailyMethodMini.vue';
+import DailyMethodView from './components/daily/DailyMethodView.vue';
 import TodoListView from './components/todo/TodoListView.vue';
 import TodoEditor from './components/todo/TodoEditor.vue';
 import {
@@ -63,6 +64,12 @@ function selectModule(id: string): void {
   currentModule.value = id as ModuleId;
   // 每日工作法模块与日历页共用「查看日期」（FR-DM-10）
   if (id === 'daily') setCurrentDate(selectedDate.value);
+}
+
+/** 每日工作法模块的日期步进 / 往期点击：写回与日历页共用的选中日期（FR-DM-10） */
+function selectDailyDate(date: string): void {
+  selectedDate.value = date;
+  setCurrentDate(date);
 }
 
 /** 从日历页小卡片进入每日工作法模块并定位到该日期（FR-DM-14） */
@@ -149,8 +156,12 @@ onBeforeUnmount(() => {
           </div>
         </section>
 
+        <section v-show="currentModule === 'daily'" class="daily-module">
+          <DailyMethodView :date="selectedDate" @select-date="selectDailyDate" @error="setNotice" />
+        </section>
+
         <section
-          v-show="currentModule !== 'calendar'"
+          v-show="currentModule === 'todos'"
           class="module-placeholder"
           :data-placeholder="currentModule"
         >
@@ -197,6 +208,12 @@ onBeforeUnmount(() => {
   grid-template-columns: minmax(0, 7fr) minmax(0, 6fr);
   gap: 20px;
   height: 100%;
+}
+
+/* 每日工作法模块：顶栏 + 左主卡片 + 右侧栏，整块撑满可用高度以便内部滚动 */
+.daily-module {
+  height: 100%;
+  min-height: 0;
 }
 
 .todo-col {
