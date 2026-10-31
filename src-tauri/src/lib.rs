@@ -7,8 +7,10 @@ use tauri_plugin_sql::{Builder, Migration, MigrationKind};
 /// macOS 上为 `~/Library/Application Support/com.poisson.todo/`，
 /// plugin-sql 会把 `sqlite:todo.db` 解析到该目录下的 `todo.db`。
 ///
-/// 首次启动时该目录可能不存在（plugin-sql 只在连接时创建），
-/// 因此在 setup 阶段显式 `create_dir_all`，保证「首次启动自动建库建表，无需手工准备文件」（FR-DB-06）。
+/// 实测（2026-11-01）：plugin-sql 在 `auto_create` 为真时（默认值）会自行
+/// `create_dir_all` 该目录 —— 删掉整个目录后冷启动，目录与 todo.db 仍会被重建。
+/// 这里的显式 `create_dir_all` 是幂等的兜底：保证「首次启动自动建库建表，
+/// 无需手工准备文件」（FR-DB-06）在插件行为变化时依然成立。
 fn ensure_app_data_dir(app: &tauri::AppHandle) -> Result<(), String> {
     let dir = app
         .path()
