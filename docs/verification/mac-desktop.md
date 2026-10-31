@@ -72,6 +72,17 @@ $ npm run tauri build
 | `.app` | `/Users/zachary/Desktop/work/todo/src-tauri/target/release/bundle/macos/日程待办.app` |
 | `.dmg` | `/Users/zachary/Desktop/work/todo/src-tauri/target/release/bundle/dmg/日程待办_0.1.0_aarch64.dmg` |
 
+DMG 内容实证（证明交付说明里「拖入 Applications」这条路径是真的，不是照抄模板）：
+
+```console
+$ hdiutil attach -nobrowse -readonly "…/日程待办_0.1.0_aarch64.dmg"
+/dev/disk13s1  Apple_HFS  /Volumes/日程待办
+$ ls -la "/Volumes/日程待办"
+drwxr-xr-x  … 日程待办.app
+lrwxr-xr-x  … Applications -> /Applications
+-rw-r--r--  … .VolumeIcon.icns
+```
+
 产物形态与最低版本（`lipo` / `plutil`）：
 
 ```console
@@ -87,7 +98,10 @@ $ plutil -p "…/日程待办.app/Contents/Info.plist" | grep -E 'LSMinimumSyste
 > 可执行文件名为 `todo`（来自 `Cargo.toml` 的 package name，ASCII 名更安全），
 > 窗口与 Finder 里显示的名字取自 `CFBundleDisplayName` / `CFBundleName` = 「日程待办」。
 
-图标（`npx tauri icon` 由 1024×1024 源图生成，`.app` 内图标与源文件同源）：
+图标（`npx tauri icon` 生成全套：`icon.icns` / `icon.ico` / 32·64·128·128@2x png 与 Windows Square* 族）。
+源图是仓库原有的 `src-tauri/icons/icon.png`（512×512，矢量风格图形），先用 `sips -z 1024 1024`
+放大到 **1024×1024** 再喂给 `tauri icon`（`tauri icon` 要求 1024 源；放大不做重绘，图形本身未改动）。
+`.app` 内图标与生成结果同源：
 
 ```console
 $ shasum -a 256 "/Applications/日程待办.app/Contents/Resources/icon.icns" src-tauri/icons/icon.icns
@@ -268,8 +282,8 @@ $ sqlite3 "$DB" "SELECT date, method_id, manual FROM daily_picks ORDER BY date;"
 - **拿不到的证据**：桌面版里点「换一条」→ 退出 → 重启 → 同一条 的**完整操作链**。
 - **已拿到的等价证据**（证明「桌面版读写的是同一个库、且重启不改写既有选择」）：
   1. 应用自己写过 `daily_picks`：`2026-11-01|conclusion-argument-recommendation|0` 是桌面版首启时自动落库的行（`manual=0`）；
-  2. 该行 `method_id` 在**至少 6 次启动/退出、2 次覆盖安装、1 次删除重装**后**始终未变**
-     （`updated_at` 会被刷新，`method_id` / `manual` 不变）；
+  2. 该行在**至少 6 次启动/退出、2 次覆盖安装、1 次删除重装**后**整行未变**（`method_id` / `manual` / `updated_at`
+     全部不变：`1793474031463` 是首次落库时间，之后每次启动都不会重写它），即启动路径**读而不改**；
   3. 另一条 `2026-10-31|mece|1`（模拟「换一条」后的 `manual=1` 状态）同样在重启与升级后原样保留，
      说明应用启动时**不会**重置用户手动选择的那一条。
 - 补跑命令（授权后）：
@@ -365,6 +379,10 @@ todo@0.1.0
 
 Windows 残留检索（每项给出结论）：
 
+> 口径说明：AC-43 的原文是「交付物中不存在 NSIS 配置 / `%APPDATA%` 字样」。本轮人类授权把
+> **Windows 打包**纳入范围，因此这一条按新范围解释为：**基础配置与运行时代码**里不得残留 Windows 专属实现，
+> 而 Windows overlay、CI 与交付说明里出现 NSIS / `%APPDATA%` 属**应有内容**。逐项结论如下。
+
 | 检索项 | 命中 | 结论 |
 | --- | --- | --- |
 | `.ps1` 文件 | 0 个（`find . -name "*.ps1"` 无输出） | 无残留 |
@@ -400,6 +418,14 @@ $ node scripts/check-bundle-config.mjs
   …
 断言通过 44 条，失败 0 条
 PASS（三份 conf 合并 + schema + 平台中立 + 数据路径中立 + workflow 结构）
+```
+
+补一条「Tauri CLI 自己也能读这份配置」的证据（CLI 解析的是合并后的配置；WiX Upgrade Code 由
+`productName` 推导，因此它同时验证了中文 `productName` 在打包工具链里能被正确处理）：
+
+```console
+$ npx tauri inspect wix-upgrade-code
+        Info Default WiX Upgrade Code, derived from 日程待办: 752e615b-2665-5707-bd98-29f0712ef780
 ```
 
 ---

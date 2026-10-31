@@ -26,13 +26,13 @@ jobs:
         include:
           - name: macOS (arm64 · .app + .dmg)
             os: macos-latest
-            artifact: 日程待办-macos
+            artifact: todo-macos
             bundlePaths: |
               src-tauri/target/release/bundle/dmg/*.dmg
               src-tauri/target/release/bundle/macos/*.app
           - name: Windows (NSIS + MSI)
             os: windows-latest
-            artifact: 日程待办-windows
+            artifact: todo-windows
             bundlePaths: |
               src-tauri/target/release/bundle/nsis/*.exe
               src-tauri/target/release/bundle/msi/*.msi
