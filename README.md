@@ -3,9 +3,9 @@
 基于 Tauri 2 + Vue 3 + TypeScript 的**本地**日程与待办应用。数据全部保存在本机，
 不依赖任何云端服务，不发起任何网络请求。
 
-> 本仓库当前处于 **S2 应用外壳 + 日历 + 当日待办面板** 阶段：工程基座、数据层、
-> 内容库与确定性推送算法已就绪；日历页与当日待办面板可完整操作，
-> 「每日工作法」与「全部待办」两个模块的视图在 S3 / S4 实现。
+> 本仓库当前处于 **S3 应用外壳 + 日历 + 当日待办面板 + 每日工作法模块** 阶段：工程基座、
+> 数据层、内容库与确定性推送算法已就绪；日历页、当日待办面板与「每日工作法」模块
+> 均可完整操作，「全部待办」模块的视图在 S4 实现。
 
 ## 技术栈
 
@@ -41,10 +41,14 @@ node scripts/check-permutation.mjs # 推送确定性比对：7 个抽样日期 +
 node scripts/check-data-layer.mjs  # 数据层 localStorage 路径行为自检（9 组断言）
 node scripts/check-db-parity.mjs   # 双后端等价性对拍：同一操作序列下两条后端结果一致
 node scripts/check-s2-ui.mjs       # S2 界面自证：真实浏览器跑外壳/日历/当日面板，截图落 docs/evidence/s2/
+node scripts/check-s3-ui.mjs       # S3 界面自证：每日工作法七区块/渐隐/换一条/往期/方法库，截图落 docs/evidence/s3/
 ```
 
 `check-s2-ui.mjs` 需要先另开一个 `npm run dev`（它直接驱动 1420 端口的开发服务器，
 不通过 Playwright 的 webServer 自启），断言 106 条，覆盖 AC-06 ~ AC-11 / AC-14 / AC-45 / AC-46。
+
+`check-s3-ui.mjs` 同样需要先起 dev server，断言 107 条，覆盖 AC-20 / AC-21 / AC-23 ~ AC-26 /
+AC-28 / AC-29 / AC-51；溢出与渐隐的强制夹具是 `5w2h` 与 `rice-scoring`。
 
 Rust 侧：
 
@@ -68,6 +72,8 @@ src/
    ├─ layout/SideNav.vue       侧边导航（注册表驱动，底部「数据本地存储」）
    ├─ layout/navItems.ts       导航注册表（新增模块只改这里 + App 分支 + 新组件）
    ├─ calendar/CalendarView.vue  42 格月历（data-date / data-outside、四态、圆点 + `+`）
+   ├─ daily/DailyMethodView.vue  每日工作法模块（顶栏步进 / 主卡片 / 往期 7 天 / 65 条方法库）
+   ├─ daily/MethodCard.vue       主卡片七区块 + `.mc-inner` 内滚动 + `.mc-fade` 底部渐隐
    ├─ daily/DailyMethodMini.vue  日历页内的工作法小卡片
    └─ todo/
       ├─ TodoListView.vue      当日待办面板（统计 / 三页签 / 两种空态）
