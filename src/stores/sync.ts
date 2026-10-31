@@ -136,55 +136,72 @@ async function loadConfig(): Promise<{ config: SyncConfig; reason: string }> {
 export function initSync(): Promise<void> {
   if (initPromise) return initPromise;
   initPromise = (async () => {
-    const { config, reason } = await loadConfig();
-    syncState.enabled = config.enabled;
-    syncState.configSource = config.source;
-
-    const sessionStore = config.enabled && isTauriEnv()
-      ? createKeychainSessionStore()
-      : createMemorySessionStore();
-
-    engine = new SyncEngine({
-      config,
-      api: new SupabaseRestApi({ baseUrl: config.baseUrl, anonKey: config.anonKey }),
-      sessionStore,
-      local: {
-        loadByUuids: (uuids) => fetchTodoSyncRows(uuids),
-        applyRemote: (rows) => applyRemoteTodos(rows),
-      },
-      oauth: isTauriEnv() ? tauriOAuthLauncher : unsupportedOAuthLauncher,
-      // 时钟与定时器走可注入的全局实现（FR-SYNC-15），这里只做转发
-      clock: { now: () => nowMs() },
-      timers: {
-        setTimeout: (fn, ms) => currentTimers().setTimeout(fn, ms),
-        clearTimeout: (handle) => currentTimers().clearTimeout(handle),
-      },
-      onStatus: (status) => {
-        syncState.status = status;
-      },
-      onMerged: () => {
-        // 拉取合并后界面必须立刻反映（FR-SYNC-05 / FR-SYNC-06）
-        void reloadAfterSync();
-      },
-    });
-
-    // 本地写操作 → 防抖推送；合并产生的事件不算本地改动（NEG-04）
-    unsubscribe = onLocalTodoChange(({ uuid, kind }) => {
-      if (kind === 'merge') return;
-      engine?.markLocalChange(uuid);
-    });
-
-    if (!config.enabled) {
+    try {
+      await startSync();
+      syncState.ready = true;
+    } catch (error) {
+      // 同步初始化失败不得影响本地功能，也不得抛到控制台（FR-SYNC-11）
+      syncState.ready = true;
       syncState.status = {
         ...syncState.status,
-        phase: 'disabled',
-        detail: reason || '未配置同步',
+        phase: 'error',
+        detail: '同步初始化失败，本地功能不受影响',
+        lastResult: 'failed',
+        lastError: error instanceof Error ? error.message : String(error),
       };
     }
-    await engine.start();
-    syncState.ready = true;
   })();
   return initPromise;
+}
+
+async function startSync(): Promise<void> {
+  const { config, reason } = await loadConfig();
+  syncState.enabled = config.enabled;
+  syncState.configSource = config.source;
+
+  const sessionStore = config.enabled && isTauriEnv()
+    ? createKeychainSessionStore()
+    : createMemorySessionStore();
+
+  engine = new SyncEngine({
+    config,
+    api: new SupabaseRestApi({ baseUrl: config.baseUrl, anonKey: config.anonKey }),
+    sessionStore,
+    local: {
+      loadByUuids: (uuids) => fetchTodoSyncRows(uuids),
+      applyRemote: (rows) => applyRemoteTodos(rows),
+    },
+    oauth: isTauriEnv() ? tauriOAuthLauncher : unsupportedOAuthLauncher,
+    // 时钟与定时器走可注入的全局实现（FR-SYNC-15），这里只做转发
+    clock: { now: () => nowMs() },
+    timers: {
+      setTimeout: (fn, ms) => currentTimers().setTimeout(fn, ms),
+      clearTimeout: (handle) => currentTimers().clearTimeout(handle),
+    },
+    onStatus: (status) => {
+      syncState.status = status;
+    },
+    onMerged: () => {
+      // 拉取合并后界面必须立刻反映（FR-SYNC-05 / FR-SYNC-06）；
+      // 刷新失败只影响列表的即时性，不回滚已合并的数据
+      reloadAfterSync().catch(() => undefined);
+    },
+  });
+
+  // 本地写操作 → 防抖推送；合并产生的事件不算本地改动（NEG-04）
+  unsubscribe = onLocalTodoChange(({ uuid, kind }) => {
+    if (kind === 'merge') return;
+    engine?.markLocalChange(uuid);
+  });
+
+  if (!config.enabled) {
+    syncState.status = {
+      ...syncState.status,
+      phase: 'disabled',
+      detail: reason || '未配置同步',
+    };
+  }
+  await engine.start();
 }
 
 export function disposeSync(): void {

@@ -303,10 +303,8 @@ export class SyncEngine {
     }
     if (this.loginInFlight) return;
     this.loginInFlight = true;
-    let verifier = '';
     try {
       const pkce = await createPkcePair();
-      verifier = pkce.verifier;
       const state = createState();
       const port = await this.options.oauth.listen();
       const redirectUri = loopbackRedirectUri(port);
@@ -323,7 +321,7 @@ export class SyncEngine {
       if (callback.error) throw new Error(`${callback.error} ${callback.errorDescription}`.trim());
       if (!callback.code) throw new Error('回调未携带授权码');
       if (callback.state !== state) throw new Error('state 校验失败，已放弃本次登录');
-      const raw = await this.options.api.exchangeCode(callback.code, verifier);
+      const raw = await this.options.api.exchangeCode(callback.code, pkce.verifier);
       this.session = toSession(raw, this.options.clock.now());
       if (!this.session.userId) throw new Error('登录返回缺少用户标识');
       await this.options.sessionStore.save(this.session);
@@ -345,7 +343,6 @@ export class SyncEngine {
       });
     } finally {
       this.loginInFlight = false;
-      verifier = '';
     }
   }
 
