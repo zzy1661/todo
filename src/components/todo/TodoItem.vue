@@ -87,6 +87,8 @@ function closeMenu(): void {
     class="todo-item"
     :class="{ done: todo.done }"
     :data-todo-id="todo.id"
+    :data-priority="todo.priority"
+    :data-done="todo.done ? 'true' : 'false'"
     @contextmenu="openFromContext"
   >
     <button

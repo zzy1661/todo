@@ -100,7 +100,14 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="editor backdrop-blur" role="dialog" aria-modal="true" aria-label="待办编辑器" @keydown="onKeydown">
+  <div
+    class="editor backdrop-blur"
+    role="dialog"
+    aria-modal="true"
+    aria-label="待办编辑器"
+    :data-editor-mode="isEdit ? 'edit' : 'create'"
+    @keydown="onKeydown"
+  >
     <div class="editor-card">
       <h3 class="editor-title">{{ isEdit ? '编辑待办' : '新建待办' }}</h3>
 
@@ -111,6 +118,7 @@ onMounted(async () => {
           v-model="title"
           type="text"
           class="field-input"
+          data-field="title"
           maxlength="100"
           placeholder="要做什么？"
           @keydown.enter="onTitleEnter"
@@ -119,7 +127,7 @@ onMounted(async () => {
 
       <label class="field">
         <span class="field-label">日期</span>
-        <input v-model="date" type="date" class="field-input" />
+        <input v-model="date" type="date" class="field-input" data-field="date" />
       </label>
 
       <div class="field">
@@ -145,6 +153,7 @@ onMounted(async () => {
         <textarea
           v-model="note"
           class="field-input field-textarea"
+          data-field="note"
           maxlength="500"
           rows="3"
           placeholder="补充说明（可选）"
@@ -152,8 +161,14 @@ onMounted(async () => {
       </label>
 
       <footer class="editor-footer">
-        <button type="button" class="editor-cancel" @click="close">取消</button>
-        <button type="button" class="editor-save" :disabled="!canSave" @click="submit">
+        <button type="button" class="editor-cancel" data-action="cancel" @click="close">取消</button>
+        <button
+          type="button"
+          class="editor-save"
+          data-action="save"
+          :disabled="!canSave"
+          @click="submit"
+        >
           {{ isEdit ? '保存修改' : '创建' }}
         </button>
       </footer>

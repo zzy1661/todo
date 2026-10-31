@@ -42,7 +42,7 @@ const isToday = computed(() => props.todo.date === dayjs().format('YYYY-MM-DD'))
 /** 菜单项：今日条目与往期条目的分支不同（FR-MENU-01） */
 const entries = computed<MenuEntry[]>(() => [
   ...(isToday.value
-    ? [{ key: 'tomorrow', label: '移动明日' }]
+    ? [{ key: 'move-tomorrow', label: '移动明日' }]
     : [
         { key: 'copy-today', label: '复制到今日' },
         { key: 'move-today', label: '移动到今日' },
@@ -96,7 +96,7 @@ async function run(key: string): Promise<void> {
       case 'move-today':
         await patch(props.todo.id, { date: today });
         break;
-      case 'tomorrow':
+      case 'move-tomorrow':
         await patch(props.todo.id, { date: dayjs().add(1, 'day').format('YYYY-MM-DD') });
         break;
       case 'edit':
@@ -190,6 +190,7 @@ onBeforeUnmount(() => {
       ref="menuEl"
       class="ctx-menu"
       role="menu"
+      data-menu="todo"
       :style="{ left: `${position.left}px`, top: `${position.top}px` }"
     >
       <template v-for="(entry, index) in entries" :key="entry.key">
@@ -199,6 +200,7 @@ onBeforeUnmount(() => {
           type="button"
           class="ctx-item"
           :class="{ danger: entry.danger, active: index === activeEntryIndex }"
+          :data-action="entry.key"
           role="menuitem"
           @mouseenter="activeIndex = selectableIndexes.indexOf(index)"
           @click="run(entry.key)"
