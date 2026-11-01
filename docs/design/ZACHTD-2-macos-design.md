@@ -983,6 +983,11 @@ localStorage 侧收敛到 `readLiveTodos() = readAllLocalTodos().filter(t => !t.
 | 会话存储 | macOS 登录钥匙串（`security` 命令行，service `com.poisson.todo.sync`）。**不写 localStorage、不写明文文件、不进日志**；唯一出现 token 的位置是短命的子进程参数（见 R-SYNC-02） |
 | 传输 | `apikey` + `Authorization: Bearer <access_token>`；401 先刷新一次再重试，刷新失败清会话并退到「未登录」 |
 
+**部署前提（S7.9）**：云端必须先执行 `supabase/schema.sql`。未执行时 PostgREST 返回
+`404 + PGRST205`（`Could not find the table 'public.todos' in the schema cache`）——这是**部署缺失**
+而不是网络故障，客户端按「云端缺少 todos 表，请执行 schema.sql」提示且**不进退避重试**，
+否则只会在 1s/2s/4s/8s/16s 里空转 5 次后给一句无用的「同步失败」。
+
 ### 12.6 可测性注入点（FR-SYNC-15，硬性）
 
 `SyncEngine` 的七个依赖全部由构造参数注入，生产环境与 stub 用同一份代码：

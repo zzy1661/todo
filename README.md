@@ -193,15 +193,22 @@ Anon key 只在**运行期**读取，不会打进安装包、也不进仓库：
    cp sync.config.json "$HOME/Library/Application Support/com.poisson.todo/sync.config.json"
    ```
 
-5. 重启应用 → 侧栏底部出现「同步 · 未登录」→ 点开 → **GitHub 登录**；
-6. 首次登录会在系统里打开浏览器做 GitHub 授权，回调地址是 `http://127.0.0.1:<随机端口>`
+5. **先在云端建表**（否则登录后同步会报 `404 PGRST205`：`Could not find the table 'public.todos' in the schema cache`）：
+   打开 Supabase 控制台 → SQL Editor → 粘贴仓库里的 `supabase/schema.sql` 全部内容并执行一次。
+   这一步用项目管理员身份做，**不需要**把任何 service key 交给应用；
+6. 重启应用 → 侧栏底部出现「同步 · 未登录」→ 点开 → **GitHub 登录**；
+7. 首次登录会在系统里打开浏览器做 GitHub 授权，回调地址是 `http://127.0.0.1:<随机端口>`
    （loopback + PKCE，不用隐式流程）；授权完成后浏览器页面会按结果显示
    「授权已完成，请关闭此页面」或错误原因，回到应用即已登录。
    **`state` 由 GoTrue 托管**（authorize 阶段会被换成它自己的 flow UUID），客户端照发但**不做等值校验**；
    登录可信性由 **PKCE `code_verifier`** 绑定——verifier 只留在本机进程内，别人的 code 换不出会话。
 
-云端表结构与 RLS 策略见 `supabase/schema.sql`（`enable row level security` + `auth.uid() = user_id`），
-由项目管理员在 Supabase SQL Editor 执行一次。**本版没有 key，这一步与真实连通都未验证。**
+云端表结构与 RLS 策略见 `supabase/schema.sql`（`enable row level security` + `auth.uid() = user_id`）。
+执行完可以用一条只读探测确认（读本机 `sync.config.json`，不打印 key）：
+
+```bash
+node scripts/check-remote-schema.mjs   # 表就绪 → ✓；未部署 → ✗ 并给出建表步骤（404 PGRST205）
+```
 
 ### 2. 未配置 / 未登录 / 断网时
 
@@ -245,8 +252,9 @@ Anon key 只在**运行期**读取，不会打进安装包、也不进仓库：
 ### 5. 自证命令
 
 ```bash
-node scripts/check-sync.mjs            # 本地 stub：防抖 / 拉取合并 / LWW / 墓碑 / 401 + v3 迁移结构
+node scripts/check-sync.mjs            # 本地 stub：防抖 / 拉取合并 / LWW / 墓碑 / 401 / PGRST205 + v3 迁移结构
 node scripts/check-deleted-filter.mjs  # 软删除静态断言
+node scripts/check-remote-schema.mjs   # 真实项目只读探测：public.todos 是否已部署
 npx playwright test -c playwright.sync.config.ts   # 同步 E2E（零云端请求 / 无登录拦截 / 状态区）
 ```
 

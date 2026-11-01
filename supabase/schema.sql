@@ -11,6 +11,11 @@
 --   ② 粘贴本文件全部内容执行；
 --   ③ 用 anon key 走一次读写，确认只能看到自己的行（S10.5 补跑，当前 NOT-VERIFIED）。
 --
+-- **没执行过本文件的症状**：登录能成功，但同步立刻报
+--   `HTTP 404 {"code":"PGRST205","message":"Could not find the table 'public.todos' in the schema cache"}`
+-- 这是部署缺失而不是网络故障，重试无用；执行完本文件即可，随后点应用里的「立即重试」，
+-- 或者跑 `node scripts/check-remote-schema.mjs` 复核。
+--
 -- 本阶段没有 key，因此「已执行 / 策略生效」属 NOT-VERIFIED，只有 SQL 文本可判（TC-079 ①）。
 
 create table if not exists public.todos (
