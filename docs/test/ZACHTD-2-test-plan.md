@@ -4,13 +4,25 @@
 | --- | --- |
 | 文档编号 | TP-ZACHTD-2 |
 | 关联 Issue | ZACHTD-2《规划 macOS 版「日程待办」App 开发（Tauri 2 + Vue 3，废弃原有代码，暂不执行）》 |
-| 版本 | **v1.2（G2-prep 判门后的两处指针必修 + 与 PRD v1.2 定稿措辞对齐）** |
+| 版本 | **v1.3（S10.5 执行前对齐 PRD v1.4：68 条、AC-43 收窄口径、AC-68 挂 TC-055）** |
 | 作者 | @Tester |
 | 日期 | 2026-11-01 |
-| 唯一判定基线 | **PRD v1.2（待 PM 交付）**：AC-01~AC-44 沿用 v1.1 条文；AC-45~AC-56 为本计划 §7 转正项；AC-57~AC-67 为同步章节（编号以 PRD v1.2 定稿为准，偏差只影响编号不影响用例） |
+| 唯一判定基线 | **PRD v1.4（已落盘）**：AC-01~AC-44 沿用原条文（AC-43 按 v1.4 收窄）；AC-45~AC-56 为本计划 §7 转正项；AC-57~AC-67 为同步章节；**AC-68 为 v1.4 新增的 Windows 可构建正向 AC（§13.11），判定归属 S11，本计划把它挂到 TC-055 的扩展断言** |
 | 上游输入 | PRD v1.1（962 行）+ PRD v1.2 增量指令；技术设计 v1.0（909 行）；四份 Windows 基线材料；`methods.ts`；Leader 裁定 CFL-07、G1 判门与 Q-T-01~05 裁定、Supabase 范围变更 7 条裁定 |
 | 落地方式 | Confluence / JIRA 在本工作区不可写（无 skill、无凭据），按 Workflow E 降级：**本文件 + Issue 附件**即 T1 主副本；平台可用后原样发布，正文不需重写 |
 | 本轮边界 | **只出规划与用例**。未执行任何用例、未 `npm install`、未 `npx playwright install`、未初始化工程、未做 git 操作 |
+
+### v1.3 增量（S10.5 执行前，对齐 PRD v1.4；TC 编号一个未动，不新增 `test()`）
+
+| # | 改动 | 依据 | 位置 |
+| --- | --- | --- | --- |
+| 1 | **AC 总数 67 → 68**，§6 矩阵补 AC-68 行，统计与退出准则同步改数 | PRD v1.4 §13.11 / §15.2 | §6、§10.5、§11、附录 B |
+| 2 | **TC-055 的执行命令换成附录 B.10 收窄口径**（只扫 `tauri.conf.json` + `src/` + `e2e/`，不含 `tauri.windows.conf.json` 与 `scripts/`），并在同一 TC 上追加 **AC-68 的三条扩展断言**（三份 conf 合并 / CI matrix 含 `windows-latest` 且真跑 `tauri build` / 交付说明措辞） | PRD v1.4 附录 B.10 + B.11；AC-43 与 AC-68 是「收窄 + 正向」的一对 | §5.7 TC-055 |
+| 3 | **TC-057 的请求计数扩到两条路径**：`rest/v1` 与 `auth/v1` 都必须是 0（只数 `rest/v1` 会漏掉误发的 `/auth/v1/health`） | Leader 2026-11-01 S8 评审第 1 条；FR-SYNC-10 | §5.8 TC-057 / TC-060 / TC-079 |
+| 4 | **TC-062 补「状态区关闭后不丢会话」断言**：关闭 → 重开 → 仍显示已登录 / 上次同步时间；无 key 期间浏览器只能验「未配置」态不丢，已登录态由引擎层（会话存储 + 状态对象）证明 | Leader 2026-11-01 S8 评审第 2 条；AC-58 | §5.8 TC-062 |
+| 5 | **TC-065 / TC-066 写死 fake timer 的推进方法**：`setClock()` / `setTimers()` 注入 + `advance(ms)` 按到期顺序触发；4.9 秒零请求、5.0 秒一次，**不许实现方各写一套**。浏览器侧用 `page.clock.setFixedTime()` 固定日期 | Leader 2026-11-01 S8 评审第 3 条；AC-60 | §5.8 TC-065 / TC-066 |
+| 6 | **TC-080 的检索范围不得裸 grep 全仓**：限定 `src/**`、`src-tauri/**`、`package.json`、`sync.config.example.json` 的值位 + 打包产物 `strings`；`docs/` 与 README 里的「绝不要填 service_role」属说明性否定文本 | Leader 2026-11-01 S10 判门后第 1 条；AC-67 | §5.8 TC-080 |
+| 7 | **TC-076 的 AC-64 证据改用真实桌面库**：贴 `PRAGMA table_info(todos)` / `table_info(daily_picks)` / `_sqlx_migrations` 原始输出，不引用 S10 的文字 | Leader 2026-11-01 S10 判门后第 3 条 | §5.8 TC-076 |
 
 ### v1.2 增量（本版只动 2 处必修 + 措辞对齐，TC 编号一个未动）
 
@@ -70,7 +82,7 @@
 
 **v1.1 这轮**：按 G1 判门与同步范围变更做增量——把 Q-T-01~05 的裁定落进契约、把 GAP-01~12 转正为 AC-45~AC-56（沿用既有 TC 编号）、按 Leader 对 Supabase 的 7 条裁定设计同步用例组并标注 `NOT-VERIFIED` 边界。**本轮同样没有跑任何用例、没有装依赖、没有构建。**
 
-> PRD v1.2 尚未落盘（PM 仍在跑）。本版 AC-45~AC-67 的**编号**取自 Leader 指令与我的 §7 表，**条文**以 PRD v1.2 定稿为准；若 PM 定稿的 Then 与本文不一致，以 PRD 为准并回改本计划（只影响措辞，不影响用例结构）。
+> PRD v1.4 已落盘（v1.2 的 AC-57~AC-67 与 v1.4 新增的 AC-68 都在其中）。v1.3 增量已把本计划的 AC 总数、AC-43 执行命令、AC-68 挂载点按 v1.4 定稿回改；条文如仍有出入以 PRD 为准（只影响措辞，不影响用例结构）。
 
 ---
 
@@ -447,12 +459,14 @@ page.locator('.day-cell:not(.out-month)')
 | TC-052 | AC-40 | G: `.app` 已产出；W: `open "…/日程待办.app"`；T: 窗口打开、标题「日程待办」、默认日历模块、界面全中文；与巡览截图 01 对照一致 | 命令+人工 | 附录 A-9 + M-01 |
 | TC-053 | AC-41 | G: 关闭 Wi-Fi 与以太网；W: 完整走「新建待办 → 每日工作法换一条 → 全部待办筛选」；T: 全部可用，无网络错误提示、无加载转圈、无空白 | 人工 | M-09 |
 | TC-054 | AC-42 | W: 附录 B.9 依赖扫描脚本；T: 输出 `DEPENDENCY CLEAN`；人工核对新增依赖只有 dayjs / @tauri-apps/plugin-sql / @playwright/test | 命令 | 附录 A-10 |
-| TC-055 | AC-43 | W: ① 附录 B.10 的 grep（`tauri.conf.json` + `src/`）② `find . -name "*.ps1" -not -path "./node_modules/*"` ③ `grep -rn "channel.*msedge" . --include=*.ts --include=*.json`（排除 `node_modules`、`docs/`）；T: 三项均无命中 | 命令 | 附录 A-10 |
+| TC-055 | **AC-43 + AC-68** | W: ① 附录 B.10 的 grep——`grep -rnE "nsis\|%APPDATA%\|msedge\|\.ps1\|SetProcessDPIAware\|AttachThreadInput\|PrintWindow" src-tauri/tauri.conf.json src/ e2e/`（**不含** `tauri.windows.conf.json` 与 `scripts/`）② `node -e "…bundle.targets…"` 判基础配置无平台专属 targets。**AC-68 扩展断言**：③ `node scripts/check-bundle-config.mjs` 退出码 0（macOS `["app","dmg"]` / Windows 含 `nsis`+`msi` / identifier 与 productName 两侧一致 / 平台专属项只在各自 overlay）④ `.github/workflows/build.yml` 的 matrix 含 `windows-latest` 且该 job **真跑** `npx tauri build`（不是只声明）、产物上传、E2E 闸门在打包前 ⑤ 交付说明标注「Windows 未在本机验证，验证路径是 CI」且全文无「Windows 版可用 / 已验证」类表述。T: ①②无命中；③④⑤三条静态/命令证据成立。**CI 的实际运行结果一律 `NOT-VERIFIED`，不得因此条升格** | 命令 | 附录 B.10 + B.11 |
 | TC-056 | AC-44 / AC-56 | G: 应用已启动；W: 检查**侧边导航**与交付说明；T: 导航仅 3 项、无「番茄钟」；**导航内**无账号 / 登录 / 同步入口（同步入口只允许出现在同步状态区 C-16，见 AC-58 / TC-062）；无自动更新入口；交付说明写明「数据空库起步、不迁移 Windows 历史数据」与「系统菜单栏为框架默认英文」 | 人工 | M-01 / M-04 + 巡览截图 |
 
 ---
 
 ### 5.8 H 组 · 数据同步（v1.1 新增，AC-57 ~ AC-67，TC-057 ~ TC-080）
+
+> v1.3 只改本组的四行口径（TC-057 计两条路径 / TC-062 补「关闭不丢会话」/ TC-065·TC-066 写死 fake timer 推进方法 / TC-080 限定检索范围），TC 编号与断言强度均未放宽。AC-68 不属本组，挂在 §5.7 的 TC-055 扩展断言上。
 
 **前置**：本组用例在 **S10（ZACHTD-12）实现完成、S10.5（ZACHTD-13）回归**时执行，不在 S7 的 AC-01~AC-56 判定里。本轮只出规划。
 
@@ -470,16 +484,16 @@ page.locator('.day-cell:not(.out-month)')
 
 | TC | 覆盖 AC | Given / When / Then（压缩） | 类型 | 手段 / 落点 |
 | --- | --- | --- | --- | --- |
-| TC-057 | AC-57 | G: 未配置 key（或 `sync.enabled=false`）；W: 启动并统计所有 `**/rest/v1/**` 请求；T: 云端请求 **0 次**；三模块功能与基线完全一致；日志无错误堆栈 | E2E | `page.route` 计数 + 用例 1 断言体 |
+| TC-057 | AC-57 | G: 未配置 key（或 `sync.enabled=false`）；W: 启动并统计 `**/rest/v1/**` **与** `**/auth/v1/**` 两条路径的全部请求（只数 `rest/v1` 会漏掉误发的 `/auth/v1/health`）；T: 两条路径均为 **0 次**；三模块功能与基线完全一致；控制台无 error / 无未捕获异常；日志无错误堆栈 | E2E + 独立探针 | `page.route` 双路径计数 + 用例 1 断言体 + `scripts/check-sync-console.mjs` |
 | TC-058 | AC-57 | G: 同上，且网络整体不可用（route 全部 abort）；W: 走「新建待办 → 每日工作法换一条 → 全部待办筛选」；T: 全部成功，无网络错误提示、无阻塞态 | E2E | 与 TC-053 / AC-41 同源，同步侧另计 |
-| TC-059 | AC-57 | G: 同步代码已接入；W: `sync.enabled=false` 下跑全量 E2E；T: 仍 `6 passed`（**回归红线**，D-8），新增同步断言未破坏既有用例 | 命令 | `npx playwright test --reporter=list` |
+| TC-059 | AC-57 | G: 同步代码已接入；W: `sync.enabled=false` 下跑全量 **主套件**；T: 仍 `6 passed`（**回归红线**，D-8），新增同步断言未破坏既有用例；另跑同步套件 `npx playwright test -c playwright.sync.config.ts` **单独报数**（不与主套件混报） | 命令 | `npx playwright test --reporter=list` + `-c playwright.sync.config.ts` |
 | TC-060 | AC-57 | G: 浏览器 / E2E 环境；W: 观察同步是否被触发；T: localStorage 环境下**不启用同步**、零云端请求（数据隔离不破，FR-DB-10） | E2E | route 计数 = 0 |
 | TC-061 | AC-58 | G: 首次启动；W: 观察首屏；T: **不出现**登录页 / 全屏遮罩 / 强制登录，直接进日历；三模块可用 | E2E | 用例 1 断言体 |
-| TC-062 | AC-58 | G: 已进入应用；W: 打开同步状态区；T: 提供 GitHub 登录入口，无 key 时给「未配置」说明；登录不阻塞主流程，关闭后状态不丢 | E2E | `.sync-panel` / `.sync-login`（命名待 S10 确认，OPEN-04） |
+| TC-062 | AC-58 | G: 已进入应用；W: ① 打开同步状态区；② **关闭状态区 → 重新打开**；T: ① 提供 GitHub 登录入口，无 key 时给「未配置」说明，登录不阻塞主流程；② 重开后**不丢状态**：无 key 期间仍是「未配置」（`data-phase=disabled`），**已登录态下仍显示「已登录」+ 上次同步时间**（关闭只是 `v-show` 隐藏，会话在钥匙串 / 状态在模块级 store，见 `src/stores/sync.ts` 的 `closePanel`）。②的已登录半句在无 key 期间由引擎层（会话存储 + 状态对象）证明，真机截图 `NOT-VERIFIED` | E2E + stub | `e2e-sync` S4 + `scripts/check-sync-extra.mjs` ③ |
 | TC-063 | AC-59 | W: 检索 OAuth 实现；T: 含 `code_challenge` / `code_verifier`（PKCE）、`redirect_uri` 为 `http://127.0.0.1:<port>` 回环；**无** `response_type=token`（隐式流程） | 命令 | `grep -rn "code_challenge\|response_type\|127.0.0.1" src/` |
 | TC-064 | AC-59 | G: 真实 GitHub 账号 + 真实 Supabase 项目；W: 完整走一次登录；T: 回跳到应用并拿到会话 | **NOT-VERIFIED** | 无 key，等补跑；**不得记 PASS** |
-| TC-065 | AC-60 | G: 已登录（stub）；W: 2 秒内连续改 3 条；T: 推进到第 5 秒 → **只推送 1 次**，payload 含 3 条（防抖合并） | stub | fake timer + stub 请求记录 |
-| TC-066 | AC-60 | G: 同上；W: 改 1 条后停在 4.9 秒；T: 无请求；第 5.0 秒 → 1 次请求，payload **只含变更条目**，含 `uuid` / `updated_at_ms` / `deleted` | stub | 同上 |
+| TC-065 | AC-60 | G: 已登录（stub）；W: 2 秒内连续改 3 条；**推进方法（唯一口径，不许实现方各写一套）**：注入 `setClock(fakeClock)` + `setTimers(fakeTimers)`，用 `advance(ms)` 按到期顺序触发挂起定时器并把假时间停到目标点（`scripts/check-sync.mjs` 顶部 `advance()`，`scripts/check-sync-extra.mjs` ④ 打印时间线）；浏览器侧日期基线用 `page.clock.setFixedTime(RUN_START)`；T: 推进到第 5 秒 → **只推送 1 次**，payload 含 3 条（防抖合并） | stub | fake timer + stub 请求记录 |
+| TC-066 | AC-60 | G: 同上；W: 改 1 条后**停在最后一次改动后的 4.9 秒**；T: 无请求；第 5.0 秒 → 1 次请求，payload **只含变更条目**，含 `uuid` / `updated_at_ms` / `deleted` | stub | 同上（时间线逐点打印：`+2.0s 0 次 / +4.9s 0 次 / +5.0s 1 次`） |
 | TC-067 | AC-60 | G: 已登录；W: 删除 1 条；T: 第 5 秒推送 `deleted=1`（**软删除**），本地行仍在库、不是物理 `DELETE` | stub | payload 断言 + `sqlite3` 查 `deleted` |
 | TC-068 | AC-61 | G: stub 云端有 2 条本地没有的记录；W: 启动应用；T: 启动后拉取并合并，列表出现这 2 条；本地原有数据不丢 | stub | 启动流程 + stub 计数 ≥ 1 |
 | TC-069 | AC-61 | G: 未登录且本地有数据；W: 登录成功；T: 登录后立即拉取一次，冲突按 LWW 合并 | stub | 登录回调后 stub 计数 +1 |
@@ -489,11 +503,11 @@ page.locator('.day-cell:not(.out-month)')
 | TC-073 | AC-63 | G: 远端某条 `deleted=1`、`updated_at_ms=T`；W: 拉取；T: 本地该条 `deleted=1`，三模块列表均不可见，统计同步减少 | stub | `sqlite3` + UI 断言 |
 | TC-074 | AC-63 | G: 已按 TC-073 删除；W: 更旧记录（`updated_at_ms<T`、`deleted=0`）后到；T: **不复活**，`deleted` 仍为 1 | stub | 核心断言（防"旧数据复活"） |
 | TC-075 | AC-63 | G: 已登录；W: 本地删除一条并等 5 秒；T: 推送 `deleted=1` 而非物理删除；本地 `todos` 行仍存在 | stub | payload + `sqlite3` |
-| TC-076 | AC-64 | G: 从 v2 库升级到含 v3 迁移的构建；W: `PRAGMA table_info(todos)` / `PRAGMA table_info(daily_picks)` 并二次启动；T: **`todos`** 有 `uuid` / `updated_at_ms` / `deleted` 三列，老数据 `uuid` 回填且唯一非空、`deleted` 默认 0，二次启动不重复生成 uuid（幂等）；**`daily_picks` 未新增这三列**（D-19：不同步就不加列） | 命令 | 附录 A-11 |
+| TC-076 | AC-64 | G: 从 v2 库升级到含 v3 迁移的构建；W: 对**真实桌面库** `~/Library/Application Support/com.poisson.todo/todo.db` 跑 `PRAGMA table_info(todos)` / `PRAGMA table_info(daily_picks)` / `SELECT version,success FROM _sqlx_migrations`，并对副本重跑回填语句验幂等；T: **`todos`** 有 `uuid` / `updated_at_ms` / `deleted` 三列，老数据 `uuid` 回填且唯一非空、`deleted` 默认 0，二次回填不重新生成 uuid；**`daily_picks` 未新增这三列**（D-19）；迁移版本 1/2/3 且 success=1。证据贴 `PRAGMA` 原始输出，不引用他人文字 | 命令 | 真实库 + 副本（附录 A-11） |
 | TC-077 | AC-64 | W: 检索迁移源码与版本记录；T: v1 / v2 未被修改（与基线逐字一致）、新增只有 v3；`DROP` / `ALTER` 仍为 0；迁移版本号只增 | 命令 | 附录 A-8 + A-11 |
 | TC-078 | AC-65 | G: 无 key；W: 尝试一次真实同步（写云端）；T: — | **NOT-VERIFIED** | 登记项，**不得判 PASS**；等 key 后补跑 |
 | TC-079 | AC-66 | W: ① 检索仓库内 RLS 策略 SQL：存在 `enable row level security` 与 `using (auth.uid() = user_id)`；② 用 A 用户 token 读 B 用户数据（需云库）；T: ① 判 PASS/FAIL；② **NOT-VERIFIED** | 命令 + NOT-VERIFIED | `grep -rn "row level security\|auth.uid()" supabase/`；云侧等 key |
-| TC-080 | AC-67 | W: ① `grep -rn "service_role\|SUPABASE_SERVICE" . --exclude-dir=node_modules` ② `git ls-files` 中无 `.env` / 密钥文件 ③ 打包产物内无 `service_role` 字符串；T: 三项均无命中；anon key 只出现在运行期配置、不硬编码 | 命令 | 附录 A-12 |
+| TC-080 | AC-67 | W: ① 检索 `service_role` / `SUPABASE_SERVICE`——**范围限定**：`src/**`、`src-tauri/**`、`package.json`、`sync.config.example.json` 的值位（`docs/` 与 README 里的「绝不要填 service_role」属说明性否定文本，**不在判定范围**，裸 grep 会恒假）② `git ls-files` 中无 `.env` / 密钥文件 ③ 前端产物 `dist/` 与打包产物二进制 `strings`（后者只覆盖未压缩部分，Tauri 压缩嵌入前端资源）④ 运行期兜底（**白名单**）：只接受 legacy JWT 且 `role === 'anon'`，或 `sb_publishable_` 前缀；非 JWT 形态（含 `sb_secret_…`）、管理员角色 JWT 一律拒绝且 `enabled === false`；T: ①②③ 无真实凭据命中（账：凭据 0 / 文本 1）；④ 负向断言通过；anon key 只出现在运行期配置、不硬编码 | 命令 | 附录 A-12 + `scripts/check-sync.mjs` 的白名单断言 |
 
 **NOT-VERIFIED 清单（无 key 期间，报告必须单列，不得计入 PASS）**：TC-064（OAuth 端到端）、TC-078（云端真实连通）、TC-079 的第二段（跨用户判权）。等人类提供 key 后，这三项作为 S10.5 的补充回归重跑。
 
@@ -501,9 +515,9 @@ page.locator('.day-cell:not(.out-month)')
 
 ---
 
-## 6. AC ↔ TC 追溯矩阵（67 / 67 全覆盖）
+## 6. AC ↔ TC 追溯矩阵（68 / 68 全覆盖）
 
-> v1.0 的 44 行原样保留；v1.1 追加 AC-45~AC-56（GAP 转正）与 AC-57~AC-67（同步）。
+> v1.0 的 44 行原样保留；v1.1 追加 AC-45~AC-56（GAP 转正）与 AC-57~AC-67（同步）；v1.3 追加 AC-68（Windows 可构建，挂 TC-055 扩展断言）。
 
 | AC | 主题 | 主 TC | 辅助 TC / 层 |
 | --- | --- | --- | --- |
@@ -574,8 +588,9 @@ page.locator('.day-cell:not(.out-month)')
 | **AC-65** | 无 key 期间 `sync.enabled=false` 短路；云端真实连通 | TC-078 | — |
 | **AC-66** | 云表开启 RLS（`auth.uid() = user_id`） | TC-079 | 云侧判权 NOT-VERIFIED |
 | **AC-67** | service_role key 不进客户端与仓库 | TC-080 | 附录 A-12 |
+| **AC-68** | Windows 可构建能力（三份 conf + CI matrix + 交付说明标注未本机验证） | **TC-055（扩展断言）** | 附录 B.11；**CI 实际运行结果 `NOT-VERIFIED`** |
 
-**统计**：**67 / 67 AC 有主 TC**（AC-01~AC-44 原样；AC-45~AC-56 由 GAP 转正、挂在既有 TC 上；AC-57~AC-67 同步组）；**80 条用例**（TC-001~TC-080，连续无重号）。按判定手段：E2E 参与 **33** 条、命令/脚本参与 **32** 条、人工参与 **9** 条、同步 **stub 11** 条、`NOT-VERIFIED` **3** 条（TC-064 / TC-078 / TC-079 第二段），混合判定重复计入。
+**统计**：**68 / 68 AC 有主 TC**（AC-01~AC-44 原样；AC-45~AC-56 由 GAP 转正、挂在既有 TC 上；AC-57~AC-67 同步组；AC-68 挂 TC-055 扩展断言）；**80 条用例**（TC-001~TC-080，连续无重号；AC-68 不新增 TC）。按判定手段：E2E 参与 **33** 条、命令/脚本参与 **33** 条（含 AC-68）、人工参与 **9** 条、同步 **stub 11** 条、`NOT-VERIFIED` **3 条 TC**（TC-064 / TC-078 / TC-079 第二段，另有 AC-68 的 CI 结果与 AC-66② 两个子项），混合判定重复计入。
 
 ---
 
@@ -732,9 +747,9 @@ npx playwright test -c playwright.sync.config.ts   # 独立目录 e2e-sync/，�
 
 ```
 1. 结论：PASS / FAIL / BLOCKED（三选一，不得模糊）
-2. 67 条 AC 逐条表：AC | 判定 | 证据（命令输出 / 测试名 / 截图号） | 备注
+2. 68 条 AC 逐条表：AC | 判定 | 证据（命令输出 / 测试名 / 截图号） | 备注
    —— AC-01~AC-44 在 S7 判；AC-45~AC-56 在 S7 判（PRD v1.2 交付后）；
-      AC-57~AC-67 在 S10.5（ZACHTD-13）判
+      AC-57~AC-67 在 S10.5（ZACHTD-13）判；AC-68 的静态三证在 S10.5 落地、判定归属 S11
 3. 三态之外的第四态单列：NOT-VERIFIED（TC-064 / TC-078 / TC-079 第二段）
 4. 人工 checklist（M-01 ~ M-16）：通过 / 失败 / 未执行
 5. 缺陷清单（FAIL 项）：严重程度 + 复现步骤 + 证据
@@ -746,7 +761,7 @@ npx playwright test -c playwright.sync.config.ts   # 独立目录 e2e-sync/，�
 | 段 | 子任务 | 我执行什么 | 判定范围 |
 | --- | --- | --- | --- |
 | S7 | ZACHTD-9 | 全量 T3：AC-01~AC-56 逐条判定 + 人工 checklist + 报告 | 56 条（44 原有 + 12 转正） |
-| S10.5 | ZACHTD-13 | 同步回归：TC-057~TC-080（stub 可跑的 + `NOT-VERIFIED` 登记） | AC-57~AC-67 |
+| S10.5 | ZACHTD-13 | 同步回归：TC-057~TC-080（stub 可跑的 + `NOT-VERIFIED` 登记）+ AC-43 按 v1.4 重判 + AC-68 三条静态证据 | AC-57~AC-67、AC-43（重判）、AC-68（静态部分） |
 | S11 | ZACHTD-14 | 增量评审的测试意见（不改判、不代评审） | — |
 
 > **同步断言不并入 6 个既有 `test()`**：它们与本地三模块无关，且一旦写进主用例，`sync.enabled=false` 与 `=true` 两种配置会互相打架（AC-03 的 `6 passed` 会随配置漂移）。所以同步组在 **S10.5 用独立目录 + 独立配置**执行：`e2e-sync/`（**不在** `testDir: './e2e'` 之内）+ `playwright.sync.config.ts`，命令是 `npx playwright test -c playwright.sync.config.ts`。这样 `npx playwright test` 仍是 **6 passed**（AC-03 不被污染），同步用例另计一套。这一点必须写进 S10 任务书，否则实现方会把同步断言塞进主用例、或把 `e2e-sync/` 放进 `testDir`，直接破 AC-03。
@@ -757,7 +772,7 @@ npx playwright test -c playwright.sync.config.ts   # 独立目录 e2e-sync/，�
 
 ### 11.1 T1 退出准则（v1.0 已判 PASS；v1.1 增量自检）
 
-- [x] 67 条 AC 逐条有主 TC，无遗漏（§6）
+- [x] 68 条 AC 逐条有主 TC，无遗漏（§6）
 - [x] 80 条 TC 每条都有 AC 归属（§5），编号 TC-001~TC-080 连续无重号
 - [x] `steps` 断言按 CFL-07（`>= 2`，分布 3–7），未沿用「2–4」
 - [x] 明确列出 E2E 覆盖不到的部分并单列人工 checklist（§8，M-01~M-16）
@@ -779,7 +794,7 @@ npx playwright test -c playwright.sync.config.ts   # 独立目录 e2e-sync/，�
 
 ### 11.3 T3 退出准则
 
-- **67 条 AC** 全部有判定（PASS / FAIL / BLOCKED / NOT-VERIFIED），无"未执行"空白
+- **68 条 AC** 全部有判定（PASS / FAIL / BLOCKED / NOT-VERIFIED），无"未执行"空白
 - 每条 PASS 都指向具体证据（不允许"截图看起来正常"）
 - `NOT-VERIFIED` 单列且**未计入 PASS**（TC-064 / TC-078 / TC-079 第二段）
 - 人工 checklist 的硬项（M-01 / M-08 / M-11）已签署；M-15 / M-16 已记录
@@ -804,7 +819,7 @@ npx playwright test -c playwright.sync.config.ts   # 独立目录 e2e-sync/，�
 | 编号 | 问题 | 默认执行口径（我现在按这个测） | 影响 |
 | --- | --- | --- | --- |
 | ~~OPEN-01~~ **已裁定（D-10）** | 软删除是否为**终结态** | **墓碑终结**：`deleted=1` 不被任何远端非删除记录覆盖，`updated_at_ms` 更大也不复活（PRD v1.2 §16.4 已同步改口径）。TC-074 依此断言，不再作为"默认口径" | AC-63 判定口径 |
-| **OPEN-02（PRD v1.2 同号）** | 5 秒防抖窗口内**应用退出**时，未推送的变更怎么办 | **不 flush**（PRD v1.2 §16.4）：未到期变更随退出丢弃，本地库已写，下次变更会重新带上。TC-067/075 只判"防抖与软删"，不判 flush；若 S10 增量做了 flush，补一条正向断言 | AC-60 |
+| **OPEN-02（PRD v1.2 同号）** | 5 秒防抖窗口内**应用退出**时，未推送的变更怎么办 | **不 flush**（PRD v1.2 §16.4）：未到期变更随退出丢弃，本地库已写；启动只 pull、**不扫描待推队列**，故**不会补推**——只有该行下次被编辑时才重新排队上云。TC-067/075 只判"防抖与软删"，不判 flush；若 S10 增量做了 flush，补一条正向断言 | AC-60 |
 | **OPEN-03（PRD v1.2 同号）** | 登录后拉取与"启动时拉取"是否会重复拉两次 | **允许重叠**（PRD v1.2 §16.4）：两次均为幂等合并，只断言"合并结果正确"，不断言请求次数恰为 1 | TC-068/069 |
 | **OPEN-04（PRD v1.2 同号）** | 同步状态区（C-16）的 DOM 命名 | 由 S10 实现方定，但**必须稳定可测**；我按 `.sync-panel` / `.sync-state` / `.sync-login` 占位，改名只回改 §3.4 与 6 条用例的选择器（不改判定） | TC-057~TC-080 |
 
@@ -929,15 +944,28 @@ grep -rn "FROM todos" src/ | grep -v "deleted" && echo "MISSING deleted FILTER"
 
 **A-12 密钥与安全边界（TC-080）**
 
+> **口径（v1.4 修订）**：这条判据**不能写成裸 grep**。`docs/`、`README.md`、PRD/计划/报告里的
+> 「绝不要填 `service_role`」属说明性否定文本，裸 grep 必然命中（实测 tracked 全量 29 行 / 7 文件），
+> 于是无论实现对不对这条都「有输出」——**看起来在验证、实际什么都没验**。判定范围收窄为
+> **代码目录 + 配置值位 + 产物二进制**三段：
+
 ```bash
-# 1) 仓库内不得出现 service_role / 服务端密钥
-grep -rn "service_role\|SUPABASE_SERVICE" . --exclude-dir=node_modules --exclude-dir=.git || echo "NO SERVICE ROLE KEY"
+# 1) 客户端代码与运行期配置的值位不得出现 service_role / 服务端密钥
+#    范围：src/ src-tauri/ package.json + sync.config.example.json（值位）
+#    docs/ 与 README 的说明性否定文本不在判定范围
+grep -rn "service_role\|SUPABASE_SERVICE" src/ src-tauri/ package.json sync.config.example.json \
+  | grep -v "绝不要填" || echo "NO SERVICE ROLE KEY"
 # 2) 版本库里不得有 .env / 密钥文件
 git ls-files | grep -E "^\.env|secret|key\.json" || echo "NO SECRET FILES TRACKED"
-# 3) 打包产物内不得有 service_role 字符串
-strings "src-tauri/target/release/bundle/macos/日程待办.app/Contents/MacOS/日程待办" | grep -c "service_role" || echo "BINARY CLEAN"
+# 3) 前端产物内不得出现 service_role（Tauri 会把前端资源压缩后嵌入 .app，
+#    二进制 strings 看不到 JS 字符串，故前端侧以 dist/ 为判据，二进制只覆盖 Rust 层）
+grep -rac "service_role" dist/ || echo "DIST CLEAN"
+strings -a "src-tauri/target/release/bundle/macos/日程待办.app/Contents/MacOS/todo" \
+  | grep -acE "service_role|SUPABASE_SERVICE" || echo "BINARY CLEAN"
 # 4) OAuth 流程形态
 grep -rn "code_challenge\|response_type\|127.0.0.1" src/ || echo "NO PKCE CODE FOUND"
+# 5) 运行期兜底：非 anon 形态的密钥必须被拒（白名单），见 scripts/check-sync.mjs
+node scripts/check-sync.mjs | tail -2
 ```
 
 ---
@@ -946,11 +974,11 @@ grep -rn "code_challenge\|response_type\|127.0.0.1" src/ || echo "NO PKCE CODE F
 
 | 维度 | 数量 |
 | --- | --- |
-| AC 总数 | **67**（AC-01~AC-44 原 44 条 + AC-45~AC-56 转正 12 条 + AC-57~AC-67 同步 11 条） |
-| 已覆盖 AC | 67 / 67（100%） |
+| AC 总数 | **68**（AC-01~AC-44 原 44 条 + AC-45~AC-56 转正 12 条 + AC-57~AC-67 同步 11 条 + AC-68 Windows 可构建 1 条） |
+| 已覆盖 AC | 68 / 68（100%） |
 | TC 总数 | **80**（TC-001~TC-080，连续无重号） |
 | E2E 参与判定 | **33**（v1.0 的 28 + 同步组 5，含 4 条与命令混合） |
-| 命令 / 脚本参与判定 | **32**（v1.0 的 26 + 同步组 6；含 3 条与人工混合、4 条与 E2E 混合、1 条与 NOT-VERIFIED 混合） |
+| 命令 / 脚本参与判定 | **33**（v1.0 的 26 + 同步组 6 + AC-68 的 1 条，挂 TC-055；含 3 条与人工混合、4 条与 E2E 混合、1 条与 NOT-VERIFIED 混合） |
 | 人工参与判定 | **9**（纯人工 6，另 3 条与命令混合；AC-52 的临时夹具计入 TC-037 的人工段） |
 | 同步 stub 判定 | **11**（TC-065~TC-075，逻辑分支专测） |
 | `NOT-VERIFIED` | 3（TC-064 OAuth 端到端、TC-078 云端连通、TC-079 跨用户判权） |
@@ -978,6 +1006,7 @@ grep -rn "code_challenge\|response_type\|127.0.0.1" src/ || echo "NO PKCE CODE F
 
 | 版本 | 日期 | 变更摘要 |
 | --- | --- | --- |
+| v1.3 | 2026-11-01 | **S10.5 执行前对齐 PRD v1.4（TC 编号一个未动，不新增 `test()`）**：① AC 总数 67 → **68**（新增 AC-68 Windows 可构建），§6 矩阵补行、统计 / 退出准则 / 附录 B 同步改数；② **TC-055 换成附录 B.10 收窄口径**（只扫 `tauri.conf.json` + `src/` + `e2e/`）并追加 **AC-68 三条扩展断言**（`check-bundle-config.mjs` 退出码 0 / CI matrix 含 `windows-latest` 且真跑 `tauri build` / 交付说明标注未本机验证），CI 实际结果仍 `NOT-VERIFIED`；③ **TC-057 计两条路径**（`rest/v1` + `auth/v1` 均须 0）；④ **TC-062 补「关闭状态区不丢会话」**（重开仍显示已登录 / 上次同步时间，无 key 期间由引擎层证明）；⑤ **TC-065 / TC-066 写死 fake timer 推进方法**（`setClock`/`setTimers` 注入 + `advance(ms)`，4.9 秒零请求、5.0 秒一次）；⑥ **TC-080 限定检索范围**（值位 + 产物二进制，排除说明性否定文本）；⑦ **TC-076 改用真实桌面库 PRAGMA 证据**。AC 68 / TC 80 |
 | v1.2 | 2026-11-01 | **G2-prep 判门后的两处指针必修（TC 编号一个未动）**：① AC-54 主 TC 由 **TC-014 改为 TC-043**（用例 4 清库场景），方法库空态降为人工观察项，TC-014 只留 AC-10 的「有按钮」断言——消除"同一断言被两条 AC 指向相反期望"的 S7 必踩坑；② TC-056 的 Then 缩到「**导航内**无账号 / 登录 / 同步入口」，并写明同步入口只允许在 C-16（AC-58），与 AC-44 新口径一致；③ 按 PRD v1.2 定稿对齐措辞：AC-47 宽度区间 [380,420]、AC-51 用 `.mc-preview` 计数、AC-55 六步按 PRD 列、AC-64 与 v3 迁移**只给 `todos` 加列**（`daily_picks` 不同步，D-19）、OPEN-01 升为「已裁定：墓碑终结」（D-10）。④ 顺带把 **AC-45~AC-56 回填进对应 TC 的「覆盖 AC」列**（映射与 §7 完全一致、判定不变），让「AC ↔ TC」可由脚本机械校验，不再只靠 §7 的散文映射。AC / TC 计数不变：67 AC / 80 TC |
 | v1.1 | 2026-11-01 | **G1 判门 PASS 后的增量（只动 5 处）**：① Q-T-01~05 五条裁定落地——`.mc-fade`（AC-29 改断言）、`data-date` + `data-outside`（AC-06/08 禁文本推断）、双构建法（TC-047 前置改实）、部署目标预声明（`deploy_url = none (local artifact)`）；② GAP-01~12 转正为 **AC-45~AC-56**，挂在既有 TC 上、**原 56 条编号一个未动**；③ 新增 **同步用例组 TC-057~TC-080**（24 条）与 `NOT-VERIFIED` 第四态规则（TC-064 / TC-078 / TC-079 第二段）；④ T3 执行计划补双构建步骤、同步 stub 执行、S7/S10.5 分段映射、同步断言不进主用例（守 AC-03 的 `6 passed`）；⑤ §12 待确认改已裁定，新增同步侧 OPEN-01~04（给默认口径）。新增风险 R-T-13~R-T-18，其中 R-T-13（LWW 依赖本机时钟）与 R-T-18（`deleted` 漏过滤会让已删条重现）是同步侧最需要盯的两条 |
 | v1.0 | 2026-11-01 | 首版 T1 测试计划：44 条 AC 全覆盖、56 条 TC、M-01~M-14 人工 checklist、12 项 AC 缺口、BLK-01；T1 判门 PASS（Leader G1） |

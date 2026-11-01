@@ -66,8 +66,7 @@
 
 ### 1.4 验收口径
 
-以 PRD §13 的 **67 条 AC** 为准（AC-01 ~ AC-44 原基线 + AC-45 ~ AC-56 GAP 转正 + AC-57 ~ AC-67 数据同步；
-PRD v1.3 未新增 AC-68）；本设计的每个 T- 任务都显式映射到 FR- / AC-，映射关系见 §8。
+以 PRD §13 的 **68 条 AC** 为准（AC-01 ~ AC-44 原基线 + AC-45 ~ AC-56 GAP 转正 + AC-57 ~ AC-67 数据同步 + AC-68 Windows 可构建，PRD v1.4 §13.11）；本设计的每个 T- 任务都显式映射到 FR- / AC-，映射关系见 §8。
 
 ---
 
@@ -942,7 +941,8 @@ localStorage 侧收敛到 `readLiveTodos() = readAllLocalTodos().filter(t => !t.
        └─ 失败 → 1s/2s/4s/8s/16s 指数退避；耗尽后状态「同步失败，可手动重试」；本地数据不回滚
 ```
 
-退出前**不 flush** 未到期的防抖（OPEN-02 默认），未推送的改动留在本地库，下一次变更会带上。
+退出前**不 flush** 未到期的防抖（OPEN-02 默认），未推送的改动留在本地库；**启动只 pull、不扫描待推队列，
+所以不会补推**——只有该行下一次被编辑时，才会重新进入待推集合上云。
 
 ### 12.4 冲突规则：LWW + 墓碑终结（规则唯一实现处 `src/sync/merge.ts`）
 
@@ -966,7 +966,7 @@ localStorage 侧收敛到 `readLiveTodos() = readAllLocalTodos().filter(t => !t.
 | --- | --- |
 | 云表 | `supabase/schema.sql`：只建 `public.todos`，主键 `(user_id, uuid)`，`updated_at_ms` 索引 |
 | RLS | `alter table public.todos enable row level security`；select / insert / update / delete 四条策略，`using (auth.uid() = user_id)`（写策略带 `with check`，防伪造 user_id） |
-| 密钥类型 | **只接受 anon key**。`parseSyncConfig` 会解出 JWT 的 `role`，`service_role` / `supabase_admin` 直接拒绝并保持「未配置」（AC-67 的运行期兜底） |
+| 密钥类型 | **白名单**：只接受 ① legacy JWT 且 `role === 'anon'`，或 ② `sb_publishable_` 前缀；其余（含 `sb_secret_…` 等读不出角色的非 JWT、`service_role` / `supabase_admin` JWT）一律拒绝并保持「未配置」（AC-67 的运行期兜底）。**不能写成黑名单**：`if (role && role !== 'anon')` 会让非 JWT 密钥静默通过 |
 | 配置来源 | 桌面端运行期读 app data 目录的 `sync.config.json`（仓库只有 `.example`，已进 `.gitignore`）；Node 检查脚本走环境变量/注入。**不编译期注入**，避免 key 被打进 bundle |
 | 会话存储 | macOS 登录钥匙串（`security` 命令行，service `com.poisson.todo.sync`）。**不写 localStorage、不写明文文件、不进日志**；唯一出现 token 的位置是短命的子进程参数（见 R-SYNC-02） |
 | 传输 | `apikey` + `Authorization: Bearer <access_token>`；401 先刷新一次再重试，刷新失败清会话并退到「未登录」 |

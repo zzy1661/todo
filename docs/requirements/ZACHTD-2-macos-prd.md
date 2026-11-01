@@ -4,8 +4,8 @@
 | --- | --- |
 | 文档编号 | PRD-ZACHTD-2 |
 | 关联 Issue | ZACHTD-2《规划 macOS 版「日程待办」App 开发（Tauri 2 + Vue 3，废弃原有代码，暂不执行）》 |
-| 版本 | v1.3 |
-| 状态 | **G0 = PASS · G1 = PASS · G2-prep = PASS（均 2026-11-01）**；13 条 OP- 全部关闭；v1.3 为判门后指针修正（AC-54 执行点 / v3 迁移范围 / 四项 Leader 确认） |
+| 版本 | v1.6 |
+| 状态 | **G0 / G1 / G2-prep / S8 / S10.5 均 PASS（2026-11-01）**；13 条 OP- 全关闭；v1.5 两处一行改动（AC-37 收窄、AC-68 判定归属），并连带校正 BR-08 / BR-30 的同源措辞；v1.6 两处口径校正（AC-67 判据收窄 + 白名单兜底、OPEN-02 措辞校正），**不改任何 AC 判定** |
 | 作者 | @ProductManager |
 | 日期 | 2026-11-01 |
 | 依据材料 | SPEC.md / PLAYBOOK.md / AGENTS.md / README.md（Windows 侧既有事实基线，作为本 Issue 附件提供）；`methods.ts`（65 条内容库数据资产，OP-01 关闭物，附件 `01a192dc-26c1-7bc6-aea5-6cbcaee076cd`） |
@@ -256,7 +256,7 @@ Leader 已定：下列内容是**行为契约**，macOS 版必须逐条保持，
 | INV-05 | 迁移只增不改 | BR-08 | AC-36 / AC-37 |
 | INV-06 | `YYYY-MM-DD` 日期口径 | BR-01 | AC-36（升级前后 `date` 字段逐字节一致） |
 | INV-07 | store 不感知 SQLite / localStorage 差异 | BR-13 | AC-35 |
-| INV-08 | **本地优先不被同步破坏**：无 key / 未登录 / 断网时与基线完全一致；同步不得改变既有 44 条 AC 的判定 | BR-24 | AC-57 / AC-58 |
+| INV-08 | **本地优先不被同步破坏**：无 key / 未登录 / 断网时与基线完全一致；同步不得改变既有 **56 条 AC**（AC-01 ~ AC-56）的判定 | BR-24 | AC-57 / AC-58 |
 
 ---
 
@@ -404,7 +404,7 @@ Leader 已定：下列内容是**行为契约**，macOS 版必须逐条保持，
 
 ### 8.10 FR-SYNC 数据同步（Supabase，可选入口）
 
-> 本章为 v1.2 增量。全部条款对应 Leader G1 判门的 7 条裁定（§16.2），裁定口径不改写。**任何一条都不得影响既有 44 条 AC 的判定**（BR-24）。
+> 本章为 v1.2 增量。全部条款对应 Leader G1 判门的 7 条裁定（§16.2），裁定口径不改写。**任何一条都不得影响既有 56 条 AC（AC-01 ~ AC-56）的判定**（BR-24）。
 
 | 编号 | 需求（可观察行为） | 优先级 | 来源 |
 | --- | --- | --- | --- |
@@ -440,7 +440,7 @@ Leader 已定：下列内容是**行为契约**，macOS 版必须逐条保持，
 | BR-05 | **确定性推送**：以日期字符串为种子，使用 FNV-1a 哈希 + mulberry32 伪随机 + Fisher-Yates 全排列得到当天 65 条的固定顺序，取第 0 条为首推；「换一条」取 `(当前下标 + 1) % 65`。算法必须**逐字等价**（附录 A），保证同一日期在 Windows 与 macOS 上得到同一条 | 同日期不同机器/不同重启结果一致 | INV-03 |
 | BR-06 | **推送落库**：日期为主键；首推写 `manual = false`，换一条写 `manual = true`；重复写入为覆盖更新 | 一日一行 | INV-04 |
 | BR-07 | **两表固定**：待办表 `todos`、每日推送表 `daily_picks`。不新增第三张表、不合并、不改名、不把推送记录塞进待办表 | 表名与自增主键类型一致 | INV-04 |
-| BR-08 | **迁移只增不改**：新增能力一律追加更高版本号的迁移；SQL 只允许 `CREATE TABLE IF NOT EXISTS` / `CREATE INDEX IF NOT EXISTS`；**禁止** `DROP`、`ALTER`、`DELETE`、`UPDATE` 既有表结构与既有数据 | 迁移文件内检索无 `DROP` / `ALTER` | INV-05 |
+| BR-08 | **迁移只增不改**：新增能力一律追加更高版本号的迁移；v1 / v2 内的 `CREATE TABLE IF NOT EXISTS` / `CREATE INDEX IF NOT EXISTS` **逐字不改**；禁止 `DROP` 既有对象、禁止对既有列做 `ALTER` / 改名 / 重建表；**新增列必须在新迁移文件里用 `ALTER TABLE ... ADD COLUMN`**（v3 已如此）；数据改写只允许对**新增列**做幂等回填 | `lib.rs` 内无 `DROP` / `ALTER`；新增迁移只出现 `ADD COLUMN` | INV-05 |
 | BR-09 | **改日期后必须重查当月**：任何改变待办日期的操作完成后，必须重新拉取当前月数据，否则日历圆点与统计会与列表不一致 | 移动今日/明日、编辑器改日期、复制到今日 | — |
 | BR-10 | **新建后必须同步月数据**：新建待办后必须刷新当前月数据，让日历圆点立即出现 | 与 FR-CAL-04 联动 | — |
 | BR-11 | **菜单不得出现自操作项**：今日条目不得出现「复制到今日」「移动到今日」；非今日条目不得出现「移动明日」以外的过去向操作 | 菜单项由日期分支生成，不是置灰 | FR-MENU-01 |
@@ -462,7 +462,7 @@ Leader 已定：下列内容是**行为契约**，macOS 版必须逐条保持，
 | BR-27 | **拉取时机**：① 应用启动时一次；② 登录成功后立即一次。两处都按 BR-28 合并，不覆盖本地更新 | 启动与登录后各计 1 次 | — |
 | BR-28 | **冲突规则 LWW**：`updated_at_ms` 大者胜；同毫秒按 `uuid` 字典序（稳定序）决出，且与到达顺序无关；**落败值不得回写云端** | 两种到达顺序结果逐字节相同 | — |
 | BR-29 | **软删除与墓碑**：删除只写 `deleted = 1`，不物理删除；已删条目不得被旧数据（`updated_at_ms` 更小且 `deleted = 0`）复活；`deleted = 1` 的行在三模块列表、圆点、统计中一律不可见 | 删除后行仍在库、UI 不可见 | — |
-| BR-30 | **v3 迁移只增不改**：只允许追加 version 3 的迁移；新增 `uuid` / `updated_at_ms` / `deleted` 三列并幂等回填；`v1` / `v2` 的 SQL 逐字不动；仍禁止 `DROP` / `ALTER` 既有表（新增列须用迁移框架支持的纯新增方式，且不得重建表丢数据） | 迁移记录只增、`diff` 无差异 | INV-05 |
+| BR-30 | **v3 迁移只增不改**：只允许追加 version 3 的迁移；新增 `uuid` / `updated_at_ms` / `deleted` 三列（用 `ALTER TABLE ... ADD COLUMN`，写在独立迁移文件）并幂等回填；`v1` / `v2` 的 SQL 逐字不动；禁止 `DROP` / 重建表 | 迁移记录只增、`diff` 无差异 | INV-05 |
 | BR-31 | **安全边界**：云表 RLS 策略为 `auth.uid() = user_id`；`service_role` 永不出现在客户端 / 仓库 / 打包产物；OAuth 必须 loopback + PKCE，禁止隐式流程 | 三项检索均无命中 | — |
 | BR-32 | **无 key 期间的证据纪律**：云端真实连通（OAuth 端到端、真实读写、跨用户判权）一律标 **`NOT-VERIFIED`**，不得记 PASS、不得计入通过率；本地 stub 路径必须能真跑并单独留证 | 报告中单列 NOT-VERIFIED | — |
 | BR-33 | **同步的可测性契约**：base URL、anon key、时间源三者可注入；同步用例独立目录与独立配置，不得并入主 E2E 套件（否则 AC-03 的 6 passed 当场失效） | `npx playwright test` 仍 6 passed | FR-SYNC-15 FR-SYNC-16 |
@@ -475,8 +475,8 @@ Leader 已定：下列内容是**行为契约**，macOS 版必须逐条保持，
 
 | 编号 | Windows 基线取值 | macOS 需替换为 | 影响面 | 受哪个 OP 约束 |
 | --- | --- | --- | --- | --- |
-| ADP-01 | 打包目标为 NSIS 安装包（`bundle.targets: ["nsis"]`） | `.app` 应用包 + `.dmg` 磁盘映像 | 交付物形态与验收命令 | OP-04 |
-| ADP-02 | 安装模式为「当前用户」安装（`nsis.installMode: currentUser`），安装到用户目录、无需管理员 | macOS 无安装器引导：拖拽 `.app` 到 `/Applications` 或直接运行 `.app`；删除 `.app` 即卸载 | 安装/卸载文档与「卸载重装数据保留」的验收方式 | OP-04 |
+| ADP-01 | 打包目标为 NSIS 安装包（`bundle.targets: ["nsis"]`） | **分层配置**（v1.4 补全）：`tauri.conf.json`（基础）不含 `targets`；`tauri.macos.conf.json` → `["app","dmg"]`；`tauri.windows.conf.json` → `["nsis","msi"]`。合并断言由 `scripts/check-bundle-config.mjs` 承担（AC-68） | 交付物形态与验收命令 | OP-04 / NS-09 |
+| ADP-02 | 安装模式为「当前用户」安装（`nsis.installMode: currentUser`），安装到用户目录、无需管理员 | macOS 无安装器引导：拖拽 `.app` 到 `/Applications` 或直接运行；删除 `.app` 即卸载。**Windows 侧保留 `installMode: currentUser`**，写在 `tauri.windows.conf.json`，属应有内容、不是残留（AC-43 明确不判失败） | 安装/卸载文档与「卸载重装数据保留」的验收方式 | OP-04 |
 | ADP-03 | 数据库路径 `%APPDATA%\com.poisson.todo\todo.db` | `~/Library/Application Support/<bundle identifier>/todo.db`（具体 identifier 见 OP-03） | 数据复核命令、升级兼容、数据继承 | OP-03 |
 | ADP-04 | 桌面快捷方式 `.lnk`，发布后需脚本刷新 | 无快捷方式概念；如需入口，由用户拖到 Dock 或使用 Launchpad | 发布流程步骤 | — |
 | ADP-05 | 静默升级：`setup.exe /S` 静默安装 | 无静默安装器；替换为「退出旧版 → 覆盖 `.app` → 启动新版」 | 升级流程与数据完整性验证 | OP-04 |
@@ -626,7 +626,7 @@ Leader 已定：下列内容是**行为契约**，macOS 版必须逐条保持，
 
 > 每条 AC 均为 Given / When / Then，并给出**在 macOS 上可执行**的验证方式。命令统一收在附录 B，可直接照抄。
 > 判定原则：AC 通过 = 命令退出码为 0 且人工观察结果与 Then 一致；只"能跑起来"不算通过。
-> **v1.2 起共 67 条**：AC-01 ~ AC-44（原基线，§13.1 ~ §13.8）、AC-45 ~ AC-56（原 GAP 转正，§13.9）、AC-57 ~ AC-67（数据同步，§13.10）。同步组另有"无 key ⇒ `NOT-VERIFIED`"第四态，不混入 PASS。
+> **v1.4 起共 68 条**：AC-01 ~ AC-44（原基线，§13.1 ~ §13.8）、AC-45 ~ AC-56（原 GAP 转正，§13.9）、AC-57 ~ AC-67（数据同步，§13.10）、**AC-68（Windows 可构建，§13.11）**。同步组另有"无 key ⇒ `NOT-VERIFIED`"第四态，不混入 PASS；AC-68 的 CI 执行结果同理。**判定归属**：AC-01 ~ AC-56 在 S7；AC-57 ~ AC-68 在 **S10.5 由 Tester 执行并留证**，S11 只做复评确认（Reviewer 不跑验证命令）。
 
 ### 13.1 构建与工程基线
 
@@ -693,7 +693,7 @@ Leader 已定：下列内容是**行为契约**，macOS 版必须逐条保持，
 | AC-34 | macOS 上首次启动桌面版 | 创建一个待办 | 数据库文件出现在 macOS 应用数据目录；`todos` 表存在且有 1 行；`daily_picks` 表存在 | 附录 B §B.4 `ls -l "$DB"` 成功、`.tables` 含两张表、`count(*)` = 1 |
 | AC-35 | 桌面版有 3 条待办 | 在同一台机器上跑一次全量 E2E 后再看桌面版 | 桌面版仍是 3 条，内容不变；E2E 数据只在浏览器 localStorage | 附录 B §B.4 前后计数一致（BR-14） |
 | AC-36 | 已安装上一版本并造 5 条数据（含不同日期与完成态） | 覆盖安装新构建后启动 | `todos` 条数仍为 5，id / date / done / title 完全一致；`daily_picks` 记录不丢失；迁移版本号只增不减 | 附录 B §B.5：升级前导出快照 → 升级 → 导出 → `diff` 为空 |
-| AC-37 | 迁移源码已写完 | 检索迁移定义 | 所有迁移 SQL 均为 `CREATE TABLE IF NOT EXISTS` / `CREATE INDEX IF NOT EXISTS`；无 `DROP` / `ALTER` / 对既有表的数据改写 | 附录 B §B.7 |
+| AC-37 | 迁移源码已写完（v1 / v2 内联在 `lib.rs`，v3 在 `src-tauri/migrations/0003_sync_columns.sql`） | 检索迁移定义与新增迁移文件 | ① `lib.rs` 内 **v1 / v2** 的迁移 SQL **逐字未改**（与基线一致）、无 `DROP`、不重建表；② **新增列一律走新迁移文件用 `ALTER TABLE ... ADD COLUMN`**（v3 已如此），不得改写旧迁移、不得 `DROP` 既有表或既有列；③ 迁移版本号只增不减 | 附录 B §B.7（两段式：`lib.rs` 查 `DROP`/`ALTER`；`src-tauri/migrations/` 允许 `ADD COLUMN`、禁 `DROP TABLE`/`DROP INDEX`/`RENAME TO`） |
 | AC-38 | 删除 `.app` 后重装 | 重新启动 | 待办数据仍在（条数不变） | `rm -rf /Applications/日程待办.app` → 重新安装 → 附录 B §B.4 计数不变（ADP-19） |
 
 ### 13.7 macOS 交付物
@@ -709,7 +709,7 @@ Leader 已定：下列内容是**行为契约**，macOS 版必须逐条保持，
 
 | 编号 | Given | When | Then | macOS 验证方式 |
 | --- | --- | --- | --- | --- |
-| AC-43 | 应用已完成 | 检查交付物文件清单 | 不存在 `.ps1` 脚本、不存在 NSIS 配置、不存在 `%APPDATA%` 字样、不出现 `channel: 'msedge'` | 附录 B §B.10 |
+| AC-43 | 应用已完成 | 检查**基础配置与运行时代码**（不是全部文件） | ① `src-tauri/tauri.conf.json`（基础配置）、`src/`、`e2e/` 中不存在 Windows 专属残留：`.ps1` 脚本、`%APPDATA%` 字样、`channel: 'msedge'`、`SetProcessDPIAware` / `AttachThreadInput` / `PrintWindow` 等 Win32 API（**验证脚本 `scripts/` 不在此限**——它本身就是"检查者"，必然要写出这些词，其 Windows 断言归 AC-68）；② 基础配置**不含平台专属 `bundle.targets`**——macOS 目标在 `tauri.macos.conf.json`、Windows 目标在 `tauri.windows.conf.json`。**反向明确**：`nsis` / `%APPDATA%` / `currentUser` 出现在 Windows overlay、CI 配置、校验脚本或交付说明中属**应有内容，不判失败** | 附录 B §B.10（定向检索：基础配置 + 运行时代码，不含 `tauri.windows.conf.json` 与 `scripts/`） |
 | AC-44 | 应用已完成 | 检查导航与交付说明 | 侧边导航中无「番茄钟」、**无同步 / 账号入口**（同步入口只在同步状态区 C-16，见 AC-58）；无自动更新入口 | 手工 + 巡览截图对照 |
 
 ### 13.9 原 AC 缺口已转正：AC-45 ~ AC-56（v1.2，编号与测试计划 §7 逐行一致）
@@ -747,7 +747,20 @@ Leader 已定：下列内容是**行为契约**，macOS 版必须逐条保持，
 | AC-64 | 存在 v2 结构的历史库 | 升级到含 v3 迁移的构建，并二次启动 | `uuid` / `updated_at_ms` / `deleted` 三列存在；老数据 `uuid` 已回填且唯一非空、`deleted` 默认 0；二次启动不重复生成 `uuid`；**v1 / v2 迁移逐字未改**，`DROP` / `ALTER` 仍为 0，版本号只增 | 命令（TC-076~077）：附录 B §B.5 + §B.7 + `PRAGMA table_info(todos)` |
 | AC-65 | 未提供 anon key | 尝试一次真实云端同步 | 不产生任何真实云端写入；该项标记为 `NOT-VERIFIED`，等 key 后补跑，**不得计入 PASS** | 登记项（TC-078）：报告中单列 |
 | AC-66 | 云表已建 | ① 检索仓库内 RLS 策略 SQL；② （需 key）用 A 用户 token 读 B 用户数据 | ① 存在 `enable row level security` 与 `using (auth.uid() = user_id)`；② 读到 0 行（越权不可见） | ① 命令可判 PASS/FAIL（TC-079 第一段）；② `NOT-VERIFIED`（TC-079 第二段） |
-| AC-67 | 交付物已打包 | ① 检索 `service_role` / `SUPABASE_SERVICE`；② 检查受版本控制的文件；③ 检查打包产物内字符串 | 三处均**无**命中；`anon key` 只出现在运行期配置中，不硬编码 | 命令（TC-080）：`grep -rn "service_role\|SUPABASE_SERVICE"` + `git ls-files` + 产物内 `strings` 检索 |
+| AC-67 | 交付物已打包 | ① 检索 `service_role` / `SUPABASE_SERVICE`——**范围限定**为 `src/`、`src-tauri/`、`package.json` 与 `sync.config.example.json` 的值位（`docs/`、README 的说明性否定文本不在判定范围，裸 grep 必命中且恒无意义）；② 检查受版本控制的文件（`.env` / 密钥文件）；③ 检查前端产物 `dist/` 与打包产物（二进制 `strings` 只覆盖未压缩部分，前端资源被压缩嵌入，故以 `dist/` 为前端判据）；④ 运行期兜底：`parseSyncConfig` **白名单**——只接受 legacy JWT 且 `role === 'anon'`，或 `sb_publishable_` 前缀，其余（含 `sb_secret_…`）一律拒绝且 `sync.config.enabled = false` | ① **凭据 0 / 文本 1**（文本 = 示例文件里的「绝不要填 service_role」警示语，不计为凭据，也不许写成「三处均无命中」）；② 0；③ 0 / 0；④ 负向断言通过（`scripts/check-sync.mjs`）；`anon key` 只出现在运行期配置中，不硬编码 | 命令（TC-080）：附录 A-12 五段 + `scripts/check-sync.mjs` 的白名单断言 |
+
+---
+
+### 13.11 Windows 可构建能力：AC-68（v1.4 新增）
+
+> 背景：AC-43 原字面「不存在 NSIS 配置」与 NS-09「Windows 可构建」自相矛盾——交付物里**必然**有 NSIS 配置。v1.4 把 AC-43 收窄为「基础配置与运行时代码无残留」，并新增本 AC 承担正向断言，两条合起来才完整。
+> **判定归属**：**在 S10.5 由 Tester 执行三条命令并留证，S11 复评确认**（S7 已按 v1.3 旧口径结账，不重开、不追溯）。把判定放在 S11 等于让评审员自己造证据，故 v1.5 改正。
+
+| 编号 | Given | When | Then | macOS 验证方式 |
+| --- | --- | --- | --- | --- |
+| AC-68 | Windows 可构建能力已交付（三份 conf + CI + 交付说明） | ① 跑三份 conf 合并断言；② 读 CI 配置；③ 读交付说明措辞 | ① `node scripts/check-bundle-config.mjs` 退出码 0：合并后 macOS 目标为 `["app","dmg"]`、Windows 目标含 `nsis` 与 `msi`、`identifier` / `productName` 在两侧一致、平台专属项（`minimumSystemVersion`、`nsis.installMode`、`wix`）只出现在各自 overlay 中；② `.github/workflows/build.yml` 的 matrix **含 `windows-latest`**，且该 job **真的执行** `npx tauri build`（不是只声明），产物上传，E2E 闸门在打包之前；③ 交付说明**标注**「Windows 产物未在本机验证，验证路径是 CI」，且全文**不出现**「Windows 版可用」「Windows 已验证」类表述 | ① 命令：`node scripts/check-bundle-config.mjs`（退出码 0）；② 命令：检索 `runs-on` / `windows-latest` / `tauri build`；③ 人工读交付说明 + 检索禁用措辞。三条均为静态/命令证据 |
+
+> **AC-68 的证据边界（不是第二条 AC，是同一条的判定细则）**：CI 的**实际执行结果**只能记 **`NOT-VERIFIED`**（本机无 Windows、仓库 S9 后才 push、无 Actions 运行记录），**不得记 PASS**，报告中与 AC-65 同栏单列。能判 PASS 的只有上面 ①②③ 三项静态/命令证据。
 
 ---
 
@@ -774,7 +787,7 @@ Leader 已定：下列内容是**行为契约**，macOS 版必须逐条保持，
 | RISK-02 | 首次打开被 Gatekeeper 拦截（未签名 / 未公证） | OP-05 判定不签名 | 用户以为"应用坏了" | AC 增加"首次打开"说明；分发时附 `xattr` 处理说明；或 OP-05 决定签名 | 产品 + 实现 |
 | RISK-03 | WebView 引擎差异：E2E 跑在 Chromium，桌面版跑在 WKWebView；日期输入控件渲染、背景模糊、自定义滚动条、`contextmenu` 行为可能不同 | 只以 E2E 绿作为交付证据 | 测试通过但用户侧异常 | AC-15/AC-29/AC-40 增加桌面版人工核对；OP-09 决定是否补实机自动化 | 实现 + 测试 |
 | RISK-04 | 从零重建导致二次发明：缺契约的地方各自发挥，行为漂移 | 材料未覆盖的细节被"合理推测"实现 | 移植"看起来像"但不等价 | 未定义项一律进 OP-；BR-22 锁定文案；附录 D 锁定冲突取舍 | 产品 |
-| RISK-05 | 把 Windows 实现细节当需求带入（NSIS / `%APPDATA%` / `msedge` / `.ps1`） | 直接照抄材料 | macOS 侧交付物不可用、返工 | §10 ADP- 表单列；AC-43 显式检索 | 产品 + 实现 |
+| RISK-05 | 把 Windows 实现细节当需求带入（NSIS / `%APPDATA%` / `msedge` / `.ps1`） | 直接照抄材料 | macOS 侧交付物不可用、返工 | §10 ADP- 表单列；**AC-43** 定向检索基础配置与运行时代码（AC-43 只禁「无归属的残留」，不禁 Windows overlay 里的 `nsis`）；Windows 侧的应有内容由 **AC-68** 正向断言 | 产品 + 实现 |
 | RISK-06 | 数据继承口径不清导致"数据丢失"投诉 | 用户已有 Windows 端 `todo.db`，macOS 端空库启动 | 用户认为升级后数据没了 | OP-02 前置拍板；默认建议"不继承"并在交付说明中写明 | 产品 |
 | RISK-07 | bundle identifier 变更导致数据目录漂移 | 重建时改了 identifier，但用户已在旧 identifier 目录下有数据 | 数据"消失"（实际是换了目录） | OP-03 一旦确定，identifier 与数据目录一并冻结；升级不得变更 | 实现 |
 | RISK-08 | 迁移被"优化"成重建表 | 实现者认为 CREATE+INSERT 更整洁 | 违反 BR-08，升级可能丢数据 | AC-36 / AC-37 双检；代码评审强制项 | 实现 + 测试 |
@@ -820,7 +833,7 @@ Leader 已定：下列内容是**行为契约**，macOS 版必须逐条保持，
 | G0 判门 | **PASS**（2026-11-01） |
 | 关闭方式 | 人类回复「全部按默认」关掉 12 条决定项；OP-01 由 `methods.ts` 数据资产上传独立关闭 |
 | 当前阻塞项 | **无**。本文不再存在「阻塞 G0」表述 |
-| 下游衔接 | 技术设计按 §10 ADP- 逐条替换、测试按 §13 的 AC 逐条映射用例（v1.2 起共 **67 条**：AC-01~44 原基线 + AC-45~56 GAP 转正 + AC-57~67 同步），两者可并行 |
+| 下游衔接 | 技术设计按 §10 ADP- 逐条替换、测试按 §13 的 AC 逐条映射用例（v1.4 起共 **68 条**：AC-01~44 原基线 + AC-45~56 GAP 转正 + AC-57~67 同步 + AC-68 Windows 可构建），两者可并行 |
 | 新识别项 | 设计 / 测试阶段新提出的 Q-01 ~ Q-05 不在本文 OP- 体系内，由 Reviewer 收敛；其中 Q-05（`steps` 口径）已由 CFL-07 关闭。同步侧口径见 §16.4：**OPEN-01 已裁定**（D-10 墓碑终结），OPEN-02~04 按默认生效；D-07 / D-18 / D-19 **Leader 已确认**（2026-11-01 G2-prep 判门），无待确认项积压 |
 
 ---
@@ -875,7 +888,7 @@ Leader 已定：下列内容是**行为契约**，macOS 版必须逐条保持，
 | 编号 | 未定义项 | 默认口径 | 备注 |
 | --- | --- | --- | --- |
 | OPEN-01 | `deleted = 1` 之后，一条 `updated_at_ms` **更大**的 `deleted = 0` 记录能否复活？ | **已裁定：墓碑终结**（D-10，Leader 2026-11-01 确认）——任何非删除记录都不复活已删条目，含 `updated_at_ms` 更大的记录 | 原为「默认口径」，G2-prep 判门升为裁定。理由：单用户场景下「删了又冒出来」比「编辑丢了」更难解释；风险登记即可。**不再接受两种解释并存** |
-| OPEN-02 | 应用退出前是否强制 flush 未到期的防抖推送？ | **不 flush**：未到 5 秒的变更随应用退出丢弃，下次启动由本地库状态重新计算（下次变更会带上） | 风险：退出前最后一改可能不上云；可在 S10 评估「退出前 flush」为增量 |
+| OPEN-02 | 应用退出前是否强制 flush 未到期的防抖推送？ | **不 flush**：未到 5 秒的变更随应用退出丢弃。**启动只做拉取、不扫描本地待推队列，因此不会补推**——只有该行下次被编辑时才重新排队上云（S10 实测语义，2026-11-01 更正原措辞「下次启动由本地库状态重新计算」） | 风险：退出前最后一改可能不上云，且不会自动补；可在 S10 评估「退出前 flush」为增量 |
 | OPEN-03 | 登录成功后既拉取又与启动拉取重叠时是否重复拉取？ | **允许重叠**：两次拉取均为幂等合并（LWW），不额外去重 | 只影响请求数，不影响结果 |
 | OPEN-04 | 同步状态区的 DOM 命名 | 由 S10 实现方确定，但必须稳定可测（Tester 已按 `.sync-panel` / `.sync-login` 占位） | `daily_picks` 不同步（16.1）；跨设备「今天推了哪条」可能不同，属预期，不做一致性要求 |
 
@@ -925,6 +938,9 @@ Leader 已定：下列内容是**行为契约**，macOS 版必须逐条保持，
 
 | 版本 | 日期 | 作者 | 变更摘要 |
 | --- | --- | --- | --- |
+| v1.6 | 2026-11-01 | @资深全栈开发专家（**Leader 追认，PM 未参与；G3 由人类复核**） | **两处口径校正，不新增需求、不改任何 AC 判定**：① **AC-67 判据收窄**——删掉「三处均无命中」这种自指必命中的写法，改为「限定范围（`src/`、`src-tauri/`、`package.json`、`sync.config.example.json` 值位）+ 前端字节看 `dist/`（二进制 `strings` 只覆盖 Rust 层与未压缩资源）+ **运行期白名单兜底**（只放行 `role === 'anon'` 的 legacy JWT 或 `sb_publishable_` 前缀，`sb_secret_…` 等一律拒绝、保持未配置），账记「凭据 0 / 文本 1」；② **OPEN-02 措辞校正**——原「下次启动由本地库状态重新计算」与实现不符（启动只 `pull`、不扫描待推队列），改为「未推送的改动不会补推，只有该行下次被编辑时才重新排队上云」 |
+| v1.5 | 2026-11-01 | @ProductManager | **两处一行改动 + 一处同源措辞校正**：① **AC-37 收窄**（与 AC-43 同法）——「所有迁移 SQL 无 `ALTER`」改为「`lib.rs` 内 v1 / v2 逐字不改、无 `DROP`、不重建表；**新增列一律走新迁移文件用 `ADD COLUMN`**（v3 已如此）、版本号只增」，附录 B.7 改为三段式命令（作用域 `lib.rs` / `migrations/`）；② **AC-68 判定归属**改为「**S10.5 由 Tester 执行并留证，S11 复评确认**」，§13 引言与 §13.11 引文两处同步（原「S11 判定」等于让评审员自造证据）；③ 连带：BR-08 / BR-30 的「禁止 ALTER」同步为「禁止改写既有迁移 / `DROP` / 重建表，新增列必须 `ADD COLUMN`」——不改这两条会让 AC-37 与 BR-08 重现 AC-43 那类自相矛盾 |
+| v1.4 | 2026-11-01 | @ProductManager | **只改 Windows 口径（同步章未动）**：① **AC-43 收窄**——从「不存在 NSIS 配置」改为「基础配置（`tauri.conf.json`）+ 运行时代码（`src/`、`e2e/`）无 Windows 专属残留」，并明确 `nsis` / `%APPDATA%` / `currentUser` 出现在 Windows overlay / CI / 校验脚本 / 交付说明中属应有内容、不判失败（`scripts/` 因本身是"检查者"而不在此限）；② **新增 AC-68（Windows 正向 AC，§13.11）**——三份 conf 合并断言 `check-bundle-config.mjs` + CI matrix 含 `windows-latest` 且真跑 `npx tauri build` + 交付说明标注「未在本机验证」，CI 结果只能 `NOT-VERIFIED`，判定归属 S11；③ 连带改数：§13 总数 67 → 68、§15.2 下游衔接、§16 与 INV-08 的「既有 44 条」→ 56（S7 判定范围 AC-01~56）、RISK-05 引用改为 AC-43 + AC-68、ADP-01/02 补分层 conf 与 `currentUser` 归属、附录 B.10 命令按新口径收窄并新增 B.11（原 B.11 顺延为 B.12） |
 | v1.3 | 2026-11-01 | @ProductManager | **G2-prep 后回写（只改三处，不重写）**：① AC-54 执行点由 `（TC-014）` 改为「用例 4 清库场景（TC-043）」，并写明与 AC-10 的判据边界（当日面板的「创建第一条待办」归 TC-014；方法库空态降为人工观察项、不设断言）；② §11.6 新增「迁移范围（D-19）」——v3 只给 `todos` 加列、`daily_picks` 不加列，并给出 `PRAGMA table_info` 的正反校验口径；§16.1 数据范围同步补一句；③ §16.4 标题与引言改为「OPEN-01 已裁定」，新增四项「Leader 已确认」记录表（D-07 / D-19 / D-10 / D-18），§15.2 与 RISK-13 同步；④ 修订记录自本版起以交付后实测字节数为准（v1.2 自述 117,129 与实际 117,225 有偏差，原因是在末次编辑前测得） |
 | v1.2 | 2026-11-01 | @ProductManager | **G1 后增量（不重写全文）**：① 新增 §16 数据同步（Supabase）——7 条裁定 D-SYNC-01~07 逐条落点、时序、OPEN-01~04 默认口径、排期、负面清单、证据要求；② 新增 FR-SYNC-01~16、BR-24~33、AC-57~67、KPI-09/10、ES-08~10、EX-08~10、§11.6 同步字段口径、P-06/C-16、INV-08、DEP-06~08、RISK-12~16；③ 测试计划 GAP-01~12 转正为 **AC-45~56**（编号与测试计划 §7 逐行一致）；④ 连带修正：§1 改「本地优先 + 可选登录」、NS-01/02/03/09 重写（NS-03 消歧 git 同步 ≠ 数据同步、NS-09 改「可构建 + CI 验证」）、AC-44 去掉「无同步/账号入口」、新增 S-10/S-11 |
 | v1.1 | 2026-11-01 | @ProductManager | **G0 后回写（仅动 4 处，未重写其他章节）**：① §15 全部 13 条 OP- 标注「已关闭」并写入生效结论（依据：人类「全部按默认」+ OP-01 数据资产上传），删除「阻塞 G0」表述，新增 §15.2 G0 结论；② `steps` 断言按 CFL-07 由「2–4」改为「≥ 2，真实分布 3–7」，同步修正 BR-12 / §11.4 / AC-27 / 附录 B.6 四处，并在 §11.5 列出 4 条超限条目清单；③ 附录 D 新增 CFL-07 与 D.2.1 裁定依据；④ 连带更新文档状态、DEP-02/04/05、RISK-01/RISK-11（已消解）、P-05（已关闭）。**对 Leader 原话的一处修正**：「实际分布 2–7」不准确——实测 65 条中不存在 2 步条目，真实区间为 3–7（3×6 / 4×55 / 5×3 / 7×1） |
@@ -1053,12 +1069,20 @@ node scripts/check-cases.mjs    # 期望退出码 0
 
 校验脚本必须断言：总数 65；分类 17/17/12/7/12；**`steps` 每条 ≥ 2 项（真实分布 3×6 / 4×55 / 5×3 / 7×1，观测区间 3–7；`gtd` / `smart-goal` / `5w2h` / `rice-scoring` 不得判失败，见 CFL-07）**；`case.type` 仅 `practice` / `story`；practice 18 / story 47；案例正文长度 126–240 字。
 
-### B.7 迁移只增不改（AC-37）
+### B.7 迁移只增不改（AC-37，v1.5 收窄口径）
 
 ```bash
-# 迁移定义中不得出现破坏性 SQL（注释与文档说明除外）
-grep -nE "DROP |ALTER " src-tauri/src/lib.rs && echo "FOUND FORBIDDEN SQL" || echo "MIGRATION CLEAN"
+# ① v1 / v2 内联迁移：无破坏性 SQL（作用域 src-tauri/src/lib.rs）
+grep -nE "DROP |ALTER " src-tauri/src/lib.rs && echo "FOUND FORBIDDEN SQL" || echo "LIB.RS CLEAN"
+
+# ② 新增迁移文件：允许 ALTER TABLE ... ADD COLUMN，禁止 DROP / 重建 / 改名
+grep -rnE "DROP (TABLE|INDEX)|RENAME TO" src-tauri/migrations/ && echo "FOUND DESTRUCTIVE SQL" || echo "MIGRATIONS CLEAN"
+
+# ③ 新增迁移里若出现 CREATE TABLE，必须是 IF NOT EXISTS
+grep -rn "CREATE TABLE" src-tauri/migrations/ | grep -v "IF NOT EXISTS" && echo "FOUND BAD CREATE" || echo "CREATE OK"
 ```
+
+> 口径说明：v3 需要给 `todos` 加三列，**必然**要用 `ALTER TABLE ... ADD COLUMN`。AC-37 的禁止对象是「改写既有迁移 / `DROP` / 重建表」，不是 `ADD COLUMN` 本身——旧字面「无 `ALTER`」会与新范围互斥。
 
 ### B.8 打包与启动（AC-39 / AC-40）
 
@@ -1075,13 +1099,39 @@ open "src-tauri/target/release/bundle/macos/日程待办.app"
 node -e "const p=require('./package.json');const d=Object.keys({...p.dependencies,...p.devDependencies});const bad=d.filter(x=>/pinia|vuex|element-plus|ant-design|naive-ui|vue-router|moment|luxon|date-fns/.test(x));console.log(bad.length? 'FOUND: '+bad.join(','): 'DEPENDENCY CLEAN')"
 ```
 
-### B.10 Windows 残留检查（AC-43）
+### B.10 Windows 残留检查（AC-43，v1.4 收窄口径）
+
+> 只扫「基础配置 + 运行时代码」。`tauri.windows.conf.json` 里的 `nsis` / `currentUser` 与 `scripts/` 里的 Windows 断言**都是应有内容**，不在本检查范围（正向断言见 B.11）。
 
 ```bash
-grep -rnE "nsis|%APPDATA%|msedge|\.ps1" src-tauri/tauri.conf.json src/ 2>/dev/null && echo "WINDOWS RESIDUE" || echo "NO WINDOWS RESIDUE"
+# ① 基础配置与运行时代码不得有 Windows 专属残留
+grep -rnE "nsis|%APPDATA%|msedge|\.ps1|SetProcessDPIAware|AttachThreadInput|PrintWindow" \
+  src-tauri/tauri.conf.json src/ e2e/ \
+  && echo "WINDOWS RESIDUE" || echo "NO WINDOWS RESIDUE"
+
+# ② 基础配置不得含平台专属 bundle.targets
+node -e "const c=require('./src-tauri/tauri.conf.json');process.exit(c.bundle && c.bundle.targets ? 1 : 0)" \
+  && echo "BASE CONF CLEAN" || echo "BASE CONF HAS PLATFORM TARGETS"
 ```
 
-### B.11 推送确定性（AC-24）
+### B.11 Windows 可构建正向断言（AC-68，v1.4 新增）
+
+```bash
+# ① 三份 conf 合并断言（合并后 macOS = app+dmg、Windows = nsis+msi、identifier/产品名一致）
+node scripts/check-bundle-config.mjs && echo "BUNDLE CONFIG OK"
+
+# ② CI：matrix 含 windows-latest，且该 job 真的跑 tauri build
+grep -nE "windows-latest|runs-on|tauri build" .github/workflows/build.yml
+
+# ③ 交付说明不得出现「Windows 版可用 / 已验证」类表述（只扫交付说明，排除 PRD 自身与被否定的句子）
+grep -rniE "windows (版)?(已)?(可用|验证)" README.md docs/verification/ 2>/dev/null \
+  | grep -v "未在本机验证" | grep -v "未在本机产出" \
+  && echo "FORBIDDEN CLAIM" || echo "CLAIM CLEAN"
+```
+
+> **本条判据的边界**：①②③ 是静态/命令证据，可判 PASS；**CI 的实际执行结果只能记 `NOT-VERIFIED`**（本机无 Windows、仓库 S9 后才 push、无 Actions 运行记录）。
+
+### B.12 推送确定性（AC-24）
 
 ```bash
 node scripts/check-permutation.mjs   # 附录 A 的移植版，输出 7 组 MATCH 并退出码 0
