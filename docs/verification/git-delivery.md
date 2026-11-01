@@ -115,3 +115,24 @@ git ls-remote origin
 `src-tauri/gen/`、`sync.config.json`、`.env*`、`.multica/`、`.opencode/`、`AGENTS.md`、
 `_ctx/`（新增临时脚本一律忽略；早前已入库的 `_ctx/SPEC.md` 等 Windows 基线参考件保持不变）、
 `result.md`。
+
+## 7. 交付前的密钥闸（最后一次实跑）
+
+```console
+$ git grep -n "<project-ref>"               # 真实 project ref（此处不写字面，避免文档自命中）
+（无输出）
+$ git grep -nE "sb_secret_|eyJ[A-Za-z0-9_-]{10,}"     # 只剩负向夹具与说明文本
+$ npm run check:no-secrets
+  ✓ 扫描 59 个文件，0 处密钥形态命中（AC-67）
+check-no-secrets: PASS
+```
+
+**第一次闸门没过**：`git grep` 当时命中 3 行——PRD 的 DEP-06 / 需求来源两处写了真实
+project ref，`docs/verification/s10/sync-evidence.md` 的 `strings` 命令把 ref 当检索串。
+本仓库的 `.gitignore` 拦不住「已经写进文档的字符串」，所以这 3 处改成 `<project-ref>` 占位，
+并在 PRD 对应单元格与证据行注明「真实 project ref 不入库，交付前已脱敏」。
+`supabase/schema.sql` 的同类写法则在本次提交里一并改成占位（见提交 1）。
+
+> project ref 不是密钥，但它指向真实云端实例的地址，按交付口径同样不写进版本库；
+> `sync.config.json`（运行期放 anon key 的那份）始终被 `.gitignore` 排除，仓库只有 `.example`。
+

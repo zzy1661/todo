@@ -110,8 +110,8 @@ $ grep -rn "service_role\|SUPABASE_SERVICE" src/ src-tauri/src src-tauri/migrati
 （无输出）
 $ strings -a "…/Contents/MacOS/todo" | grep -c "service_role\|SUPABASE_SERVICE"
 0
-$ strings -a "…/Contents/MacOS/todo" | grep -c "bbaspdboyysqmjhqhdhj"
-0                      # 项目 URL 也只来自运行期配置，不在产物里
+$ strings -a "…/Contents/MacOS/todo" | grep -c "<project-ref>"
+0                      # 项目 URL 也只来自运行期配置，不在产物里（ref 已脱敏，不写进仓库）
 $ git ls-files | grep -E "(^|/)\.env|sync\.config\.json$"
 （无输出）              # 真实配置与 .env 均未入库，仓库只有 sync.config.example.json
 ```

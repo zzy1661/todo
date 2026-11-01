@@ -775,7 +775,7 @@ Leader 已定：下列内容是**行为契约**，macOS 版必须逐条保持，
 | DEP-03 | macOS 构建工具链：Node、npm、Rust/cargo、Tauri CLI | 本机环境 | 已具备（Node v22 / cargo 1.92 / macOS 14.1 arm64） |
 | DEP-04 | Playwright 浏览器 | 本机缓存或首次下载 | 已定基线：自带 Chromium（OP-06 关闭） |
 | DEP-05 | G0 范围确认结论 | 人类决策人 | **已具备 2026-11-01**：G0 = PASS，「全部按默认」 |
-| DEP-06 | Supabase 项目可达：`https://bbaspdboyysqmjhqhdhj.supabase.co` | 人类决策人（**未提供 anon key**） | 端点可达（`/auth/v1/health` 401，属预期）；**key 缺失 → 云端真实连通 `NOT-VERIFIED`** |
+| DEP-06 | Supabase 项目可达：`https://<project-ref>.supabase.co`（真实 project ref 不入库，交付前已脱敏） | 人类决策人（**未提供 anon key**） | 端点可达（`/auth/v1/health` 401，属预期）；**key 缺失 → 云端真实连通 `NOT-VERIFIED`** |
 | DEP-07 | Windows CI 构建环境（`windows-latest`） | 仓库 GitHub Actions | 配置可交付；实际跑通需一次 Actions 执行，本机无法代跑 |
 | DEP-08 | 测试计划 v1.1（56 条 TC + 同步 24 条，AC↔TC 全映射） | Tester（ZACHTD-2 附件） | 已具备（G1 PASS） |
 
@@ -847,7 +847,7 @@ Leader 已定：下列内容是**行为契约**，macOS 版必须逐条保持，
 
 | 项 | 内容 |
 | --- | --- |
-| 需求来源 | 人类：桌面程序需要数据同步；云库 `https://bbaspdboyysqmjhqhdhj.supabase.co`；登录暂用 Supabase GitHub 认证；同步时机 = ①变更后 5 秒推送 ②启动时拉取；**暂不提供 key，先完成逻辑** |
+| 需求来源 | 人类：桌面程序需要数据同步；云库 `https://<project-ref>.supabase.co`（真实 project ref 不入库，交付前已脱敏）；登录暂用 Supabase GitHub 认证；同步时机 = ①变更后 5 秒推送 ②启动时拉取；**暂不提供 key，先完成逻辑** |
 | 本期交付 | 同步**逻辑与可测性**全部完成：登录登出、防抖推送、启动/登录后拉取、LWW、软删除、v3 迁移、降级与安全边界 |
 | 本期不交付 | 云端**真实连通**的验证结论（无 key）。所有真实云端路径一律 `NOT-VERIFIED`，等 key 后由 S10.5 补跑 |
 | 数据范围 | 仅同步 `todos`；`daily_picks` 为「本机每天推了哪条」的本地状态，**不参与同步**（跨设备不一致属预期，见 16.4 OPEN-04 备注）。**连带：v3 迁移只给 `todos` 加列，`daily_picks` 不加列**（D-19），避免 S10 回头再问 |
