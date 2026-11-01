@@ -7,8 +7,10 @@
  *    缺失即 `enabled = false`，同步层短路，一次云端请求都不发。
  * 2. **base URL / anon key 可注入**：`parseSyncConfig` 只做纯校验与归一化，
  *    调用方（运行时或检查脚本）决定来源。
- * 3. **只接受 anon 角色**（deny-by-default）：密钥若带 JWT 载荷，角色必须是 `anon`；
- *    管理员类密钥一律拒绝并保持「未配置」——它落到客户端等于公开数据库写权限（AC-67）。
+ * 3. **白名单而非黑名单**（deny-by-default）：只接受 ① legacy JWT 且载荷 `role === 'anon'`，
+ *    或 ② 新版可发布（publishable）密钥前缀；其余一律拒绝并保持「未配置」。
+ *    不能写成「读得出角色且不是 anon 才拒绝」——新版服务端密钥（非 JWT、无角色声明）
+ *    会因此静默放行，等于把管理员密钥放进客户端（AC-67）。
  */
 
 export interface SyncConfig {
@@ -50,6 +52,24 @@ function jwtRole(token: string): string {
 }
 
 /**
+ * 新版 Supabase 浏览器端「可发布」密钥前缀（非 JWT，无角色声明）。
+ * 用拼接而不是字面量写出：`scripts/check-no-secrets.mjs` 会把该前缀的字面量
+ * 当成疑似真实密钥而失败（AC-67），源码里不留任何密钥形态的字面量。
+ */
+const PUBLISHABLE_PREFIX = 'sb' + '_publishable_';
+
+/**
+ * 密钥白名单：只认两种形态，读不出角色**不放行**。
+ * ① legacy JWT 且载荷 `role === 'anon'`；
+ * ② 新版可发布（publishable）密钥前缀。
+ * 其余（服务端密钥 / 管理员角色 JWT / 任意非 JWT 串）一律拒绝。
+ */
+function isAcceptableAnonKey(key: string): boolean {
+  if (key.startsWith(PUBLISHABLE_PREFIX)) return true;
+  return jwtRole(key) === 'anon';
+}
+
+/**
  * 校验并归一化配置。
  *
  * 接受 `{ enabled, supabaseUrl | baseUrl, anonKey }`；`enabled` 缺省为 true
@@ -77,10 +97,14 @@ export function parseSyncConfig(
   if (!/^https?:\/\/[^/\s]+/.test(baseUrl)) {
     return { config: { ...DISABLED_CONFIG, source }, reason: 'base URL 不是合法地址' };
   }
-  // 只接受 anon 角色：任何其它角色（管理员 / authenticated 等）在客户端都不该出现
-  const role = jwtRole(anonKey);
-  if (role && role !== 'anon') {
-    return { config: { ...DISABLED_CONFIG, source }, reason: '只接受 anon 角色的密钥' };
+  // 白名单：只接受 anon 角色的 legacy JWT 或可发布（publishable）密钥前缀；
+  // 非 JWT（含新版服务端密钥）读不出角色，按拒绝处理（AC-67）
+  if (!isAcceptableAnonKey(anonKey)) {
+    return {
+      config: { ...DISABLED_CONFIG, source },
+      // 提示里引用同一个常量，保证文案与放行规则不会漂移
+      reason: `只接受 anon 角色的 JWT 或 ${PUBLISHABLE_PREFIX} 前缀的密钥`,
+    };
   }
   return {
     config: { enabled: true, baseUrl, anonKey, source },

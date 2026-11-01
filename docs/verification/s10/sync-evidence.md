@@ -40,7 +40,7 @@ $ node scripts/check-sync.mjs
    ✓ PASS（2 项断言）       # rest/v1 与 auth/v1 均 0 次
 ── v3 迁移结构证据（TC-076 / AC-64，只给 todos 加列）
    ✓ PASS（20 项断言）
-✓ 同步自检 PASS：75 项断言，六组路径 + v3 迁移结构证据全部通过
+✓ 同步自检 PASS：78 项断言，六组路径 + v3 迁移结构证据全部通过   # S1 白名单整改后 75 → 78（+3 条密钥形态断言）
   NOT-VERIFIED：真实 Supabase 读写、真实 GitHub OAuth 往返、云侧 RLS 越权不可见
 ```
 
@@ -100,7 +100,7 @@ codesign -dv                                     →  Signature=adhoc / TeamIden
 
 日程待办.app                                    6.2M
 日程待办_0.1.0_aarch64.dmg                      3.2M
-strings -a <binary> | grep -c "service_role|SUPABASE_SERVICE" → 0
+strings -a <binary> | grep -acE "service_role|SUPABASE_SERVICE" → 0   # 必须带 -E：不带 -E 时 `|` 是字面量，恒为 0（永真陷阱）
 ```
 
 ## 6. 密钥边界
@@ -115,6 +115,11 @@ $ strings -a "…/Contents/MacOS/todo" | grep -c "bbaspdboyysqmjhqhdhj"
 $ git ls-files | grep -E "(^|/)\.env|sync\.config\.json$"
 （无输出）              # 真实配置与 .env 均未入库，仓库只有 sync.config.example.json
 ```
+
+> **这条 `strings` 证据的边界（2026-11-01 补充）**：Tauri 会把前端资源压缩后嵌入 `.app`，
+> 二进制 `strings` 看不到 JS 字符串（实测「未配置同步」在 `dist/` 有、在二进制里就是 0 命中）。
+> 所以「产物 0 命中」只覆盖 **Rust 层与未压缩部分**；前端侧等价判据是 `grep -rac "service_role" dist/`
+> ——`dist/` 正是被嵌入的那份字节。别把它读成「整个 .app 已逐字扫过」。
 
 ## 7. NOT-VERIFIED（等 anon key 后由 S10.5 补跑）
 

@@ -7,7 +7,7 @@
 -- 4. 本文件只包含 anon key 能走的策略；管理员类密钥不出现在客户端（AC-67）。
 --
 -- 执行方式（有 key 之后，由项目管理员在 Supabase SQL Editor 执行一次）：
---   ① 打开 https://bbaspdboyysqmjhqhdhj.supabase.co → SQL Editor；
+--   ① 打开 https://<project-ref>.supabase.co → SQL Editor（把 <project-ref> 换成你自己的项目 ref）；
 --   ② 粘贴本文件全部内容执行；
 --   ③ 用 anon key 走一次读写，确认只能看到自己的行（S10.5 补跑，当前 NOT-VERIFIED）。
 --

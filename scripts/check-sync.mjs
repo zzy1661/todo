@@ -203,8 +203,8 @@ const syncRows = async (uuids = null) => db.fetchTodoSyncRows(uuids);
  * stub 配置：走环境变量这条注入路径（与「桌面端读 sync.config.json」并列的另一条来源），
  * 同时验证 base URL / anon key 确实可注入（FR-SYNC-15）。
  */
-// 只是占位串：stub 不校验 apikey，仓库里也不该出现任何真实密钥
-const ANON_KEY = 'stub-anon-key';
+// 占位串（JWT 形态 + role: anon，白名单 AC-67 不接受随意字符串）；仓库里没有真实密钥
+const ANON_KEY = `eyJhbGciOiJIUzI1NiJ9.${Buffer.from(JSON.stringify({ role: 'anon' })).toString('base64url')}.stub-sig`;
 
 const config = (url) => {
   process.env.SUPABASE_URL = url;
@@ -225,11 +225,28 @@ if (
   throw new Error('配置校验未拒绝非 anon 角色的密钥（AC-67）');
 }
 
+// 反向校验：新版 `sb_secret_…`（非 JWT、无角色声明）必须被拒绝——
+// 黑名单写法「读不出角色就放行」会在这里静默通过（S1 / AC-67）
+const SECRET_KEY = 'sb_secret_stub_should_never_reach_the_client';
+const secretResult = parseSyncConfig({
+  supabaseUrl: 'https://example.supabase.co',
+  anonKey: SECRET_KEY,
+});
+assert(secretResult.config.enabled === false, '非 JWT 的 sb_secret_ 密钥必须被拒绝（AC-67）');
+assert(secretResult.reason !== '', '拒绝 sb_secret_ 时必须给出原因，不能静默失败（AC-67）');
+
+// 正向校验：白名单的另一半必须真的放行，否则等于「全拒」而不是「白名单」
+const publishable = parseSyncConfig({
+  supabaseUrl: 'https://example.supabase.co',
+  anonKey: `sb_publishable_${'stub'}`,
+});
+assert(publishable.config.enabled === true, 'sb_publishable_ 前缀的密钥必须被接受（AC-67）');
+
 /** 造一个引擎，并把「本地写 → 防抖推送」总线上线（与 store 层的接法一致） */
 function buildEngine(stub, { sessionStore, oauth, onStatus = () => {} }) {
   const engine = new SyncEngine({
     config: config(stub.url),
-    api: new SupabaseRestApi({ baseUrl: stub.url, anonKey: 'stub-anon-key' }),
+    api: new SupabaseRestApi({ baseUrl: stub.url, anonKey: ANON_KEY }),
     sessionStore,
     local: {
       loadByUuids: (uuids) => db.fetchTodoSyncRows(uuids),
@@ -598,7 +615,7 @@ section('⑥ 未配置时零请求（AC-57）');
   const requests = [];
   const engine = new SyncEngine({
     config: { enabled: false, baseUrl: stub.url, anonKey: '', source: 'none' },
-    api: new SupabaseRestApi({ baseUrl: stub.url, anonKey: 'stub-anon-key' }),
+    api: new SupabaseRestApi({ baseUrl: stub.url, anonKey: ANON_KEY }),
     sessionStore: createMemorySessionStore(),
     local: {
       loadByUuids: (uuids) => db.fetchTodoSyncRows(uuids),

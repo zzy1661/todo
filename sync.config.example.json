@@ -1,6 +1,6 @@
 {
-  "_comment": "复制本文件到应用数据目录并改名为 sync.config.json，填入 anon public key 后重启应用；仓库里不得提交真实 key（AC-67）。",
+  "_comment": "复制本文件到应用数据目录并改名为 sync.config.json，把 <project-ref> 换成你自己的 Supabase 项目 ref、填入 anon public key 后重启应用；仓库里不得提交真实 key（AC-67）。",
   "enabled": true,
-  "supabaseUrl": "https://bbaspdboyysqmjhqhdhj.supabase.co",
-  "anonKey": "<在这里填 anon public key，绝不要填 service_role>"
+  "supabaseUrl": "https://<project-ref>.supabase.co",
+  "anonKey": "<在这里填 anon public key（legacy JWT 且 role 为 anon，或 sb 开头的新版 publishable 密钥）；其它形态一律被拒并停在「未配置」，这是预期行为，绝不要填管理员密钥（管理员角色密钥只保存在服务端）>"
 }
