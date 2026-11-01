@@ -9,6 +9,7 @@
  *   ④ 墓碑终结（远端删除不可被旧数据复活）+ 本地软删除行仍在库
  *   ⑤ 401 失效 → 刷新重试 → 刷新失败置未登录
  * 另加：⑥ 未配置时零请求（AC-57 的同步侧证据）
+ *      ⑦ 登录可信性：GoTrue 托管 state、防伪靠 PKCE verifier（S7.8 回归）
  * 以及：v3 迁移在真实 SQLite 上的结构证据（AC-64 / TC-076）
  *
  * **不覆盖**：真实 Supabase / 真实 GitHub OAuth / 真实 RLS —— 一律 NOT-VERIFIED。
@@ -17,6 +18,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -271,6 +273,10 @@ function buildEngine(stub, { sessionStore, oauth, onStatus = () => {} }) {
 function createOAuthLauncher() {
   let pending = '';
   return {
+    /** 回调 query 原文（断言 state 长度用；不含 verifier） */
+    get lastCallback() {
+      return pending;
+    },
     async listen() {
       return 51999; // 只用于拼 redirect_uri；真实回环监听在 Rust 侧
     },
@@ -283,6 +289,21 @@ function createOAuthLauncher() {
     async wait() {
       if (!pending) throw new Error('没有待处理的回调');
       return pending;
+    },
+  };
+}
+
+/** 假 OAuth 启动器：固定返回一段回调 query（模拟失败回跳 / 缺 code 回跳） */
+function createFixedCallbackLauncher(query) {
+  return {
+    async listen() {
+      return 51999;
+    },
+    async open() {
+      /* 不真打浏览器 */
+    },
+    async wait() {
+      return query;
     },
   };
 }
@@ -644,6 +665,119 @@ section('⑥ 未配置时零请求（AC-57）');
   endSection();
 }
 
+/* ================================================================= 路径 ⑦ */
+
+section('⑦ 登录可信性：GoTrue 托管 state，防伪靠 PKCE verifier（S7.8）');
+{
+  // ── ① 正常路径：客户端照发 43 字符 state，但回调回来的是 GoTrue 的 36 字符 UUID
+  resetLocal();
+  const stub = await createMockSupabase();
+  const store = createMemorySessionStore();
+  const launcher = createOAuthLauncher();
+  const { engine, off } = buildEngine(stub, { sessionStore: store, oauth: launcher });
+  await engine.login();
+
+  const authorize = stub.state.authorizeRequests[0];
+  eq(authorize.state.length, 43, '客户端仍照发 43 字符 state（保留可观测性）');
+  const callback = new URLSearchParams(launcher.lastCallback);
+  const callbackState = callback.get('state') ?? '';
+  eq(callbackState.length, 36, '回调 state 是 GoTrue 自己的 36 字符 flow UUID');
+  assert(callbackState !== authorize.state, '回调 state 与客户端 state 必然不同（旧实现据此必失败）');
+  eq(engine.getStatus().phase, 'signed-in', 'state 不等也必须登录成功：可信性由 PKCE verifier 绑定');
+  assert(!!(await store.load()), '登录成功后会话应落库');
+
+  const token = (await store.load())?.accessToken ?? '';
+  assert(
+    !engine.getStatus().detail.includes(token) && !engine.getStatus().lastError.includes(token),
+    '状态详情不得包含 access token'
+  );
+  off();
+  engine.dispose();
+  await stub.close();
+}
+
+{
+  // ── ② 正确 code + 错误 verifier（该 code 属于别人的 PKCE 会话）→ 必须登录失败
+  resetLocal();
+  const stub = await createMockSupabase();
+  // 攻击者用自己的 verifier 算出 challenge，服务端把 code 绑到它上面
+  stub.state.challengeOverride = createHash('sha256')
+    .update('attacker-verifier-that-we-never-hold')
+    .digest('base64url');
+  const store = createMemorySessionStore();
+  const { engine, off } = buildEngine(stub, {
+    sessionStore: store,
+    oauth: createOAuthLauncher(),
+  });
+  await engine.login();
+
+  const status = engine.getStatus();
+  eq(status.phase, 'signed-out', 'verifier 不符必须拒绝登录');
+  eq(await store.load(), null, 'verifier 不符时不得写入会话');
+  const exchange = stub.state.requests.filter(
+    (r) => r.method === 'POST' && r.path === '/auth/v1/token'
+  );
+  eq(exchange.length, 1, '仍应尝试一次 code 交换（而不是靠 state 提前放弃）');
+  assert(
+    status.detail.includes('回调 state 长度 36 / 期望 43'),
+    `失败详情应带非敏感的 state 长度排障信息，实际：${status.detail}`
+  );
+  assert(
+    !status.detail.includes('attacker-verifier') &&
+      !/[A-Za-z0-9_-]{43,}/.test(status.detail) &&
+      !/[A-Za-z0-9_-]{43,}/.test(status.lastError),
+    `失败详情不得泄露 verifier / code 的值，实际：${status.detail}`
+  );
+  off();
+  engine.dispose();
+  await stub.close();
+}
+
+{
+  // ── ③ 回调带 error：优先按错误处理，不再尝试换 token；error_description 透出
+  resetLocal();
+  const stub = await createMockSupabase();
+  const store = createMemorySessionStore();
+  const { engine, off } = buildEngine(stub, {
+    sessionStore: store,
+    oauth: createFixedCallbackLauncher(
+      'error=bad_oauth_state&error_description=OAuth+state+parameter+is+invalid&state=9b28ae17-cc1f-437d-bf8c-843f0890d4f5'
+    ),
+  });
+  await engine.login();
+  const status = engine.getStatus();
+  eq(status.phase, 'signed-out', '回调带 error 时必须保持未登录');
+  assert(
+    status.detail.includes('bad_oauth_state') &&
+      status.detail.includes('OAuth state parameter is invalid'),
+    `error 与 error_description 都必须透出，实际：${status.detail}`
+  );
+  const exchanges = stub.state.requests.filter((r) => r.path === '/auth/v1/token');
+  eq(exchanges.length, 0, '回调带 error 时不得再尝试 code 交换');
+  off();
+  engine.dispose();
+  await stub.close();
+}
+
+{
+  // ── ④ 既无 code 也无 error：文案明确「请回应用重试」
+  resetLocal();
+  const stub = await createMockSupabase();
+  const { engine, off } = buildEngine(stub, {
+    sessionStore: createMemorySessionStore(),
+    oauth: createFixedCallbackLauncher('state=9b28ae17-cc1f-437d-bf8c-843f0890d4f5'),
+  });
+  await engine.login();
+  assert(
+    engine.getStatus().detail.includes('回调缺少授权码，请回应用重试'),
+    `缺 code 时应给出可操作的提示，实际：${engine.getStatus().detail}`
+  );
+  off();
+  engine.dispose();
+  await stub.close();
+  endSection();
+}
+
 /* ================================================================ 迁移证据 */
 
 section('v3 迁移结构证据（TC-076 / AC-64，只给 todos 加列）');
@@ -739,7 +873,7 @@ if (failures.length > 0) {
   for (const failure of failures) console.error(`  - ${failure}`);
   process.exit(1);
 }
-console.log(`✓ 同步自检 PASS：${checks} 项断言，六组路径 + v3 迁移结构证据全部通过`);
+console.log(`✓ 同步自检 PASS：${checks} 项断言，七组路径 + v3 迁移结构证据全部通过`);
 console.log('  NOT-VERIFIED：真实 Supabase 读写、真实 GitHub OAuth 往返、云侧 RLS 越权不可见');
 
 /* ------------------------------------------------------------------ 辅助 */

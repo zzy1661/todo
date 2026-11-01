@@ -12,6 +12,10 @@
  * 它**不是** Supabase 的完整实现，只覆盖本阶段可观察行为：
  * 鉴权、401、PKCE 校验、upsert、请求记账。真实云端连通一律 NOT-VERIFIED。
  *
+ * 一个关键的行为对齐（S7.8）：`/auth/v1/authorize` 会**用自己的 flow state
+ * （36 字符 UUID）替换客户端传入的 `state`**，回跳到 `redirect_to` 的也是它那一个。
+ * 这是 GoTrue 的真实行为，客户端因此不得做「回调 state === 客户端 state」的等值校验。
+ *
  * 用法：
  *   import { createMockSupabase } from './mock-supabase.mjs';
  *   const stub = await createMockSupabase();
@@ -60,6 +64,11 @@ export async function createMockSupabase(options = {}) {
     forceUnauthorized: false,
     /** 刷新令牌也失效（模拟会话彻底过期） */
     rejectRefresh: false,
+    /**
+     * 下一个授权码绑定的 challenge 覆盖值：模拟「这个 code 属于别人的 PKCE 会话」。
+     * 设置后本机拿自己的 verifier 换不出会话（invalid_code_verifier）。
+     */
+    challengeOverride: '',
     tokenCounter: 0,
     userId: options.userId ?? 'user-1',
     email: options.email ?? 'sync-test@example.com',
@@ -121,9 +130,15 @@ export async function createMockSupabase(options = {}) {
         return;
       }
       const code = `code_${randomUUID()}`;
-      state.codes.set(code, { challenge, redirectTo, used: false });
+      // GoTrue 用自己的 flow state 替换客户端传入的 state 后回跳（客户端那一个不参与校验）
+      const flowState = randomUUID();
+      state.codes.set(code, {
+        challenge: state.challengeOverride || challenge,
+        redirectTo,
+        used: false,
+      });
       res.writeHead(302, {
-        Location: `${redirectTo}?code=${encodeURIComponent(code)}&state=${encodeURIComponent(oauthState)}`,
+        Location: `${redirectTo}?code=${encodeURIComponent(code)}&state=${encodeURIComponent(flowState)}`,
       });
       res.end();
       return;
