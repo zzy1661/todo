@@ -69,6 +69,8 @@ export async function createMockSupabase(options = {}) {
      * 设置后本机拿自己的 verifier 换不出会话（invalid_code_verifier）。
      */
     challengeOverride: '',
+    /** 云端还没建 public.todos 表（真实 PostgREST 的 404 + PGRST205） */
+    missingTable: false,
     tokenCounter: 0,
     userId: options.userId ?? 'user-1',
     email: options.email ?? 'sync-test@example.com',
@@ -186,6 +188,16 @@ export async function createMockSupabase(options = {}) {
 
     // ------------------------------------------------------------- rest/v1
     if (url.pathname === '/rest/v1/todos') {
+      if (state.missingTable) {
+        // 真实 PostgREST：表不在 schema cache 时返回 404 + PGRST205
+        json(res, 404, {
+          code: 'PGRST205',
+          details: null,
+          hint: null,
+          message: "Could not find the table 'public.todos' in the schema cache",
+        });
+        return;
+      }
       if (!isAuthorized(req)) {
         json(res, 401, { error: 'unauthorized' });
         return;

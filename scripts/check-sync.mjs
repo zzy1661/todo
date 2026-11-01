@@ -10,6 +10,7 @@
  *   ⑤ 401 失效 → 刷新重试 → 刷新失败置未登录
  * 另加：⑥ 未配置时零请求（AC-57 的同步侧证据）
  *      ⑦ 登录可信性：GoTrue 托管 state、防伪靠 PKCE verifier（S7.8 回归）
+ *      ⑧ 云端表缺失（PGRST205）：提示建表、不空转重试
  * 以及：v3 迁移在真实 SQLite 上的结构证据（AC-64 / TC-076）
  *
  * **不覆盖**：真实 Supabase / 真实 GitHub OAuth / 真实 RLS —— 一律 NOT-VERIFIED。
@@ -778,6 +779,40 @@ section('⑦ 登录可信性：GoTrue 托管 state，防伪靠 PKCE verifier（S
   endSection();
 }
 
+/* ================================================================= 路径 ⑧ */
+
+section('⑧ 云端表缺失（PGRST205）：报可执行的补救步骤，且不空转重试');
+{
+  resetLocal();
+  const stub = await createMockSupabase();
+  stub.state.missingTable = true;
+  const store = createMemorySessionStore();
+  const { engine, off } = buildEngine(stub, {
+    sessionStore: store,
+    oauth: createOAuthLauncher(),
+  });
+
+  await engine.login();
+  const status = engine.getStatus();
+  eq(status.phase, 'error', '登录成功但云端表缺失时，同步应报错而不是静默');
+  assert(status.detail.includes('supabase/schema.sql'), 'detail 必须给出可执行的补救步骤');
+  assert(status.detail.includes('PGRST205'), 'detail 应带上错误码便于对号入座');
+  assert(!!(await store.load()), '表缺失不得清掉已建立的登录会话');
+
+  const countRest = () =>
+    stub.state.requests.filter((r) => r.path === '/rest/v1/todos').length;
+  const before = countRest();
+  await db.createTodo({ title: '表缺失时新建', date: '2026-11-07', priority: 2, note: '' });
+  await advance(60_000);
+  eq(countRest() - before, 1, '表缺失时推送只尝试一次，不进 1s/2s/4s/8s/16s 退避');
+  assert(engine.pendingCount() > 0, '未推送成功的改动必须留在待推集合里，等表建好再推');
+
+  off();
+  engine.dispose();
+  await stub.close();
+  endSection();
+}
+
 /* ================================================================ 迁移证据 */
 
 section('v3 迁移结构证据（TC-076 / AC-64，只给 todos 加列）');
@@ -873,7 +908,7 @@ if (failures.length > 0) {
   for (const failure of failures) console.error(`  - ${failure}`);
   process.exit(1);
 }
-console.log(`✓ 同步自检 PASS：${checks} 项断言，七组路径 + v3 迁移结构证据全部通过`);
+console.log(`✓ 同步自检 PASS：${checks} 项断言，八组路径 + v3 迁移结构证据全部通过`);
 console.log('  NOT-VERIFIED：真实 Supabase 读写、真实 GitHub OAuth 往返、云侧 RLS 越权不可见');
 
 /* ------------------------------------------------------------------ 辅助 */
