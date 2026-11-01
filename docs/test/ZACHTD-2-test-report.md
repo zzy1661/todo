@@ -1353,7 +1353,7 @@ RLS② GET /rest/v1/todos   （仅 apikey、无用户 token）
 | **macOS (arm64 · .app + .dmg)** | `Secret guard` → `Build frontend` → `E2E baseline (6 passed)` → `Tauri build (macOS)` → `Upload bundles` | **success** | `todo-macos` **6 357 089 B（6.36 MB）** |
 | **Windows (NSIS + MSI)** | `Secret guard` → `Build frontend` → `E2E baseline (6 passed)` → `Tauri build (Windows)` → `Upload bundles` | **success** | `todo-windows` **5 358 473 B（5.36 MB）** |
 
-运行记录：`master` @ `d2beb6e`，仓库共 **12 次**历史运行，最近一次 **success**（2026-11-01 03:20Z 起；Windows job 03:25Z 完成）。
+运行记录：`master` @ `d2beb6e`（**判据所依据的那一次运行**），仓库当时共 **12 次**历史运行，该次 **success**（2026-11-01 03:20Z 起；Windows job 03:25Z 完成）。此后的 push 触发的运行以 Actions 页与提交 SHA 为准（文档提交 `8765a22` 那一次同样是两个 job 全绿）。
 **判定：PASS** —— Windows job **真跑**了 `npx tauri build` 并上传产物（不是占位），「Windows 可构建能力」这句话现在有运行证据。
 **局限**：Windows 产物**未在任何 Windows 机器上运行过**（本机是 macOS）；「能构建」≠「已实机验证」，§8 与 README 仍按「可构建能力」表述。
 
