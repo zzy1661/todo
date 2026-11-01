@@ -195,7 +195,10 @@ Anon key 只在**运行期**读取，不会打进安装包、也不进仓库：
 
 5. 重启应用 → 侧栏底部出现「同步 · 未登录」→ 点开 → **GitHub 登录**；
 6. 首次登录会在系统里打开浏览器做 GitHub 授权，回调地址是 `http://127.0.0.1:<随机端口>`
-   （loopback + PKCE，不用隐式流程）；授权完成后浏览器页面会提示「可以关闭」，回到应用即已登录。
+   （loopback + PKCE，不用隐式流程）；授权完成后浏览器页面会按结果显示
+   「授权已完成，请关闭此页面」或错误原因，回到应用即已登录。
+   **`state` 由 GoTrue 托管**（authorize 阶段会被换成它自己的 flow UUID），客户端照发但**不做等值校验**；
+   登录可信性由 **PKCE `code_verifier`** 绑定——verifier 只留在本机进程内，别人的 code 换不出会话。
 
 云端表结构与 RLS 策略见 `supabase/schema.sql`（`enable row level security` + `auth.uid() = user_id`），
 由项目管理员在 Supabase SQL Editor 执行一次。**本版没有 key，这一步与真实连通都未验证。**

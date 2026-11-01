@@ -933,7 +933,7 @@ localStorage 侧收敛到 `readLiveTodos() = readAllLocalTodos().filter(t => !t.
 
 登录（用户点击 C-16 的 GitHub 登录）
   └─ loopback 监听(127.0.0.1:随机端口) → 打开浏览器授权(PKCE S256) →
-     回环收到 code → 校验 state → 换 token → 存钥匙串 → **立即拉取一次**
+     回环收到 code → 用 PKCE verifier 换 token → 存钥匙串 → **立即拉取一次**
 
 任意本地变更（新建/编辑/勾选/搬日期/软删除）
   └─ 触摸 5 秒防抖（窗口内多次变更合并）→ 推送本窗口改动的条目
@@ -943,6 +943,14 @@ localStorage 侧收敛到 `readLiveTodos() = readAllLocalTodos().filter(t => !t.
 
 退出前**不 flush** 未到期的防抖（OPEN-02 默认），未推送的改动留在本地库；**启动只 pull、不扫描待推队列，
 所以不会补推**——只有该行下一次被编辑时，才会重新进入待推集合上云。
+
+> **登录可信性（S7.8 修正）**：`state` 由 **GoTrue 托管** —— authorize 阶段 Supabase 会把客户端传入的
+> `state` 替换成它自己的 flow UUID（36 字符），回跳时回来的也是那一个，因此「回调 state === 客户端 state」
+> 必然不成立，**不得作为拒绝登录的依据**。客户端仍照发 `state`（保留可观测性），防伪改由
+> **PKCE `code_verifier`** 绑定：verifier 只存在于本次登录的本机进程内，攻击者拿到的 code 绑的是他自己的
+> verifier，换不出会话（与 supabase-js 一致）。登录失败时面板 `detail` 只追加**长度**级排障信息
+> （`回调 state 长度 <n> / 期望 43`），任何 token / code / verifier 的值都不进页面与日志。
+> 回调页按结果渲染（成功 / 失败带 `error_description` / 缺 code），失败文案做 HTML 转义。
 
 ### 12.4 冲突规则：LWW + 墓碑终结（规则唯一实现处 `src/sync/merge.ts`）
 
@@ -959,6 +967,10 @@ localStorage 侧收敛到 `readLiveTodos() = readAllLocalTodos().filter(t => !t.
 
 **落败值不回写**（NEG-04）：推送队列只由本地写操作填充（`onLocalTodoChange` 的 create/update/delete），
 拉取合并产生的 `merge` 事件被忽略；因此拉到的旧值永远不会被当成「本地改动」推回云端。
+
+**登录可信性（同步到本节的口径，详见 §12.3）**：OAuth 的 `state` 由 **GoTrue 托管**（authorize 阶段被换成
+它自己的 flow UUID，回跳值必然不等于客户端值），客户端以 **PKCE `code_verifier`** 绑定本次登录——
+不做 state 等值校验，换 token 成功即视为可信。
 
 ### 12.5 RLS 与密钥边界
 
