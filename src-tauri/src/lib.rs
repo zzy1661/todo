@@ -169,11 +169,113 @@ fn sync_session_clear() -> Result<(), String> {
 /// 回环监听的结果：主线程生成的 channel 接收端
 static OAUTH_RX: OnceLock<Mutex<Option<mpsc::Receiver<String>>>> = OnceLock::new();
 
+/// 回调页文案（纯函数，便于单测）：按回调结果渲染，**不写死「授权已完成」**。
+///
+/// 三条分支：
+/// - 带 `error` → 显示 `error` 与 `error_description`（都已 HTML 转义）；
+/// - 既无 `code` 也无 `error` → 「回调缺少授权码，请回应用重试」；
+/// - 否则 → 「授权已完成，请关闭此页面回到『日程待办』」。
+///
+/// **不把 `code` / `state` 的值写进页面**：页面是浏览器里的普通 HTML，
+/// 只按「有没有 / 是不是错误」决定文案。
+pub fn oauth_callback_page(query: &str) -> String {
+    let mut has_code = false;
+    let mut error = String::new();
+    let mut error_description = String::new();
+    for pair in query.split('&') {
+        let (key, raw_value) = match pair.split_once('=') {
+            Some((key, value)) => (key, value),
+            None => (pair, ""),
+        };
+        let value = percent_decode(raw_value);
+        match key {
+            "code" => has_code = !value.is_empty(),
+            "error" => error = value,
+            "error_description" => error_description = value,
+            _ => {}
+        }
+    }
+
+    let body = if !error.is_empty() {
+        let description = if error_description.is_empty() {
+            String::new()
+        } else {
+            format!(
+                "<p style=\"font:13px -apple-system;color:#555;margin:8px 0 0\">{}</p>",
+                escape_html(&error_description)
+            )
+        };
+        format!(
+            "<p style=\"font:14px -apple-system;color:#b00020;margin:0\">授权失败：{}</p>{description}",
+            escape_html(&error)
+        )
+    } else if !has_code {
+        "<p style=\"font:14px -apple-system;margin:0\">回调缺少授权码，请回应用重试。</p>".to_string()
+    } else {
+        "<p style=\"font:14px -apple-system;margin:0\">授权已完成，请关闭此页面回到「日程待办」。</p>"
+            .to_string()
+    };
+
+    format!(
+        "<!doctype html><meta charset=\"utf-8\"><title>日程待办</title>\
+         <div style=\"padding:24px;line-height:1.5\">{body}</div>"
+    )
+}
+
+/// 百分号解码 + `+` → 空格（query 串语义；只用于展示层）
+fn percent_decode(text: &str) -> String {
+    let bytes = text.as_bytes();
+    let mut out: Vec<u8> = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        match bytes[i] {
+            b'+' => {
+                out.push(b' ');
+                i += 1;
+            }
+            b'%' if i + 2 < bytes.len() => {
+                let hex = std::str::from_utf8(&bytes[i + 1..i + 3]).unwrap_or("");
+                match u8::from_str_radix(hex, 16) {
+                    Ok(byte) => {
+                        out.push(byte);
+                        i += 3;
+                    }
+                    Err(_) => {
+                        out.push(b'%');
+                        i += 1;
+                    }
+                }
+            }
+            byte => {
+                out.push(byte);
+                i += 1;
+            }
+        }
+    }
+    String::from_utf8_lossy(&out).to_string()
+}
+
+/// HTML 转义：回调参数来自外部输入（浏览器地址栏），不转义就是注入点
+fn escape_html(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    for ch in text.chars() {
+        match ch {
+            '&' => out.push_str("&amp;"),
+            '<' => out.push_str("&lt;"),
+            '>' => out.push_str("&gt;"),
+            '"' => out.push_str("&quot;"),
+            '\'' => out.push_str("&#39;"),
+            other => out.push(other),
+        }
+    }
+    out
+}
+
 /// 绑定 `127.0.0.1:<随机端口>` 等待 OAuth 回调，返回端口（PRD FR-SYNC-03）
 ///
 /// 只接受一次连接，读第一行请求行取出 query（`code=…&state=…`），
-/// 回一个「可以关闭此页面」的极简页面，然后把 query 交给 `sync_oauth_wait`。
-/// 不用隐式流程，不解析 fragment —— 授权码只在 query 里。
+/// 回一个按结果渲染的极简页面（成功 / 失败 / 缺 code 三种文案），然后把 query 交给
+/// `sync_oauth_wait`。不用隐式流程，不解析 fragment —— 授权码只在 query 里。
 #[tauri::command]
 fn sync_oauth_listen() -> Result<u16, String> {
     let listener = TcpListener::bind(("127.0.0.1", 0))
@@ -205,8 +307,8 @@ fn sync_oauth_listen() -> Result<u16, String> {
                 .split_once('?')
                 .map(|(_, q)| q.to_string())
                 .unwrap_or_default();
-            let body = "<!doctype html><meta charset=\"utf-8\"><title>日程待办</title>\
-                        <p style=\"font:14px -apple-system;padding:24px\">授权已完成，请关闭此页面回到「日程待办」。</p>";
+            // 页面按回调结果渲染（成功 / 失败 / 缺 code），且绝不回显 code / state 的值
+            let body = oauth_callback_page(&query);
             let response = format!(
                 "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\n\
                  Content-Length: {}\r\nConnection: close\r\n\r\n{}",
@@ -277,4 +379,61 @@ pub fn run() {
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod callback_page_tests {
+    use super::oauth_callback_page;
+
+    #[test]
+    fn success_page_when_code_present() {        let page = oauth_callback_page("code=abc123&state=9b28ae17-cc1f-437d-bf8c-843f0890d4f5");
+        assert!(page.contains("授权已完成，请关闭此页面回到「日程待办」。"));
+        // 页面不得回显 code / state 的值
+        assert!(!page.contains("abc123"), "回调页不得写出 code");
+        assert!(!page.contains("9b28ae17"), "回调页不得写出 state");
+    }
+
+    #[test]
+    fn error_page_shows_error_and_escaped_description() {
+        let page = oauth_callback_page(
+            "error=bad_oauth_state&error_description=OAuth+state+%3Cscript%3Ealert(1)%3C%2Fscript%3E",
+        );
+        assert!(page.contains("授权失败"));
+        assert!(page.contains("bad_oauth_state"));
+        assert!(page.contains("OAuth state"));
+        assert!(
+            page.contains("&lt;script&gt;"),
+            "error_description 必须 HTML 转义，实际：{page}"
+        );
+        assert!(!page.contains("<script>"), "未转义的标签会构成注入点");
+    }
+
+    #[test]
+    fn missing_code_page_when_neither_code_nor_error() {
+        let page = oauth_callback_page("state=9b28ae17-cc1f-437d-bf8c-843f0890d4f5");
+        assert!(page.contains("回调缺少授权码，请回应用重试"));
+        assert!(!page.contains("授权已完成"));
+    }
+
+    /// 真实回环一次：证明监听器返回的就是按结果渲染的页面（不是只在纯函数里成立）
+    #[test]
+    fn serves_error_page_over_loopback() {
+        use std::io::{Read, Write};
+        use std::net::TcpStream;
+
+        let port = super::sync_oauth_listen().expect("回环监听应成功");
+        let mut stream = TcpStream::connect(("127.0.0.1", port)).expect("连接回环应成功");
+        stream
+            .write_all(
+                b"GET /?error=bad_oauth_state&error_description=OAuth+state+parameter+is+invalid                   HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n",
+            )
+            .expect("写请求应成功");
+        let mut response = String::new();
+        stream.read_to_string(&mut response).expect("读响应应成功");
+
+        assert!(response.starts_with("HTTP/1.1 200 OK"), "实际响应：{response}");
+        assert!(response.contains("授权失败：bad_oauth_state"));
+        assert!(response.contains("OAuth state parameter is invalid"));
+        assert!(!response.contains("授权已完成"), "失败时不得再写「授权已完成」");
+    }
 }
