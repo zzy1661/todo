@@ -9,7 +9,9 @@
  *   3. 平台中立断言：基础配置里**不得**出现 dmg / nsis / macOS / windows 任一平台块，
  *      否则「一个平台写死另一个平台的产物形态」；
  *   4. 数据落盘路径中立断言：`src/` 与 `src-tauri/src/` 不得出现任一端的数据目录字面量；
- *   5. `.github/workflows/build.yml` 的 YAML 语法（ruby 的 psych）+ matrix + 步骤顺序自检。
+ *   5. `.github/workflows/build.yml` 的 YAML 语法（ruby 的 psych）+ matrix + 步骤顺序自检；
+ *   5.1 发布通道自检：tag 触发（`tags: ['v*']`）+ 顶层 `permissions.contents: write`
+ *      + 只在 tag 时执行的 Release 资产发布步骤（产物名为 ASCII）。
  *
  * 这个脚本**不**证明 Windows 安装包可用 —— Windows 产物的唯一验证路径是 CI 的
  * `windows-latest` job（本机无交叉编译）。它证明的是：配置是合法的、两端不互相污染、
@@ -283,6 +285,62 @@ check('Windows 产物路径含 nsis exe 与 msi', (() => {
   const paths = entryFor('windows-latest')?.bundlePaths ?? '';
   return /nsis\/\*\.exe/.test(paths) && /msi\/\*\.msi/.test(paths);
 })());
+
+/* --------------------------------------- 6.1 发布通道（tag → GitHub Release） */
+
+// YAML 1.1 里裸 `on:` 会被 ruby psych 解析成布尔 true，所以两个键都取。
+const trigger = workflow.on ?? workflow[true] ?? {};
+const pushTrigger = trigger.push ?? {};
+
+check(
+  'workflow push 触发包含 tags: ["v*"]',
+  JSON.stringify(pushTrigger.tags ?? []) === JSON.stringify(['v*']),
+  JSON.stringify(pushTrigger.tags),
+);
+check(
+  'workflow push 触发保留原有 branches',
+  JSON.stringify(pushTrigger.branches ?? []) === JSON.stringify(['master', 'release/**']),
+  JSON.stringify(pushTrigger.branches),
+);
+check(
+  'workflow 顶层 permissions.contents = write（创建 Release 必需）',
+  workflow.permissions?.contents === 'write',
+  JSON.stringify(workflow.permissions),
+);
+
+const releaseSteps = steps.filter((s) => /softprops\/action-gh-release/.test(s.uses ?? ''));
+check('存在发布 Release 资产的步骤（softprops/action-gh-release）', releaseSteps.length > 0);
+check(
+  '发布步骤只在 tag 推送时执行',
+  releaseSteps.length > 0 &&
+    releaseSteps.every((s) => /startsWith\(github\.ref, 'refs\/tags\/v'\)/.test(s.if ?? '')),
+  releaseSteps.map((s) => s.if ?? '').join(' | '),
+);
+check(
+  '发布步骤声明了 files 且 fail_on_unmatched_files: false',
+  releaseSteps.length > 0 &&
+    releaseSteps.every(
+      (s) =>
+        typeof s.with?.files === 'string' &&
+        s.with.files.trim() !== '' &&
+        s.with?.['fail_on_unmatched_files'] === false,
+    ),
+);
+const releaseFiles = releaseSteps.map((s) => s.with?.files ?? '').join('\n');
+check(
+  '发布资产覆盖 dmg / app.zip / exe / msi 四类产物',
+  ['.dmg', '.app.zip', '.exe', '.msi'].every((ext) => releaseFiles.includes(ext)),
+  releaseFiles.replace(/\s+/g, ' ').slice(0, 120),
+);
+check(
+  '发布资产名统一为 ASCII 前缀 ScheduleTodo-',
+  releaseFiles.includes('ScheduleTodo-') && !/[^\x00-\x7F]/.test(releaseFiles),
+  releaseFiles.replace(/\s+/g, ' ').slice(0, 120),
+);
+check(
+  '存在把产物改名为 ASCII 的步骤',
+  steps.some((s) => /mv\b/.test(s.run ?? '') && /ScheduleTodo-/.test(s.run ?? '')),
+);
 
 /* ------------------------------------------------- 7. 结果 */
 

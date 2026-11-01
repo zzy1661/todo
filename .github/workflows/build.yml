@@ -7,14 +7,26 @@ name: build
 # `windows-latest` job。本机只验证了三份 conf 的合并结果与 workflow 结构
 # （scripts/check-bundle-config.mjs），**不声称 CI 已通过**。
 #
-# 顺序固定为：npm ci → 前端构建 → E2E 6 用例 → tauri build → 上传安装包。
+# 顺序固定为：npm ci → 前端构建 → E2E 6 用例 → tauri build → 产物改 ASCII 名 →
+# 上传 Actions artifact →（仅 tag 推送时）把安装包挂成 GitHub Release 资产。
 # E2E 在打包之前，任何回归都会拦在出包之前。
+#
+# 发布通道说明：`push.tags: ['v*']` 触发时，macOS / Windows 两个 job 各自上传
+# 自己的产物到同一个 Release（`softprops/action-gh-release`），资产名统一为
+# `ScheduleTodo-<version>-<platform>[-arch].<ext>`。tag 由维护者打，流水线不建 tag。
 
 on:
   push:
     branches: [master, 'release/**']
+    # v* tag 触发 = 发布通道：跑完后把安装包挂成 GitHub Release 资产。
+    # tag 由维护者在人类确认后打，流水线自己不创建 tag。
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
+
+# GITHUB_TOKEN 默认只读；创建 Release / 上传 Release 资产需要 contents: write。
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -85,6 +97,39 @@ jobs:
         if: runner.os == 'Windows'
         run: npx tauri build
 
+      # 产物名统一成 ASCII：应用名仍是「日程待办」，但发布资产改名，避免中文文件名
+      # 在 Release 资产 URL 里被百分号编码后，第三方下载器出现乱码。
+      # 改名在**产物目录内原地完成**（目录结构不变），所以下面的 upload-artifact
+      # 的 glob 依然匹配得到。
+      - name: Normalize bundle names to ASCII
+        shell: bash
+        run: |
+          VERSION=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            for f in src-tauri/target/release/bundle/dmg/*.dmg; do
+              [ -e "$f" ] || continue
+              mv "$f" "src-tauri/target/release/bundle/dmg/ScheduleTodo-$VERSION-macos-arm64.dmg"
+            done
+            # .app 是目录，Release 资产必须是单文件，先用 ditto 打成 zip
+            # （--sequesterRsrc 保留 __MACOSX 资源，--keepParent 保留 .app 外壳）。
+            for d in src-tauri/target/release/bundle/macos/*.app; do
+              [ -d "$d" ] || continue
+              ditto -c -k --sequesterRsrc --keepParent "$d" \
+                "src-tauri/target/release/bundle/macos/ScheduleTodo-$VERSION-macos-arm64.app.zip"
+            done
+          else
+            for f in src-tauri/target/release/bundle/nsis/*.exe; do
+              [ -e "$f" ] || continue
+              mv "$f" "src-tauri/target/release/bundle/nsis/ScheduleTodo-$VERSION-windows-x64-setup.exe"
+            done
+            for f in src-tauri/target/release/bundle/msi/*.msi; do
+              [ -e "$f" ] || continue
+              mv "$f" "src-tauri/target/release/bundle/msi/ScheduleTodo-$VERSION-windows-x64.msi"
+            done
+          fi
+          ls -l src-tauri/target/release/bundle/dmg src-tauri/target/release/bundle/macos \
+               src-tauri/target/release/bundle/nsis src-tauri/target/release/bundle/msi 2>/dev/null || true
+
       - name: Upload bundles
         uses: actions/upload-artifact@v4
         with:
@@ -92,3 +137,26 @@ jobs:
           path: ${{ matrix.bundlePaths }}
           if-no-files-found: error
           retention-days: 14
+
+      # 发布通道：tag 推送时把安装包挂成 Release 资产（无需登录直链下载，
+      # 不像 Actions artifact 那样 14 天过期）。
+      # 两个 matrix 实例并发创建同一个 Release：softprops/action-gh-release v2
+      # 内部对 create 的 422 already_exists 竞态有重试兜底，先落地的一方拿到 release，
+      # 另一方补传自己的资产。
+      - name: Publish release assets (macOS)
+        if: runner.os == 'macOS' && startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            src-tauri/target/release/bundle/dmg/ScheduleTodo-*-macos-arm64.dmg
+            src-tauri/target/release/bundle/macos/ScheduleTodo-*-macos-arm64.app.zip
+          fail_on_unmatched_files: false
+
+      - name: Publish release assets (Windows)
+        if: runner.os == 'Windows' && startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            src-tauri/target/release/bundle/nsis/ScheduleTodo-*-windows-x64-setup.exe
+            src-tauri/target/release/bundle/msi/ScheduleTodo-*-windows-x64.msi
+          fail_on_unmatched_files: false

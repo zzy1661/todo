@@ -14,6 +14,38 @@
 
 ---
 
+## 下载与安装（GitHub Releases）
+
+**分发通道**：仓库的 **Releases** 页（<https://github.com/zzy1661/todo/releases>）。
+维护者打上 `v*` tag 后，`build` workflow 会重跑一遍，把安装包作为 **Release 资产**挂上去。
+
+> 为什么不只用 Actions artifact：artifact 需要登录、默认 14 天后过期（`retention-days: 14`），
+> 且只能整包下载；Release 资产是**可公开直链下载**的文件。
+
+| 资产名（Release 里就是这个名字） | 平台 | 说明 |
+| --- | --- | --- |
+| `ScheduleTodo-0.1.0-macos-arm64.dmg` | macOS（Apple Silicon，最低 12.0） | 双击挂载，把「日程待办」拖进 Applications |
+| `ScheduleTodo-0.1.0-macos-arm64.app.zip` | macOS | `.app` 的 zip 副本，不想挂载 dmg 时直接解压用 |
+| `ScheduleTodo-0.1.0-windows-x64-setup.exe` | Windows x64 | NSIS 安装包（`installMode: currentUser`，不需管理员权限） |
+| `ScheduleTodo-0.1.0-windows-x64.msi` | Windows x64 | MSI 包（WiX `zh-CN`） |
+
+**资产名是 ASCII 的**：应用本身仍叫「日程待办」，但发布资产统一改名为 `ScheduleTodo-<版本>-<平台>`，
+避免中文文件名在 Release 资产 URL 里被百分号编码后、第三方下载器出现乱码。
+本机 `npm run tauri build` 出的仍是 `日程待办_0.1.0_aarch64.dmg`（见「一、1」），**只有 CI 发布出去的资产被改名**。
+
+**首次打开仍需放行**（资产本身没做签名/公证，属预期）：
+
+- **macOS**：ad-hoc 签名、未公证 → 双击会被 Gatekeeper 拦一次，按「一、2」的表格处理；
+  命令行用户可直接 `xattr -dr com.apple.quarantine "/Applications/日程待办.app"`。
+- **Windows**：未做代码签名 → 双击会弹 **SmartScreen**「Windows 已保护你的电脑」，
+  点「更多信息」→「仍要运行」。
+
+> **当前状态（诚实声明）**：本仓库**尚未打 tag**（tag 由维护者在人类确认后打，流水线不会自己建 tag），
+> 所以 Releases 页**现在还没有资产**；上面这张表是「打完 tag 之后」会出现的文件名。
+> 在此之前，macOS 安装包来自本机构建，Windows 产物仍只在 Actions artifact 里。
+
+---
+
 ## 一、安装与首次打开（macOS）
 
 ### 1. 安装
@@ -30,7 +62,9 @@
 - 本机构建：`npm ci` → `npm run tauri build`，产物落在
   `src-tauri/target/release/bundle/macos/日程待办.app` 与 `.../bundle/dmg/日程待办_0.1.0_aarch64.dmg`；
 - CI 产物：`.github/workflows/build.yml` 的 `build` job（push `master` / `release/**` 或手动
-  `workflow_dispatch`）跑完后，下载 artifact `todo-macos`，内容与上者同构。
+  `workflow_dispatch`）跑完后，下载 artifact `todo-macos`，内容与上者同构；
+- **正式分发**：打 `v*` tag 后同样跑一遍，产物改 ASCII 名后挂成 **Release 资产**，
+  见上一节「下载与安装（GitHub Releases）」。
 
 **平台要求**：仅 **Apple Silicon**（arm64，构建目标 `aarch64-apple-darwin`）；
 系统最低 **macOS 12.0**（`minimumSystemVersion` 声明值，实机只在 macOS 14.1 上验证过，
@@ -154,8 +188,14 @@ npx tauri build              # 出 NSIS .exe 与 MSI .msi
 ### 3. CI 入口
 
 `.github/workflows/build.yml`：matrix = `macos-latest` + `windows-latest`，两条 job 走同一套步骤
-（`npm ci` → `npm run build` → 装 Playwright Chromium → `npx playwright test` → `npx tauri build` → 上传安装包）。
+（`npm ci` → `npm run build` → 装 Playwright Chromium → `npx playwright test` → `npx tauri build`
+→ 产物改 ASCII 名 → 上传安装包）。
 Windows job 真的执行 `npx tauri build`，不是占位。
+
+**发布通道（tag 触发）**：workflow 额外监听 `push: tags: ['v*']`，顶层声明
+`permissions: contents: write`；打 tag 时两条 job 各自把安装包挂成同一个 **GitHub Release** 的资产
+（macOS 上传 `.dmg` + `.app.zip`，Windows 上传 `.exe` + `.msi`），资产名见
+「下载与安装（GitHub Releases）」。**tag 由维护者打，流水线不创建 tag、也不自行发布**。
 
 本机能做、也已经做了的校验：
 
@@ -447,6 +487,7 @@ v1 / v2 **逐字未动**；v3 只对 `todos` 做 `ADD COLUMN` + 回填 + 建索�
 | 架构 | 仅 arm64；不产出 universal 二进制，Intel Mac 不在本期范围 |
 | 系统菜单栏 | 框架默认英文（Q-01），见「一、3」 |
 | Windows 产物 | **已在 GitHub Actions 跑通**：`windows-latest` job 2026-11-01 实跑成功（真执行 `npx tauri build` + 上传产物），artifact **`todo-windows`（5.36 MB）** 可在 Actions 下载；**但产物未在本机、也未在任何 Windows 机器上运行过**（本机无交叉编译） |
+| Release 发布 | tag 触发 + `permissions: contents: write` + `softprops/action-gh-release` 已配好；**当前尚未打 tag，Releases 页为空**。发布资产名统一为 ASCII（`ScheduleTodo-<版本>-<平台>`），**应用名仍是「日程待办」** |
 | Windows 上的同步 | **不可用**：会话存储（`/usr/bin/security` 钥匙串）与浏览器拉起（`/usr/bin/open`）都是 macOS 实现，Windows 上登录必失败、状态区停在「未登录」；本地功能不受影响。Windows 只交付**可构建能力** |
 | 桌面人工 checklist | M-01 ~ M-14 的执行情况见 `docs/verification/mac-desktop.md`；**桌面像素级项由人类实机人工验收确认（无自动化截图）**，受 TCC 权限限制而仍缺自动取证的项保留原判定与复现命令 |
 | 同步（可选） | 逻辑已交付并用本地 stub 验证；**真实 Supabase 读写 / GitHub OAuth 往返 / 云侧 RLS 隔离已于 2026-11-01 实测通过**（RLS 用等价判据，**未用第二个账号实测「A token 读 B 行」**；已登录状态区的像素截图仍未取），见「五、同步（可选）」 |
