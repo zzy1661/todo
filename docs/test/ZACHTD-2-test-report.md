@@ -3,7 +3,7 @@
 | 项 | 内容 |
 | --- | --- |
 | 文档编号 | TR-ZACHTD-2 |
-| 关联 Issue | ZACHTD-9（S7 测试执行与报告，AC-01 ~ AC-56）+ **ZACHTD-13（S10.5 同步层执行与全量回归，AC-43 重判 / AC-57 ~ AC-68）** + **ZACHTD-14（S11 判门后的台账统一，M2）** |
+| 关联 Issue | ZACHTD-9（S7 测试执行与报告，AC-01 ~ AC-56）+ **ZACHTD-13（S10.5 同步层执行与全量回归，AC-43 重判 / AC-57 ~ AC-68）** + **ZACHTD-14（S11 判门后的台账统一，M2）** + **ZACHTD-15（S7.5 桌面人工取证补跑，屏幕录制已授权）** + **ZACHTD-16（S7.6 bundle 签名修复与 Gatekeeper 实测）** |
 | 判定基线 | `docs/requirements/ZACHTD-2-macos-prd.md` **v1.6**（共 **68 条**，自 v1.4 起条数未变）：v1.5 = **AC-37 判据收窄为三段式** + **AC-68 判定归属归正为「S10.5 执行并留证」**（表述仍有效）；v1.6 = **AC-67 判据口径收窄 + 白名单兜底**、**OPEN-02 措辞校正**，**不改任何 AC 判定**。AC-01 ~ AC-56 见 §3（S7 段）；AC-57 ~ AC-68 见 **§13（S10.5 段）**；**AC-01 ~ AC-68 逐条台账见 §14** |
 | 执行用例 | `docs/test/ZACHTD-2-test-plan.md` **v1.3**：TC-001 ~ TC-056（S7）+ TC-057 ~ TC-080（S10.5） |
 | 执行人 | @Tester |
@@ -24,7 +24,7 @@
 - 四组回归第二次全绿（`build` / `check-cases` / `check-permutation` / `playwright 6 passed`），**同步套件独立执行 4 passed**（≠6，两套分别报）。
 - AC-01 ~ AC-56 的 56 条旧判定**一条未变**；同步层是纯新增，v3 迁移只给 `todos` ADD COLUMN（§13.11）。
 - AC-43 按 PRD v1.4 收窄口径**重判 PASS**（S7 的旧结论作废）；AC-68 的三条静态证据 PASS，**CI 实际运行结果 `NOT-VERIFIED`**。
-- 云端四条（真实读写 / 真实 OAuth / 云侧 RLS 越权 / 钥匙串+回环实机链路）仍 `NOT-VERIFIED`；`supabase/schema.sql` **未在云端执行**。TCC 未解除，AC-41 等桌面人工项继续 `BLOCKED`。
+- 云端四条（真实读写 / 真实 OAuth / 云侧 RLS 越权 / 钥匙串+回环实机链路）仍 `NOT-VERIFIED`；`supabase/schema.sql` **未在云端执行**。**辅助功能**未解除（屏幕录制已解除，见 §0.3），AC-41 等桌面人工项继续 `BLOCKED`。
 
 ### 0.2 S7 段结论（AC-01 ~ AC-56，2026-11-01 第一轮）
 
@@ -34,14 +34,65 @@
 - **通过率 = PASS ÷ 本段可判定条数 = 55 ÷ 56 = 98.2%**
   - 可判定 **56 条** = 55 PASS + 1 BLOCKED + 0 FAIL；**观察 0 条**；`NOT-VERIFIED` 0 条。
   - 若只按「可判 PASS / FAIL」的 55 条算（把 BLOCKED 排除在分母外）：55 ÷ 55 = 100%。报告主口径用 55/56。
-- **可交付（附阻塞项：1 条 AC + 10 项桌面人工取证待 TCC 授权后补）。**
-  唯一被判 BLOCKED 的 AC 是 **AC-41（断网后完整走三模块）**：它只能靠「关网 + 在 WKWebView 里点三模块」取证，本机 `AXIsProcessTrusted=false` / `CGPreflightScreenCaptureAccess=false`，既无法操作桌面 UI，也不允许擅自杀掉本机网络。旁证已附（应用进程零网络 socket、产物内无外部请求地址、Chromium 侧 6 passed），但按纪律不把旁证当 PASS。
+- **可交付（附阻塞项：1 条 AC + 8 项桌面人工取证，待「辅助功能」授权后补；S7.6 后 M-01 / M-10 / M-14 已 PASS，M-04 为 PARTIAL）。**
+  唯一被判 BLOCKED 的 AC 是 **AC-41（断网后完整走三模块）**：它只能靠「关网 + 在 WKWebView 里点三模块」取证，本机 `AXIsProcessTrusted=false`（S7.5 复测仍为 false；屏幕录制 `CGPreflightScreenCaptureAccess` 已为 true），既无法操作桌面 UI，也不允许擅自杀掉本机网络。旁证已附（应用进程零网络 socket、产物内无外部请求地址、Chromium 侧 6 passed），但按纪律不把旁证当 PASS。
 - 四组回归全部通过：`npm run build` 退出码 0、`node scripts/check-cases.mjs` PASS、`node scripts/check-permutation.mjs` 7/7 MATCH、`npx playwright test` **6 passed**（未新增 `test()`，仍是 5 功能 + 1 巡览）。
-- FAIL / BLOCKED / NOT-VERIFIED 三类清单：**FAIL 0 条**；**BLOCKED 1 条 AC（AC-41）+ 10 项人工 checklist（M-01~M-11，均为 TCC）**；**NOT-VERIFIED 0 条 AC**（Windows 侧 3 项单列于 §8，不计入 AC）。
+- FAIL / BLOCKED / NOT-VERIFIED 三类清单：**FAIL 0 条**；**BLOCKED 1 条 AC（AC-41）+ 8 项人工 checklist（M-02/03/05/06/07/08/09/11；S7.5 补跑后由 10 项降为 8 项）**；**NOT-VERIFIED 0 条 AC**（Windows 侧 3 项单列于 §8，不计入 AC）。
 
 > 判定纪律（沿用计划 §0.1）：一条 AC 判 PASS = 其**主 TC** 的判据在本机以规定手段跑出来；桌面像素 / 手势类**辅助**项按 Leader 2026-11-01 口径记 `BLOCKED（环境：TCC 未授权）`，不改变 AC 判定；主 TC 本身完全依赖人工桌面操作时，该 AC 判 BLOCKED。
 
 > 逐条台账见 **§14**（AC-01 ~ AC-68 一张表）。AC-43 在本段 56 条之内按 v1.5 收窄口径**重判 PASS**（§13.7），**不另计一条**。
+
+### 0.3 S7.5 桌面取证补跑（2026-11-01 第三轮，读 §6 / §7.2 / §13.13）
+
+**人类已授权「屏幕录制」。本轮只做一件事：把因 TCC 记为 `BLOCKED` 的桌面人工项能补的补成 PASS 并留证据。**
+
+- **屏幕录制已解除**：`PROBE tcc.screen-recording = true`，`screencapture -l<窗口号>` 可用 → 桌面像素证据首次产出
+  （5 张图在 `docs/verification/desktop/`，逐项命令见 `S7.5-evidence.md`）。
+- **辅助功能未解除**：`PROBE tcc.accessibility = false`。实测失败动作：`keystroke` → `-1002`、`click at` → `-25211`、
+  `CGEvent(.cghidEventTap)` / `CGEvent.postToPid` 只出 hover 不生效。**凡是「点一下 / 按一下」的项依然拿不到。**
+- **补成 PASS 1 项**：M-10（Dock 图标 = 应用自己的黄/青双环图标 + 运行指示点，不是默认 Tauri 占位）。
+- **由 BLOCKED 提到 PARTIAL 2 项**：M-01（首启拦截框已截到；`xattr` 处置实测能进）、M-04（菜单栏为框架默认英文五项；三个快捷键未验）。
+- **仍 BLOCKED 8 项**：M-02 / M-03 / M-05 / M-06 / M-07 / M-08 / M-09 / M-11（其中 **M-08、M-11 是硬项**，都卡在「开不了编辑器 / 切不到 `5w2h`」）。
+- **AC 一条没改判**：AC-34 / AC-55 / AC-41 仍 `BLOCKED`（六步/新建全是点击；断网需人类批准）。
+  因此 **68 条的算术不变**：66 PASS / 0 FAIL / 1 BLOCKED / 1 NOT-VERIFIED。
+- **本轮唯一可能影响交付的发现**：带 quarantine 的副本首启显示的是「**已损坏，无法打开**」，而不是 README §2 情形①
+  描述的「无法检查是否包含恶意软件」。根因是 bundle 只有链接器签名（`Sealed Resources=none`、无 `_CodeSignature/`、
+  `codesign --verify` exit 1）。**该对话框只提供「移到废纸篓 / 取消」，没有可放行的「打开」按钮，因此「右键 → 打开」这条推荐路径对这份产物不适用**
+  （「点了会怎样」本身也未实测——缺辅助功能）；可走的是情形② 的 `xattr -dr com.apple.quarantine`（已实测能进）。
+  连带把 **M-14 由 PASS 降为 PARTIAL**，等 Leader 定稿 README 后回填。
+
+### 0.4 S7.6 修复 bundle 签名（2026-11-01 第四轮，读 §1 / §4.0 / §6）
+
+**S7.5 的发现是真问题，S7.6 修的是产物而不是文案：给 bundle 加 ad-hoc 封条，再重做 quarantine 实验。**
+
+- **配置**：`src-tauri/tauri.macos.conf.json` 的 `bundle.macOS.signingIdentity = "-"`（ad-hoc），
+  仍**不引入证书、不做公证**（OP-05 不变）；`hardenedRuntime` 保持 `false`。
+- **重建**：`npm run tauri build` → 10:35 产出 `.app`、10:36 产出 `.dmg`。日志含
+  `Signing with identity "-"`（先签 `Contents/MacOS/todo`，再签 `.app`），公证步骤按预期跳过。
+- **签名四项（全部通过）**：
+  - `codesign -dv --verbose=4` → `Signature=adhoc`、`Info.plist entries=15`、
+    `Sealed Resources version=2 rules=13 files=1`、`TeamIdentifier=not set`；
+  - `codesign --verify --deep --strict` → **exit 0**（旧构建 `code has no resources but signature indicates
+    they must be present` / exit 1）；
+  - `Contents/_CodeSignature/CodeResources` 存在（2 440 B）；
+  - `codesign -d --verbose=2 | grep sealed` → `Sealed Resources version=2`（不再是 `none`）。
+- **quarantine 实验（dmg 内 `.app` → `ditto` 到临时目录 → `xattr -w com.apple.quarantine "0083;00000000;Safari;"` → 双击）**：
+  弹框变成「**无法打开"日程待办.app"，因为 Apple 无法检查其是否包含恶意软件**」，
+  按钮为 **在访达中显示 / 好**——**「已损坏」判定消失**，S7.5 的阻塞点解除。
+  证据：`docs/verification/desktop/M-01-c-gatekeeper-after-signing.png`。
+  随后 `xattr -dr com.apple.quarantine` 的同一份副本可正常启动（进程存活、1100×720 窗口在场）。
+- **未实测**：「右键 → 打开」与「系统设置 → 仍要打开」都是点击操作，本机 `tcc.accessibility = false`
+  合成不了点击，**README 已如实标注为未实测**，不写成已验证。
+- **产物身份（新）**：`Contents/MacOS/todo` **6 250 704 B**、md5 `4db99e8ce40473a7954eb802f629b838`；
+  dmg **3 310 932 B**、md5 `a90ec0e812ecbc2c70be27168d94ee64`；两处 `.app` 的整树 sha256 摘要同为
+  `f79d0212…`（`lipo -archs` = `arm64`，`CFBundleIdentifier = com.poisson.todo`，`CFBundleName = 日程待办`，
+  `LSMinimumSystemVersion = 12.0`）。
+- **判定回填**：**M-01 → PASS**（首启拦截框 + `xattr` 处置两半都有实测），
+  **M-14 → PASS**（README §2 已按实测现象重写，现象 / 按钮 / 未实测项与产物一致）。
+- **AC 仍一条未改判**：68 条的算术不变（66 PASS / 0 FAIL / 1 BLOCKED / 1 NOT-VERIFIED）。
+- **密钥边界不回退**：新二进制里 `sb_publishable_` / `sb_secret_` / legacy JWT / `*.supabase.co` 命中数均为 **0**；
+  `node scripts/check-no-secrets.mjs` 仍 PASS（AC-67）。
 
 ---
 
@@ -51,12 +102,12 @@
 | --- | --- | --- |
 | 操作系统 | macOS 14.1（23B2073），arm64 | 只判 macOS 侧；Windows 一律 `NOT-VERIFIED`（§8） |
 | Xcode | `/Library/Developer/CommandLineTools`（无完整 Xcode） | 只验证「可产出 `.app` + `.dmg`」；公证 / universal 不在本期（OP-05） |
-| 屏幕录制 | `PROBE tcc.screen-recording = false` | `screencapture -l<winid>` 报 `could not create image from window`（实测）→ 所有像素级桌面取证 BLOCKED |
-| 辅助功能（AX） | `PROBE tcc.accessibility = false` | 无法读窗口标题 / 菜单栏、无法合成点击 → 手势类 checklist BLOCKED |
-| 签名 | `Signature=adhoc`、`TeamIdentifier=not set`、`spctl --assess` exit 1 | OP-05 已关闭，`rejected` 属预期，不判交付失败 |
+| 屏幕录制 | **S7.5 起 `PROBE tcc.screen-recording = true`**（S7 段为 `false`） | `screencapture -l<winid>` 已可用 → 窗口/全屏像素证据已产出（§6、`docs/verification/desktop/S7.5-evidence.md`） |
+| 辅助功能（AX） | `PROBE tcc.accessibility = false`（S7.5 复测仍为 `false`） | 无法读窗口标题 / 菜单栏、无法合成点击/按键（`keystroke` → `-1002`、`click at` → `-25211`）→ 手势与快捷键类 checklist 仍 BLOCKED |
+| 签名 | **S7.6 起**：`Signature=adhoc`、`Sealed Resources version=2 rules=13 files=1`、`Info.plist entries=15`、有 `_CodeSignature/`；`codesign --verify --deep --strict` **exit 0**；`spctl --assess` 仍 exit 1（未公证，预期） | OP-05 已关闭，`rejected` 属预期。**S7.5 记录的是修复前状态**（`linker-signed`、`Info.plist=not bound`、`Sealed Resources=none`、`verify` exit 1），那种产物带 quarantine 首启被判「**已损坏**」；S7.6 加 ad-hoc 封条后变为「**无法验证开发者 / Apple 无法检查**」变体（§0.4） |
 | Supabase key | 无 | AC-57~AC-67 不在本段；本段无同步入口，M-15 / M-16 仅登记 |
 
-TCC 两项的原始输出：
+TCC 两项的原始输出（**这是 S7 段的快照**；S7.5 复测为 `screen-recording = true` / `accessibility = false`，见 §0.3 与 §13.13）：
 
 ```console
 $ swift scripts/mac-desktop-probe.swift
@@ -219,7 +270,7 @@ PASS（三份 conf 合并 + schema + 平台中立 + 数据路径中立 + workflo
 | AC-36 | TC-047 | **PASS** | 三组 diff 全空：`todos-before-0.1.0 ↔ todos-after-0.1.1`、`picks-*` 同、`after-0.1.1 ↔ after-restart`；迁移仍只有 1、2 | 见 §4.2 |
 | AC-37 | TC-048 | **PASS** | `grep -nE "DROP \|ALTER \|DELETE FROM\|UPDATE todos"` 无命中；仅 2 个 `CREATE TABLE IF NOT EXISTS` + 1 个 `CREATE INDEX IF NOT EXISTS` | 判据已按 PRD **v1.5 附录 B.7 三段式**扩展并复核：`LIB.RS CLEAN` / `MIGRATIONS CLEAN` / `CREATE OK`（§13.17）；`cargo test --test migration_guard` 属 S6，本段未复跑。PASS 的含义是「**没有改写历史迁移、没有破坏性动作**」，不是「文件里不出现 `ALTER`」——见 §14 判定含义注 |
 | AC-38 | TC-049 | **PASS** | `rm -rf /Applications/日程待办.app` → `ditto` 重装 → `open` 启动；todos 5 条、picks 2 条，前后 diff 为空 | 见 §4.4。**取证对象 = 03:17 构建（已入废纸篓）**；07:21 构建未重跑此桌面项（§4.0） |
-| AC-39 | TC-050 | **PASS** | `日程待办.app`（`Contents/MacOS/todo` 6 232 576 B / 07:21）与 `日程待办_0.1.0_aarch64.dmg`（**3 309 469 B** / 07:22）均在；`lipo -archs` = `arm64`；`CFBundleIdentifier` = `com.poisson.todo`、`LSMinimumSystemVersion` = `12.0`、版本 `0.1.0`；`codesign` = `adhoc`（预期） | `tauri build` 本身属 S6。**形态数字已按 07:21/07:22 构建复测**（旧记 3285579 属上一份构建，已作废）；见 §4.5 |
+| AC-39 | TC-050 | **PASS** | `日程待办.app`（`Contents/MacOS/todo` 6 232 576 B / 07:21，**S7.6 重建后为 6 250 704 B / 10:35，见 §0.4**）与 `日程待办_0.1.0_aarch64.dmg`（**3 309 469 B** / 07:22，S7.6 后 **3 310 932 B** / 10:36）均在；`lipo -archs` = `arm64`；`CFBundleIdentifier` = `com.poisson.todo`、`LSMinimumSystemVersion` = `12.0`、版本 `0.1.0`；`codesign` = `adhoc`（预期） | `tauri build` 本身属 S6。**形态数字已按 07:21/07:22 构建复测**（旧记 3285579 属上一份构建，已作废）；**S7.6 重建后的数字见 §0.4**，判定不变 |
 | AC-40 | TC-052 | **PASS** | `open -a` 后进程 58908 存活；CGWindowList：窗口 164243、layer 0、1100×720、属主「日程待办」；bundle id / `activationPolicy = regular`；默认模块与全中文由巡览截图 01 + 用例 1 佐证 | 窗口标题文本与像素级截图被 AX/屏幕录制挡住（M-04 BLOCKED）。**取证对象 = 03:17 构建（已入废纸篓）**；07:21 构建未复跑启动项（§4.0） |
 | AC-41 | TC-053 | **BLOCKED** | 需「关闭 Wi-Fi/以太网 + 在桌面版走完新建→换一条→筛选」。本机无法操作 WKWebView（TCC），且不应擅自切断本机网络。旁证：应用进程 `lsof -a -p <pid> -i` **零 socket**；`dist` 内无外部请求地址（仅 XML 命名空间与 vuejs.org 报错链接）；Chromium 三模块 6 passed | 见 §7 与 §10 |
 | AC-42 | TC-054 | **PASS** | 依赖扫描输出 `DEPENDENCY CLEAN`；依赖 10 个（@tauri-apps/api、plugin-sql、dayjs、vue + 构建工具链），无 Pinia/Vuex/UI 库/路由/第二日期库 | — |
@@ -246,25 +297,23 @@ PASS（三份 conf 合并 + schema + 平台中立 + 数据路径中立 + workflo
 
 ### 4.0 产物身份与时效（先说清楚"这份证据对应哪一份字节"）
 
-S11 整改（S1 白名单）之后产物被**第三次重建**，旧字节曾有**三份**（03:17 / 00:10 两份 `.app` + 05:41 一份已被覆盖的构建）。**S12 收尾轮已收口**：旧的两份 `.app` 移入废纸篓（可恢复），`/Applications` 与 `bundle` 现在是**同一份 07:21 字节**。本节及 §3 的产物级证据必须带构建身份读，否则「实测过」会被读成「新产物已验」。
+S11 整改（S1 白名单）之后产物被**第三次重建**，旧字节曾有**三份**（03:17 / 00:10 两份 `.app` + 05:41 一份已被覆盖的构建）。**S12 收尾轮已收口**：旧的两份 `.app` 移入废纸篓（可恢复）。**S7.6（ZACHTD-16）又重建了一次**：加 ad-hoc 封条后的 **10:35 / 10:36** 产物才是当前分发源，07:21 那份已被覆盖、盘上不存在；`/Applications` 里的副本已由人类删除（本轮**未**重装）。本节及 §3 的产物级证据必须带构建身份读，否则「实测过」会被读成「新产物已验」。
 
 | 构建 | 现在的状态 | 身份 | 用它验了什么 |
 | --- | --- | --- | --- |
-| **03:17**（S7 轮） | **已移入废纸篓（可恢复）** | `Contents/MacOS/todo` **6 182 464 B**，md5 `17fa52a6…`；早于 S1 整改，**不含白名单** | **§4.1 ~ §4.4 桌面复核、§6 全部人工项、§13.13 桌面 BLOCKED 项的取证对象都是它**（当时 `/Applications` 里就是这份） |
+| **03:17**（S7 轮） | **已移入废纸篓（可恢复）** | `Contents/MacOS/todo` **6 182 464 B**，md5 `17fa52a6…`；早于 S1 整改，**不含白名单** | **§4.1 ~ §4.4 桌面复核、§6 早期人工项、§13.13 桌面 BLOCKED 项的取证对象都是它**（当时 `/Applications` 里就是这份） |
 | **00:10 / `todo.app`**（改名前的旧脚手架） | **已移入废纸篓（可恢复）** | `CFBundleIdentifier = com.zachary.todo`，4 159 632 B | 未作为任何证据；不属交付物 |
-| **05:41**（S10.5 第二轮重建） | **已被 07:21 覆盖，盘上不存在** | — | 只跑过 E2E 与脚本；**没有做过任何桌面人工复核** |
-| **07:21 / 07:22**（S11 整改后重建） | **当前唯一分发源**；`/Applications/日程待办.app` 与 `bundle/macos/日程待办.app` **md5 相同** | `todo` **6 232 576 B**，md5 `d66b3ea6e24d3b54d74dcd0c24e5a51b`；dmg `3373115774d7c98c8b9133fc6752ac2b`，**3 309 469 B** / 07:22 | 静态复核（§4.5 / §13.10 / §13.17）。**AC-38 重装、AC-40 启动、AC-41 断网这些桌面项没有在它上面跑过** |
+| **05:41**（S10.5 第二轮重建） | **已被覆盖，盘上不存在** | — | 只跑过 E2E 与脚本；**没有做过任何桌面人工复核** |
+| **07:21 / 07:22**（S11 整改后重建） | **已被 10:35 / 10:36 覆盖** | `todo` **6 232 576 B**，md5 `d66b3ea6…`；dmg **3 309 469 B** / 07:22；**无 bundle 封条**（`Sealed Resources=none`） | S12 的静态复核（§4.5 / §13.10 / §13.17）与 S7.5 的桌面取证（10:00 是它的上一轮同源构建）。**带 quarantine 首启被判「已损坏」的就是这一类产物** |
+| **10:35 / 10:36**（S7.6 修复签名后重建） | **当前唯一分发源** | `todo` **6 250 704 B**，md5 `4db99e8ce40473a7954eb802f629b838`；dmg **3 310 932 B**、md5 `a90ec0e812ecbc2c70be27168d94ee64`；`Signature=adhoc` + 完整封条 | **§0.4 的签名四项 / quarantine 实验 / 产物身份 / 启动**；旧的桌面项结论不因重建而升级（AC-38 / AC-40 / AC-41 仍按原文口径读） |
 
-> **这几行身份的来源**：03:17 / 07:21 / 07:22 三个数字与 md5 我自己量过；**00:10 那份 `todo.app` 的字节数与 bundle id 来自开发侧记录**——它已经在废纸篓里，而 `~/.Trash` 在本机不可列（`Operation not permitted`），我没法逐字节复核，故按「转引」标注，不当作本机实测。
+> **这几行身份的来源**：03:17 / 07:21 / 07:22 / 10:35 / 10:36 的数字与 md5 我自己量过；**00:10 那份 `todo.app` 的字节数与 bundle id 来自开发侧记录**——它已经在废纸篓里，而 `~/.Trash` 在本机不可列（`Operation not permitted`），我没法逐字节复核，故按「转引」标注，不当作本机实测。
 
 **三条口径**
 
-1. **§4.1 ~ §4.4 的取证对象是 03:17 构建**（该构建**已入废纸篓**，其结论仍然有效——证据是当时采集的，不是现在回采的）；§4.5 的形态数字本轮已按 **07:21 / 07:22 构建**重测（旧记的 dmg 大小 `3285579` 是更早一份构建的字节数，已作废）。
-2. **07:21 构建未做桌面人工复核**（TCC 仍 `false`，见 §13.13）。本报告**不**把「静态复核通过」写成「新产物已验」；补齐的路径仍是 TCC 授权后重跑 AC-38 / AC-40 / AC-41。
-3. **盘上只剩一份产品字节**：`/Applications/日程待办.app` 与 `bundle/macos/日程待办.app` 现在是同一份（md5 都是 `d66b3ea6…`），**不存在「拿旧包演示」的风险了**；旧的两份躺在 `~/.Trash`（`mv` 移入、可恢复，**验收时顺手倒掉**）。
-   - **我能核到的**：`ls /Applications | grep -i 日程` → 只剩 `日程待办.app`；两份 md5 相同；`~/.Trash` 的 mtime = `Nov 1 07:30`（移入动作发生过）。
-   - **我核不到的**：`ls ~/.Trash` → `Operation not permitted`（本机 TCC，与本会话所有目录级取证同因）。所以「废纸篓里确实躺了两份 `.app`」这一句我**没有**亲自确认，只确认了「`/Applications` 里已没有旧两份」与「Trash 被写过」。
-   - 判据仍不能靠 `strings`——新旧两侧 `sb_publishable_` 都是 0（前端字符串压缩嵌入，见 §13.10），认身份用 **mtime + 字节数 + md5**。
+1. **§4.1 ~ §4.4 的取证对象是 03:17 构建**（该构建**已入废纸篓**，其结论仍然有效——证据是当时采集的，不是现在回采的）；§4.5 的形态数字是 **07:21 / 07:22 构建**的，**已被 §0.4 的 10:35 / 10:36 数字取代**（形态判据不变：`.app` + `.dmg` 均在、`arm64`、`com.poisson.todo`、`12.0`、`0.1.0`）。
+2. **10:35 构建只补了签名与 Gatekeeper**（§0.4）；**AC-38 重装、AC-40 启动、AC-41 断网这些桌面项没有在它上面重跑**。本报告**不**把「静态复核通过」或「签名修好」写成「新产物全项已验」。
+3. **盘上只剩一份产品字节**：`bundle/macos/日程待办.app` 与 `bundle/dmg/…dmg` 内的 `.app` 整树 sha256 摘要相同（`f79d0212…`，§0.4）；`/Applications/日程待办.app` 已由人类删除，**本轮没有重装**，所以「装到 Applications 后能不能用」仍按 §2 的 Gatekeeper 口径读。
 
 ### 4.1 AC-34 建库建表（冷启动重建）
 
@@ -344,7 +393,10 @@ $ diff docs/verification/data/picks-before-reinstall.txt docs/verification/data/
 PICKS UNCHANGED AFTER REINSTALL
 ```
 
-### 4.5 AC-39 产物形态（复核，对象 = **07:21 / 07:22 构建**）
+### 4.5 AC-39 产物形态（复核，对象 = **07:21 / 07:22 构建**；数字已被 §0.4 的 10:35 / 10:36 取代）
+
+> 本节保留的是 S12 那一轮的原始输出（历史证据，不改写）。S7.6 重建后当前分发源的字节数与 md5 见 **§0.4**；
+> 形态判据本身不变（`.app` + `.dmg`、`arm64`、`com.poisson.todo`、`12.0`、`0.1.0`），故 AC-39 判定不受影响。
 
 ```console
 $ ls -l "…/bundle/macos/日程待办.app/Contents/MacOS/todo"
@@ -392,29 +444,34 @@ d66b3ea6e24d3b54d74dcd0c24e5a51b
 
 ## 6. 人工 checklist（M-01 ~ M-16，真机）
 
-> 产物身份：本节所有真机项的**取证对象是 03:17 构建**（当时 `/Applications` 那份；该构建现已移入废纸篓，§4.0）；S11 整改后的 **07:21 构建未在真机上跑过任何一项**——TCC 仍为 `false`，M-01~M-16 的状态不因产物重建而改变，但「新产物已验」这句话不成立。注意：`/Applications` 现在装的已是 07:21 那份，**若日后授权后重跑，跑的是新构建**——届时这几行要标「对应 07:21」。
+> 产物身份：本节 M-12 / M-13 / M-14 与 §4 的证据对象是 **03:17 构建**（当时 `/Applications` 那份；现已移入废纸篓，§4.0）；
+> **M-01 / M-04 / M-10 三项在 S7.5（2026-11-01 10:25）对 10:00 构建重跑过**，已换上新证据并标注；
+> 其余仍 BLOCKED 的项既未在 03:17 构建上判过、也没有在 10:00 构建上跑通——**「新产物已验」这句话仍然不成立**。
+> 逐项原始命令与失败动作见 `docs/verification/desktop/S7.5-evidence.md`。
 
 | # | 检查项 | 状态 | 证据 / 说明 |
 | --- | --- | --- | --- |
-| M-01 | Gatekeeper 首启与 `xattr` 处置 | **BLOCKED（部分）** | 已验：`spctl --assess` exit 1（`code has no resources…`，预期）、`codesign` = `adhoc`、`xattr -l` 为空（本机构建无 quarantine）。未验：**首次双击被拦的系统对话框**（需人工点「打开」，且需要带 quarantine 的副本） |
-| M-02 | Control + 点击打开菜单 | **BLOCKED** | `tcc.accessibility = false`，无法合成点击 |
-| M-03 | 双指点按打开菜单 | **BLOCKED** | 同上；还依赖系统「辅助点按」设置 |
-| M-04 | 系统菜单栏与 `⌘Q` / `⌘C` / `⌘V` | **BLOCKED** | `menubar.items = BLOCKED (AX error -25211)`；README §一·3 已声明英文菜单栏，但无像素证据 |
-| M-05 | 切到其他应用时菜单关闭 | **BLOCKED** | 需真实切应用；仅事件级 blur 已验证（§5） |
-| M-06 | 拖动窗口尺寸时菜单关闭 | **BLOCKED** | 需拖动窗口；仅 viewport resize 事件已验证（§5） |
-| M-07 | WKWebView 下 `<input type="date">` 渲染与取值 | **BLOCKED（取值为 PASS 部分）** | 代码为原生 `input[type=date][data-field=date]`，E2E 落库 `YYYY-MM-DD`；**WKWebView 外观需截图** → BLOCKED |
-| M-08 | 编辑器遮罩模糊（硬项） | **BLOCKED** | 代码/产物含 `backdrop-filter: blur(2px)` + `-webkit-backdrop-filter`；真机模糊效果需截图 |
-| M-09 | 断网后完整走三模块 | **BLOCKED** | 需关网 + 操作桌面 UI；旁证见 AC-41 行（零 socket / 无外链） |
-| M-10 | Dock 图标 / Launchpad 收录 | **BLOCKED（结构已验）** | `activationPolicy = regular`、bundle 在 `/Applications`、`icon.icns` 与源图标同源；**视觉确认** BLOCKED |
-| M-11 | `5w2h` / `rice-scoring` 桌面版内部滚动与渐隐（硬项） | **BLOCKED** | Chromium 侧用例 3 通过；WKWebView 需录屏/截图 |
+| M-01 | Gatekeeper 首启与 `xattr` 处置 | **PASS**（S7.5 BLOCKED → PARTIAL → S7.6 PASS） | S7.5 证据（`M-01-a` 是旧产物被判「已损坏」）+ S7.6 修复后的新证据 `docs/verification/desktop/M-01-c-gatekeeper-after-signing.png`：加 ad-hoc 封条后，带 quarantine 的 dmg 副本双击 → 「**无法打开"日程待办.app"，因为 Apple 无法检查其是否包含恶意软件**」（在访达中显示 / 好），**「已损坏」消失**；`xattr -dr com.apple.quarantine` 后同一副本正常启动（进程存活、1100×720 窗口）。**「右键 → 打开」仍未实测**（无辅助功能，合成不了点击），README 已如实标注，不当作已验证 |
+| M-02 | Control + 点击打开菜单 | **BLOCKED** | S7.5 复测：`click at` → `-25211`；`CGEvent(.cghidEventTap)` 与 `CGEvent.postToPid` 两条路线均只产生 hover、点击不生效。卡在「无法合成点击」 |
+| M-03 | 双指点按打开菜单 | **BLOCKED** | 同 M-02（同为合成鼠标事件）；另依赖系统「辅助点按」设置，也需 AX |
+| M-04 | 系统菜单栏与 `⌘Q` / `⌘C` / `⌘V` | **PARTIAL**（S7.5 由 BLOCKED 上调） | 新证据：`docs/verification/desktop/M-04-a-menubar.png` → `日程待办 / File / Edit / View / Window / Help`，**框架默认英文五项、无自定义菜单**（README §一·3 / Q-01 有像素证据了）。**未验：三个快捷键**——`keystroke` → `-1002`，无法发送按键 |
+| M-05 | 切到其他应用时菜单关闭 | **BLOCKED** | 前提是先用 M-02 打开菜单，第一步即失败；仅事件级 blur 已验证（§5） |
+| M-06 | 拖动窗口尺寸时菜单关闭 | **BLOCKED** | 同 M-05；`CGWindowList` 只能读几何、不能拖窗 |
+| M-07 | WKWebView 下 `<input type="date">` 渲染与取值 | **BLOCKED（取值为 PASS 部分）** | 代码为原生 `input[type=date][data-field=date]`，E2E 落库 `YYYY-MM-DD`；S7.5 仍卡在「打开编辑器需要一次点击」，日历默认视图里没有日期输入框 |
+| M-08 | 编辑器遮罩模糊（硬项） | **BLOCKED** | 代码/产物含 `backdrop-filter: blur(2px)` + `-webkit-backdrop-filter`；S7.5 仍卡在同一步：遮罩只在编辑器打开时出现 |
+| M-09 | 断网后完整走三模块 | **BLOCKED** | 按任务书**不自行断网**（需人类批准）+ 需桌面 UI 操作；旁证见 AC-41 行 |
+| M-10 | Dock 图标 / Launchpad 收录 | **PASS（Dock 部分）**（S7.5 由 BLOCKED 上调） | 新证据：`docs/verification/desktop/M-10-a-dock.png` → Dock 里是应用自己的黄/青双环图标（与 `src-tauri/icons/icon.png` 同图形）+ 运行指示点，**不是默认 Tauri 占位**。Launchpad 收录需打开 Launchpad（一次点击）→ 子项未验，不影响已证部分 |
+| M-11 | `5w2h` / `rice-scoring` 桌面版内部滚动与渐隐（硬项） | **BLOCKED** | 卡在「切到 `5w2h` 需要一次点击」：进不去就没有可滚容器，`PageDown`/滚轮也就无从施加（按键本身也发不出，`-1002`） |
 | M-12 | 数据落盘路径与 `sqlite3` 复核 | **PASS** | §4.1 / §4.4：路径、两表、迁移 1/2、删 `.app` 重装后数据不变 |
 | M-13 | 中文路径引用 | **PASS** | 本轮 `ditto` / `open -a` / `lipo` / `plutil` / `sqlite3` / `xattr` 全部直接用「日程待办.app」「日程待办_0.1.0_aarch64.dmg」，无编码错误 |
-| M-14 | 交付说明与实现一致 | **PASS** | README §一·2 / §一·3 / §二 / §三 / §「已知边界」逐条对上（Gatekeeper 三情形、菜单栏英文、空库起步不迁移、Windows 未本机验证、无同步入口） |
+| M-14 | 交付说明与实现一致 | **PASS**（S7.5 PARTIAL → S7.6 回填） | README §一·2 已按 S7.6 实测重写：情形① 的现象（「Apple 无法检查…包含恶意软件」）、按钮（在访达中显示 / 好）、**「右键 → 打开」明确标注未实测**，情形② 的 `xattr -dr` 为实测可用路径；§一·3 / §二 / §三 与产物一致；分发源字节数 / md5 已按 10:35 构建更新（§0.4） |
 | M-15 | 同步状态区「未配置」表现（无 key） | **记录（N/A）** | 本版**不含**同步入口（README 首段明示），无 `sync-panel` 可测；属 S10.5 记录项，不判 FAIL |
 | M-16 | 已登录 + 断网时的同步表现 | **记录（N/A）** | 同上，S10.5 执行；不判 FAIL |
 
-**人工项小计**：PASS 3（M-12/13/14）· BLOCKED 10（M-01~M-11）· 记录 2（M-15/16）· 未执行 0。
-**硬项 M-01 / M-08 / M-11 均未签署**：按计划 §8「不通过则不能判交付」，本次结论只到「**可交付（附阻塞项）**」，不签「人工 checklist 全通过」。
+**人工项小计（S7.6 后）**：PASS 5（M-01 / M-10 / M-12 / M-13 / M-14）· PARTIAL 1（M-04，仅「三个快捷键」未验）· BLOCKED 8（M-02/03/05/06/07/08/09/11）· 记录 2（M-15/16）· 未执行 0。
+（S7 时为 PASS 3 · BLOCKED 10；S7.5 补跑把 M-01 / M-04 从 BLOCKED 提到 PARTIAL、M-10 提到 PASS，同时因 M-01 的新证据把 M-14 从 PASS 降到 PARTIAL，故 BLOCKED 10 → 8。）
+**硬项 M-01 / M-08 / M-11 仍均未签署**：M-08 / M-11 还是 BLOCKED（缺辅助功能，开不了编辑器 / 切不到 `5w2h`），M-01 只到 PARTIAL。
+按计划 §8「不通过则不能判交付」，本次结论仍只到「**可交付（附阻塞项）**」，不签「人工 checklist 全通过」。
 
 ---
 
@@ -424,20 +481,30 @@ d66b3ea6e24d3b54d74dcd0c24e5a51b
 
 无。本段没有出现「实际行为与 AC 不符」的用例。
 
-### 7.2 BLOCKED（1 条 AC + 10 项人工）
+### 7.2 BLOCKED（1 条 AC + 8 项人工）
 
-| 对象 | 阻塞原因 | 复现命令（授权后照此补） |
+> S7.5（2026-11-01 10:25）补跑后：M-01 / M-04 已提到 PARTIAL、M-10 已 PASS，**不再列在 BLOCKED**。
+> 下表保留仍 BLOCKED 的项，并写明「卡在哪一步」；逐项失败动作（`-1002` / `-25211` / CGEvent 无效）见
+> `docs/verification/desktop/S7.5-evidence.md` §5。
+
+| 对象 | 阻塞原因 / 卡在哪一步 | 复现命令（授权后照此补） |
 | --- | --- | --- |
-| **AC-41**（断网三模块） | 环境：无法在桌面 UI 操作（辅助功能未授权）+ 不应擅自断网 | 系统设置授权 → 关 Wi-Fi/以太网 → 在新待办 / 换一条 / 全部待办筛选中各走一遍 → 截图 |
-| M-01 | 首启拦截对话框需人工点击 | 给带 quarantine 的副本 `xattr -w com.apple.quarantine …` 后 Finder 双击 |
-| M-02 / M-03 | 辅助功能未授权，无法合成点击 | `swift scripts/mac-desktop-probe.swift \| grep accessibility` 应为 true 后手点 |
-| M-04 | AX 读不到菜单栏（-25211） | 授权后读 `menubar.items` 或截全屏 |
-| M-05 / M-06 | 需真实切应用 / 拖窗 | 录屏 + 手操作 |
-| M-07 | WKWebView 原生日期控件外观需截图 | `bash scripts/mac-capture-window.sh 日程待办 docs/verification/desktop/07-date.png` |
-| M-08 | 遮罩模糊需像素证据（硬项） | 同上，打开新建编辑器后抓图 |
-| M-09 | 断网操作 | 同 AC-41 |
-| M-10 | Dock / Launchpad 视觉确认 | 授权后截屏 |
-| M-11 | WKWebView 滚动/渐隐（硬项） | 打开 `5w2h` 滚动录屏 |
+| **AC-41**（断网三模块） | 环境：无法在桌面 UI 操作（辅助功能未授权）+ 按任务书不擅自断网（需人类批准） | 系统设置授权辅助功能 → 人类批准后关 Wi-Fi/以太网 → 在新待办 / 换一条 / 全部待办筛选中各走一遍 → 截图 |
+| **AC-34**（桌面 UI 新建 1 条 → `count(*)` +1） | 卡在「+ 新建待办」这一下点击：`click at` → `-25211` | 授权后点「+ 新建待办」→ 填标题/日期 → 保存 → `sqlite3` 查 `count(*)` 与 `date`/`uuid` |
+| **AC-55**（桌面 UI 六步对拍） | 同上，六步全是点击 | 同 AC-34 |
+| M-02 / M-03 | 卡在「无法合成点击」（`-25211`；CGEvent 两条路线均只出 hover） | `swift scripts/mac-desktop-probe.swift \| grep accessibility` 为 true 后手点 |
+| M-05 / M-06 | 前提是先打开菜单（M-02 即失败）；且需真实切应用 / 拖窗 | 授权后录屏 + 手操作 |
+| M-07 | 卡在「打开编辑器需要一次点击」 | `bash scripts/mac-capture-window.sh 日程待办 docs/verification/desktop/M-07-date-input.png` |
+| M-08 | 卡在同一步：遮罩只在编辑器打开时出现（硬项） | 同上，打开新建编辑器后抓图 |
+| M-09 | 断网操作（不擅自断网） | 同 AC-41 |
+| M-11 | 卡在「切到 `5w2h` 需要一次点击」；按键也发不出（`-1002`），无法注入滚动（硬项） | 切到 `5w2h` 后录屏滚动 |
+
+**另记两处「需人类/Leader 拍板」的判定（不是 BLOCKED，但影响交付）**：
+
+| 对象 | 结论 | 要谁决定 |
+| --- | --- | --- |
+| M-01 的「右键 → 打开」 | **无法在本机验证**（不能合成点击）；S7.5 时实测对话框为「已损坏」变体，**没有「打开」按钮** | **S7.6 已处置**：给 bundle 补 ad-hoc 封条、README 走 `xattr -dr` 路线并标注「右键 → 打开」未实测（§0.4）；右键路径本身仍待有辅助功能的环境补测 |
+| M-14 | 因上面这条，README §2 情形① 的现象描述与实测不符 → S7.5 由 PASS 降为 PARTIAL | **S7.6 已修复**：README §2 按实测重写、M-14 回填 PASS（§0.4） |
 
 ### 7.3 NOT-VERIFIED（S7 段 0 条 AC；S10.5 段新增 1 条）
 
@@ -536,10 +603,10 @@ S10.5 段新增 **AC-65 = `NOT-VERIFIED`**（无 anon key，按 PRD 明文不得
 | --- | --- |
 | 机器 | macOS 14.1（23B2073）/ arm64 / Node v22.21.1 / npm 10.9.4 / Playwright 1.64.1 |
 | dev server | `npm run dev` → `http://localhost:1420`（`strictPort`） |
-| 打包产物 | `src-tauri/target/release/bundle/macos/日程待办.app`（`Contents/MacOS/todo`，**07:21 构建 / 6 232 576 B / md5 `d66b3ea6…`**）；`/Applications/日程待办.app` 已是**同一份字节**（S12 收口），旧构建已入废纸篓（§4.0） |
+| 打包产物 | `src-tauri/target/release/bundle/macos/日程待办.app`（`Contents/MacOS/todo`，**S7.6 重建后 10:35 / 6 250 704 B / md5 `4db99e8c…`**，ad-hoc 封条完整；S12 那一轮的 07:21 / 6 232 576 B / `d66b3ea6…` 已被覆盖，§0.4）；`/Applications/日程待办.app` 已由人类删除，本轮未重装（§4.0） |
 | 真实桌面库 | `~/Library/Application Support/com.poisson.todo/todo.db`（40 960 B，mtime `Nov 1 05:35`，早于本轮 E2E，未被测试写脏） |
 | anon key | **无**（`sync.config.json` 不存在；仓库只有 `.example`） |
-| TCC | `tcc.accessibility = false` / `tcc.screen-recording = false` |
+| TCC | `tcc.accessibility = false` / `tcc.screen-recording = false`（S10.5 当时）｜S7.5 复测 `screen-recording = true`，见 §13.13 |
 
 | 手段 | 本段用在哪 | 能证明 | 不能证明 |
 | --- | --- | --- | --- |
@@ -987,35 +1054,57 @@ false  空串                            缺少 base URL 或 anon key
 
 > 这五项**一律不计入 PASS**；`supabase/schema.sql` 未在云端执行这件事随报告交付（云端表结构、RLS、策略均为「代码已写、未验证」）。
 
-### 13.13 BLOCKED 清单（环境：TCC 未授权，与 S7 一致未解除）
+### 13.13 BLOCKED 清单（S7.5 补跑后：屏幕录制已解除，辅助功能仍未授权）
 
-> 产物身份：下表所有桌面项的取证对象是 **03:17 构建**（当时 `PROBE app.path = /Applications/日程待办.app` 即那一份；现已移入废纸篓）；**07:21 构建未跑任何一项**（§4.0）。
+> 产物身份：S7.5（2026-11-01 10:25）的取证对象是 **10:00 构建**（`src-tauri/target/release/bundle/macos/日程待办.app`，
+> `todo` 6 232 576 B / `md5 383e6d52…e4b1`）；下表其余历史项仍是 **03:17 构建**（§4.0）。
+> 完整命令与失败动作见 `docs/verification/desktop/S7.5-evidence.md`。
 
 ```console
-$ swift scripts/mac-desktop-probe.swift
+$ swift scripts/mac-desktop-probe.swift          # S7.5 实测
 PROBE tcc.accessibility = false
-PROBE tcc.screen-recording = false
+PROBE tcc.screen-recording = true                # ← S7 时为 false，本轮已授权
 PROBE app.running = true
-PROBE app.pid = 58908
+PROBE app.pid = 76903
 PROBE app.bundle-id = com.poisson.todo
 PROBE app.name = 日程待办
-PROBE app.path = /Applications/日程待办.app
+PROBE app.path = /Users/zachary/Desktop/work/todo/src-tauri/target/release/bundle/macos/日程待办.app
+PROBE app.activation = regular
 PROBE window.count = 1
-PROBE window.number = 164251
-PROBE window.bounds = 1100x720
+PROBE window.number = 165000
+PROBE window.bounds = 1100x721
 PROBE window.title = BLOCKED (AX error -25211)
 PROBE menubar.items = BLOCKED (AX error -25211)
 ```
 
+**S7.5 解除的（有像素证据）**：
+
+| 对象 | 新判定 | 证据 |
+| --- | --- | --- |
+| M-01 首启拦截框 | **PASS（该子项）** | `docs/verification/desktop/M-01-a-gatekeeper-dialog.png`：带 quarantine 的副本 → 「已损坏，无法打开」 |
+| M-01 `xattr` 处置 | **PASS（该子项）** | `M-01-b-gatekeeper-cleared-launch.png`：清隔离属性后正常启动（PID 77855） |
+| M-04 菜单栏项 | **PASS（该子项）** | `M-04-a-menubar.png`：`日程待办 / File / Edit / View / Window / Help`（框架默认英文） |
+| M-10 Dock 图标 | **PASS** | `M-10-a-dock.png`：应用自己的黄/青双环图标 + 运行指示点，非默认 Tauri 占位 |
+| 桌面渲染基线 | **PASS** | `M-00-desktop-calendar.png`：1100×721 窗口，Retina 2200×1442，日历默认视图 |
+
+**仍 BLOCKED 的**：
+
 | 对象 | 状态 | 说明 |
 | --- | --- | --- |
-| **AC-41**（断网后走完三模块，桌面） | **BLOCKED**（未变） | 仍需关 Wi-Fi + 桌面 UI 操作 |
-| M-09（断网三模块）/ M-11（`5w2h` 桌面滚动，硬项） | **BLOCKED**（未变） | 同上；授权补齐时按 §13.12 一并重跑 |
-| AC-34 的「桌面 UI 新建一条 → `count(*)=1`」变体 | **BLOCKED** | 建库建表与落行已由 §13.9 证明；UI 点击需 AX |
-| AC-55 的「桌面 UI 六步对拍」 | **BLOCKED** | 数据层对拍已 PASS（`check-db-parity.mjs`）；六步点击需 AX |
-| M-01 ~ M-08 / M-10 | **BLOCKED**（未变） | 与 S7 相同，需屏幕录制 / 辅助功能授权 |
+| **AC-41**（断网后走完三模块，桌面） | **BLOCKED**（未变） | 仍需关 Wi-Fi（须人类批准）+ 桌面 UI 操作 |
+| **AC-34** 的「桌面 UI 新建一条 → `count(*)=1`」变体 | **BLOCKED**（未变） | 卡在「+ 新建待办」那一次点击；建库建表与落行已由 §13.9 证明 |
+| **AC-55** 的「桌面 UI 六步对拍」 | **BLOCKED**（未变） | 六步全是点击；数据层对拍已 PASS（`check-db-parity.mjs`） |
+| M-02 / M-03 / M-05 / M-06 | **BLOCKED**（未变） | 卡在「无法合成点击」：`click at` → `-25211`；`CGEvent(.cghidEventTap)` 与 `CGEvent.postToPid` 均只出 hover、点击不生效 |
+| M-07 / M-08 | **BLOCKED**（未变） | 卡在「打开编辑器需要一次点击」；M-08 仍是硬项 |
+| M-09 | **BLOCKED**（未变） | 不擅自断网 |
+| M-11 | **BLOCKED**（未变） | 卡在「切到 `5w2h` 需要一次点击」；按键也发不出（`-1002`），无法注入滚动；仍是硬项 |
+| M-01 的「右键 → 打开」 | **BLOCKED**（S7.5 记录） | 无法合成点击；当时对话框为「已损坏」变体，**没有「打开」按钮**（根因：`Sealed Resources=none`、无 `_CodeSignature/`、`codesign --verify` exit 1）。**S7.6 已消除「已损坏」**：新产物弹的是「Apple 无法检查…包含恶意软件」（在访达中显示 / 好），但右键路径仍需辅助功能，**未实测** |
+| M-04 的 `⌘Q` / `⌘C` / `⌘V` | **BLOCKED** | 无法发送按键：`keystroke` → `-1002` |
 
-**没有口头签过任何一条**：TCC 仍为 `false`，以上继续按 `BLOCKED` 记。
+**没有口头签过任何一条**：辅助功能仍为 `false`；AC-41 / AC-34 / AC-55 与 8 项人工 checklist 继续按 `BLOCKED` 记。
+**硬项 M-01 / M-08 / M-11 仍未签署**（S7.5 时 M-01 只到 PARTIAL）。
+> **S7.6 补注**：M-01 已在 S7.6 回填 **PASS**（ad-hoc 封条 + quarantine 复测，§0.4）；M-08 / M-11 仍是硬项、
+> 仍 BLOCKED。上表「S7.5 解除的」是第三轮快照，最新状态以 §6 为准。
 
 ### 13.14 观察与风险（不影响本段 PASS 结论，但必须写明）
 
@@ -1028,6 +1117,7 @@ PROBE menubar.items = BLOCKED (AX error -25211)
 | 5 | R-SYNC-02：会话写入钥匙串时 token 会出现在 `security` 子进程参数中一次 | 本期不做加固；token 不落明文、不进 localStorage（`check-sync.mjs` 有对应断言） |
 | 6 | 同步套件 `video: 'off'`，`test-results-sync/` 无录屏 | 该套件以断言与 stub 记账为证据；录屏不是 AC-57~AC-67 的判据 |
 | 7 | AC-68 的 CI 结果不可观察 | 只判三条静态证据，CI 结果 `NOT-VERIFIED`（§13.8） |
+| 8 | **未签名的 bundle 首启被判「已损坏」，不是「未验证开发者」**：`Sealed Resources=none`、无 `_CodeSignature/`、`codesign --verify` exit 1 → 带 quarantine 的副本只给「移到废纸篓 / 取消」，README §2 情形①（右键 → 打开）对它不适用（S7.5 实测，`M-01-a`） | **S7.6 已按「补封条」处置**：`signingIdentity = "-"` + 重建后 `verify` exit 0，弹框变为「Apple 无法检查…」（§0.4）；README 走 `xattr -dr` 路线，右键路径标注未实测。原「本轮不改产品代码」的约束只适用于 S7.5 |
 
 ### 13.15 本段改动（changed files）
 
@@ -1237,7 +1327,7 @@ $ node scripts/check-sync.mjs
 | AC-36 | **PASS** | §4.2 | TC-047 / — |
 | AC-37 | **PASS** | §13.17-a（v1.5 三段式）· §3 | TC-048 / — |
 | AC-38 | **PASS**（取证对象 03:17 构建 · 已入废纸篓） | §4.4 · §4.0 | TC-049 / — |
-| AC-39 | **PASS**（形态按 **07:21/07:22 构建**复测） | §4.5 · §4.0 | TC-050 / TC-051 |
+| AC-39 | **PASS**（形态按 **07:21/07:22 构建**复测；S7.6 重建后数字见 §0.4） | §4.5 · §4.0 · §0.4 | TC-050 / TC-051 |
 | AC-40 | **PASS**（取证对象 03:17 构建 · 已入废纸篓） | §3 · §4.0 | TC-052 / — |
 | AC-41 | **BLOCKED** | §7.2 · §13.13 | TC-053 / — |
 | AC-42 | **PASS** | §3 · §13.11 | TC-054 / — |
@@ -1282,8 +1372,11 @@ $ node scripts/check-sync.mjs
 | **第一轮**（M2 台账统一） | `docs/test/ZACHTD-2-test-report.md` | 新增 §14（68 行台账 + 两条判定含义注 + 四条口径）、§13.17；改 §0.1 算术口径、§3 AC-37 行、§13.5 TC-080 行、§13.10、§13.11 AC-37 行、§13.14 观察 1·2、附录 A.1/A.2/A.3（A.2 从「13 条」改「12 条新增」，A.1+A.2 = 68） |
 | **第二轮**（口径与证据） | 同上 | ① 新增 **§4.0 产物身份与时效**（03:17 / 05:41 / 07:21 三份构建谁验了什么）；② **§4.5 按 07:21/07:22 构建重测**（dmg `3285579` → **`3309469`**，附 md5 对比）；③ §13.10 重写为「源码值位 / tracked 分账 / **产物两笔账（`dist/` 带正控 vs `strings`）** / **S1 白名单已闭环**」；④ §13.17-c 补 `check-sync.mjs` **78 项断言**原始输出与白名单形态矩阵（2 放行 / 3 拒绝）；⑤ 行数口径去绝对化（**不给行数**——本轮实测 39 → 43、随文档自增；判据只挂「值位 1 行 / 凭据 0」）；⑥ §3 AC-38/AC-39/AC-40 行、§13.2 产物行、§12 偏差表两行、§0.1、A.2 断言数（75 → 78）、§14 口径 3 与三行台账同步 |
 | **第三轮**（收尾五件，本轮） | 同上 | ① §13.10 ① / §13.17-b 按实际重贴 `sync.config.example.json:5` 的新文案（值位仍 **1 行**，「凭据 0 / 文本 1」不变）；② §4.0 重写：03:17 与 `todo.app`（00:10）**已入废纸篓**、`/Applications` 与 `bundle` 现为同一份 07:21 字节（md5 相同）、05:41 已被覆盖；口径 3 改成「旧两份已入废纸篓，验收时倒掉」并如实标注「Trash 目录我列不了」；③ 报告头部与附录 A.3 的判定基线 **v1.5 → v1.6**；④ 证据卫生：追踪扫描改 `git grep -n -E`（旧 `grep $(git ls-files)` 会漏带引号的中文路径、并对已删除的 `CLAUDE.md` 报错），**stderr 照贴**，行数不再作判据；⑤ `supabase/schema.sql:10` 换占位后复核策略行号（31/36/41/45/46/50 未变）；⑥ §4.5 补 dmg md5、§13.2 产物行与 §3 AC-38/AC-40 的构建身份同步 |
+| **第四轮**（S7.5 / S7.6，`ZACHTD-15` / `ZACHTD-16`） | 同上 + `README.md` / `src-tauri/tauri.macos.conf.json` / `scripts/check-bundle-config.mjs` / `docs/verification/**` | ① 新增 §0.3 / §0.4 与 `desktop/S7.5-evidence.md`、`desktop/S7.6-evidence.md`、`M-00/M-01-a/M-01-b/M-01-c/M-04-a/M-10-a` 六张截图；② §1 签名行、§4.0 构建表、§4.5 时效说明按 **10:35 / 10:36** 重建结果同步；③ §6 回填 **M-01 PASS / M-14 PASS**，小计改为 PASS 5 · PARTIAL 1 · BLOCKED 8；④ §7.2 / §13.13 / §13.14-8 补「S7.6 已处置」注；⑤ README §2 按实测现象重写 Gatekeeper 三情形、分发源字节数 / md5 更新为 10:35 构建。**AC 判定一条未变**（66 / 0 / 1 / 1） |
 
-**未改动**：`src/**`、`src-tauri/**`、`e2e/**`、`e2e-sync/**`、`scripts/**`、`package.json`、`README.md`、`supabase/**` 一行未动；**未 commit、未 push**。**任何 AC 判定未变**：68 行仍是 66 PASS / 0 FAIL / 1 BLOCKED / 1 NOT-VERIFIED。计划文档的 A-12、PRD 的版本号与 changelog、README、示例文件、`supabase/schema.sql` 的注释占位、`/Applications` 的产物收口，**均已由开发侧在 S12 完成**；本报告只按改完的事实回填证据（不替开发侧写结论，也不动这些文件）。
+**未改动（第一~三轮的范围）**：`src/**`、`src-tauri/**`、`e2e/**`、`e2e-sync/**`、`scripts/**`、`package.json`、`README.md`、`supabase/**` 一行未动。**S7.6 起本条需要按轮次读**：第四轮只改 `src-tauri/tauri.macos.conf.json`（加 `signingIdentity: "-"`）、`README.md`、`scripts/check-bundle-config.mjs`（新增一条断言）与验证文档，业务代码、E2E 断言未动。任何 AC 判定未变：68 行仍是 66 PASS / 0 FAIL / 1 BLOCKED / 1 NOT-VERIFIED。
+
+> 前三轮的收口说明：计划文档的 A-12、PRD 的版本号与 changelog、README、示例文件、`supabase/schema.sql` 的注释占位、`/Applications` 的产物收口，**均已由开发侧在 S12 完成**；本报告只按改完的事实回填证据（不替开发侧写结论）。
 
 ---
 
@@ -1301,7 +1394,7 @@ $ node scripts/check-sync.mjs
 | 观察（不可达） | 0 条 AC（2 个半句观察项） |
 | 通过率 | **55 ÷ 56 = 98.2%**（可判定 56 条；排除 BLOCKED 后 55/55） |
 | 其中 AC-43 | 按 PRD v1.4 / v1.5 收窄口径**重判 PASS**（§13.7，S7 旧结论作废）——**是本段内的重判，不新增条目、不另计一条** |
-| 人工 checklist | PASS 3 / BLOCKED 10 / 记录 2（M-15/16） |
+| 人工 checklist | PASS 3 / BLOCKED 10 / 记录 2（M-15/16）（**S7 当时**；S7.5 补跑后 = PASS 3 / PARTIAL 3 / BLOCKED 8 / 记录 2，见 §6） |
 | 回归命令 | 4 组全绿（build / check-cases / check-permutation / playwright 6 passed） |
 
 ### A.2 S10.5 段新增（AC-57 ~ AC-68）

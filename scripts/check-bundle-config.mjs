@@ -154,7 +154,11 @@ check('基础配置 sql preload = sqlite:todo.db', base.plugins?.sql?.preload?.[
 
 check('macOS 合并 targets = [app, dmg]', JSON.stringify(mac.bundle?.targets) === '["app","dmg"]');
 check('macOS minimumSystemVersion = 12.0', mac.bundle?.macOS?.minimumSystemVersion === '12.0');
-check('macOS hardenedRuntime = false（本期不签名）', mac.bundle?.macOS?.hardenedRuntime === false);
+check('macOS hardenedRuntime = false（ad-hoc 签名，不启用运行时加固）', mac.bundle?.macOS?.hardenedRuntime === false);
+check(
+  'macOS signingIdentity = "-"（ad-hoc 封条；缺失会让 bundle 被判「已损坏」）',
+  mac.bundle?.macOS?.signingIdentity === '-',
+);
 check(
   'macOS dmg 布局保留（app 180,170 / Applications 480,170 / 660×400）',
   mac.bundle?.macOS?.dmg?.appPosition?.x === 180 &&

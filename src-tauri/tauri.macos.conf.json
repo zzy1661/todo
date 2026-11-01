@@ -4,6 +4,7 @@
     "targets": ["app", "dmg"],
     "macOS": {
       "minimumSystemVersion": "12.0",
+      "signingIdentity": "-",
       "hardenedRuntime": false,
       "dmg": {
         "appPosition": { "x": 180, "y": 170 },

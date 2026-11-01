@@ -166,6 +166,11 @@ bundle id `com.poisson.todo`、`activationPolicy = regular`（系统按普通 GU
 > `BLOCKED`（系统权限挡住，附复现命令）/ `未执行`（需要人来做，非权限问题）。
 > 硬项为 M-01 / M-08 / M-11：M-08 与 M-11 目前是 **BLOCKED**，因此本次**不签署**「人工 checklist 全通过」。
 
+> **状态时效（S7.6 补注）**：本表是 S6 的快照。S7.5（屏幕录制授权）与 S7.6（ad-hoc 签名 + quarantine 复测）
+> 之后的最新状态以 `docs/test/ZACHTD-2-test-report.md` §6 为准：**M-01 PASS**、**M-10 PASS（Dock 部分）**、
+> **M-04 PARTIAL**、**M-14 PASS**，其余 BLOCKED 不变。原始输出见 `desktop/S7.5-evidence.md` 与
+> `desktop/S7.6-evidence.md`。
+
 | # | 检查项 | 状态 | 证据 / 说明 |
 | --- | --- | --- | --- |
 | M-01 | Gatekeeper 首启与 `xattr` 处置 | **PARTIAL** | 已验：`spctl --assess` → `rejected`（预期）、`codesign` → `adhoc`、`xattr -dr com.apple.quarantine` 在副本上实测可清除属性。未验：**首次双击被拦的系统对话框**（本机构建无 quarantine 属性，且对话框需人工点「打开」，见 §7 步骤 3） |

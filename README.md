@@ -35,28 +35,38 @@
 系统最低 **macOS 12.0**（`minimumSystemVersion` 声明值，实机只在 macOS 14.1 上验证过，
 见「已知边界」）。Intel Mac 与 macOS 12.0 以下**未验证**，不承诺可用。
 
-> **分发源只有一个（2026-11-01 收口）**：`src-tauri/target/release/bundle/macos/日程待办.app`
+> **分发源只有一个（2026-11-01 10:35 收口）**：`src-tauri/target/release/bundle/macos/日程待办.app`
 > 与其同批的 `src-tauri/target/release/bundle/dmg/日程待办_0.1.0_aarch64.dmg` 是**唯一分发字节**
-> （07:21 / 07:22 构建，`Contents/MacOS/todo` 6 232 576 B，md5 `d66b3ea6…`）。
-> `/Applications/日程待办.app` 已用同一份覆盖，md5 与上者一致；构建更早的副本（如 03:17 那份）
-> **不含密钥白名单（AC-67）**，不要拿去演示或取证。认身份用 **mtime + 字节数 + md5**，
+> （10:35 / 10:36 构建，`Contents/MacOS/todo` **6 250 704 B**，md5 `4db99e8c…`，dmg md5 `a90ec0e8…`）。
+> 这一版起 bundle 有**完整封条**（ad-hoc 签名，见下一节），**本轮之前的任何构建（07:21 / 10:00 等）
+> 都只有链接器签名、没有封条**，双击会被判「已损坏」，不要拿去分发或演示。认身份用 **mtime + 字节数 + md5**，
 > 不要用 `strings`——前端资源是压缩嵌入的，新旧构建在二进制里都看不到 JS 字符串。
+> 本机 `/Applications` 里那份已删除，本轮**没有**重新安装（安装与否由使用者决定）。
 
 - **Dock**：应用以 regular（普通 GUI）策略注册，运行时会出现在 Dock，右键有「退出 / 保留在 Dock」等标准项。
 - **启动台**：`/Applications` 下的应用会被启动台自动收录（首次索引可能有几秒延迟）。
 
-### 2. Gatekeeper：三种情形（本版未签名、未公证，属预期）
+### 2. Gatekeeper：三种情形（本版 ad-hoc 签名、未公证，属预期）
 
-本期**不做代码签名与公证**（PRD OP-05），所以首次打开可能被系统拦一次。三种情形的处理：
+本期**不做 Apple 开发者签名与公证**（PRD OP-05），只做 **ad-hoc 签名**（`signingIdentity = "-"`）：
+它能让 bundle 带完整封条、不再被系统判「已损坏」，但**不能**让 Gatekeeper 放行，所以首次打开仍会被拦一次。
+下面三种情形都是 2026-11-01 在 macOS 14.1 / Apple Silicon 上对**带 quarantine 的新 dmg 副本**实测的：
 
 | 情形 | 现象 | 处理 |
 | --- | --- | --- |
-| ① 右键打开（推荐，最省事） | 双击提示「无法打开，因为 Apple 无法检查其是否包含恶意软件」 | 不要双击：在 **Finder 里右键（或 Control + 点击）图标 → 打开 → 再点「打开」**，之后该应用不再被拦 |
-| ② 命令行去隔离（批量 / 反复安装时） | 同上 | `xattr -dr com.apple.quarantine "/Applications/日程待办.app"`，之后可直接双击 |
-| ③ `spctl` 返回 `rejected` | `spctl --assess -vv "/Applications/日程待办.app"` 输出 `rejected` | **这是未签名应用的正常结果，不是安装失败**。判定「应用可用」请看它能否启动，不要看 `spctl` 的返回码 |
+| ① 双击（实测现象） | 弹框「**无法打开"日程待办.app"，因为 Apple 无法检查其是否包含恶意软件**」，正文下方是「"Safari" 于未知日期创建了此文件」，按钮只有 **在访达中显示 / 好**。**不再是「已损坏，无法打开」**（那是有签名但无封条的旧构建才会出现的判定） | 点「好」关掉。想放行见情形 ② / ③ |
+| ② 命令行去隔离（**本版实测可用**，推荐给命令行用户） | 同上 | `xattr -dr com.apple.quarantine "/Applications/日程待办.app"`，之后可直接双击，不再弹框 |
+| ③ `spctl` 返回 `rejected` | `spctl --assess -vv "/Applications/日程待办.app"` 输出 `rejected` | **这是未公证应用的正常结果，不是安装失败**。判定「应用可用」请看它能否启动，不要看 `spctl` 的返回码 |
 
-本机实测（2026-11-01，macOS 14.1 / Apple Silicon）：
-`codesign -dv` 显示 `Signature=adhoc`、`TeamIdentifier=not set`；`spctl --assess` 返回 `rejected`；
+**「右键 → 打开」在本版未实测**：验证环境只有「屏幕录制」权限、没有「辅助功能」，无法合成右键点击，
+也就没法把「右键 → 打开 → 再点『打开』」这条放行路径跑一遍。系统设置里「隐私与安全性 → 仍要打开」
+同样是点击操作，未实测。**在有辅助功能的环境里补测前，不要把它写成「已验证」**；
+命令行用户直接用情形 ② 即可（已实测能启动）。
+
+本机实测（2026-11-01，macOS 14.1 / Apple Silicon，10:35 构建）：
+`codesign -dv` 显示 `Signature=adhoc`、`Sealed Resources version=2 rules=13 files=1`、`Info.plist entries=15`、
+`TeamIdentifier=not set`；`codesign --verify --deep --strict` **退出码 0**（旧构建是 `code has no resources but
+signature indicates they must be present`、退出码 1）；`spctl --assess` 仍返回 `rejected`（未公证，预期）。
 产物在**本机构建**，不带 quarantine 属性（`xattr -l` 为空），因此本机直接双击即可打开。
 
 ### 3. 系统菜单栏是框架默认英文（Q-01 边界声明）
@@ -351,7 +361,7 @@ src-tauri/
 ├─ src/lib.rs                  SQL 迁移定义（v1 todos / v2 daily_picks / v3 同步列）+ 同步用的 Rust 命令
 ├─ migrations/0003_sync_columns.sql  v3：todos 加 uuid / updated_at_ms / deleted + 幂等回填
 ├─ tauri.conf.json             平台中立基线：productName 日程待办 / identifier com.poisson.todo
-├─ tauri.macos.conf.json       macOS overlay：app+dmg / 最低 12.0 / 不签名 / DMG 布局
+├─ tauri.macos.conf.json       macOS overlay：app+dmg / 最低 12.0 / ad-hoc 签名（`-`）/ DMG 布局
 ├─ tauri.windows.conf.json     Windows overlay：nsis+msi / currentUser / zh-CN
 ├─ icons/                      全套图标（由 1024×1024 源图经 `npx tauri icon` 生成：icns / ico / png 族）
 └─ capabilities/default.json   窗口权限（core:default + sql:default + sql:allow-execute）
@@ -416,7 +426,7 @@ v1 / v2 **逐字未动**；v3 只对 `todos` 做 `ADD COLUMN` + 回填 + 建索�
 
 | 项 | 说明 |
 | --- | --- |
-| 代码签名 / 公证 | 本期不做（OP-05）。首次打开按「一、2」三种情形处理；`spctl` 返回 `rejected` 属预期 |
+| 代码签名 / 公证 | 只做 **ad-hoc 签名**（`signingIdentity = "-"`，bundle 封条完整）；**不做 Apple 开发者签名、不做公证**（OP-05）。首次打开按「一、2」三种情形处理；`spctl` 返回 `rejected` 属预期 |
 | 最低系统版本 | 声明 `macOS 12.0`，但**只在 macOS 14.1 / Apple Silicon 实机验证过**，更低版本未实测（PRD OP-04） |
 | 架构 | 仅 arm64；不产出 universal 二进制，Intel Mac 不在本期范围 |
 | 系统菜单栏 | 框架默认英文（Q-01），见「一、3」 |
