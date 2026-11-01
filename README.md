@@ -4,7 +4,7 @@
 开箱即用、不要求登录、默认不发起任何网络请求。多设备同步是**可选层**（Supabase），
 未配置 key 时与本地版完全一致。
 
-> **当前阶段：S10 同步层（实现完成，云端真实连通待 key）**
+> **当前阶段：S9 上传 git 与最终交付（S10 同步层已实现，云端真实连通待 key）**
 > macOS 侧已产出 `.app` + `.dmg`；Windows 侧交付的是**可构建能力**（配置 + CI），
 > **安装包未在本机产出**（Tauri 无交叉编译），详见「Windows」一节。
 > 同步逻辑（登录登出、5 秒防抖推送、启动/登录后拉取、LWW、软删除、RLS SQL）已落地并用本地
@@ -23,6 +23,24 @@
 
 也可以直接把 `日程待办.app` 拖进 `/Applications`，效果相同。
 **卸载** = 退出应用后把 `/Applications/日程待办.app` 拖进废纸篓；数据不会被删除（见第五节）。
+
+**产物怎么来**（仓库里**不含**安装包，`src-tauri/target/` 被 `.gitignore` 排除）：
+
+- 本机构建：`npm ci` → `npm run tauri build`，产物落在
+  `src-tauri/target/release/bundle/macos/日程待办.app` 与 `.../bundle/dmg/日程待办_0.1.0_aarch64.dmg`；
+- CI 产物：`.github/workflows/build.yml` 的 `build` job（push `master` / `release/**` 或手动
+  `workflow_dispatch`）跑完后，下载 artifact `todo-macos`，内容与上者同构。
+
+**平台要求**：仅 **Apple Silicon**（arm64，构建目标 `aarch64-apple-darwin`）；
+系统最低 **macOS 12.0**（`minimumSystemVersion` 声明值，实机只在 macOS 14.1 上验证过，
+见「已知边界」）。Intel Mac 与 macOS 12.0 以下**未验证**，不承诺可用。
+
+> **分发源只有一个（2026-11-01 收口）**：`src-tauri/target/release/bundle/macos/日程待办.app`
+> 与其同批的 `src-tauri/target/release/bundle/dmg/日程待办_0.1.0_aarch64.dmg` 是**唯一分发字节**
+> （07:21 / 07:22 构建，`Contents/MacOS/todo` 6 232 576 B，md5 `d66b3ea6…`）。
+> `/Applications/日程待办.app` 已用同一份覆盖，md5 与上者一致；构建更早的副本（如 03:17 那份）
+> **不含密钥白名单（AC-67）**，不要拿去演示或取证。认身份用 **mtime + 字节数 + md5**，
+> 不要用 `strings`——前端资源是压缩嵌入的，新旧构建在二进制里都看不到 JS 字符串。
 
 - **Dock**：应用以 regular（普通 GUI）策略注册，运行时会出现在 Dock，右键有「退出 / 保留在 Dock」等标准项。
 - **启动台**：`/Applications` 下的应用会被启动台自动收录（首次索引可能有几秒延迟）。
@@ -92,6 +110,10 @@ localStorage 降级实现（`todo_local_db` / `todo_local_daily_db`），上层 
 > 本仓库交付的是 **Windows 可构建能力**：平台配置 + CI 流水线。
 > **Windows 产物未在本机产出，也未在本机运行过**；唯一验证路径是 GitHub Actions 的
 > `windows-latest` job，其结果要等仓库 push 之后才可见。本机只验证了配置合法性与前端跨平台性。
+>
+> **Windows 上同步入口不可用**：会话存储（`/usr/bin/security` 钥匙串）与浏览器拉起
+> （`/usr/bin/open`）都是 macOS 实现，Windows 上登录必然失败、状态区停在「未登录」；
+> 本地功能不受影响。Windows 只交付**可构建能力**，不是「可用的同步端」。
 
 ### 1. 平台配置的组织方式
 
@@ -151,16 +173,18 @@ npx playwright test    # E2E：6 个用例（5 功能 + 1 巡览），基线 6 p
 Anon key 只在**运行期**读取，不会打进安装包、也不进仓库：
 
 1. 复制 `sync.config.example.json`，改名为 `sync.config.json`；
-2. 把 `anonKey` 换成 Supabase 项目里的 **anon public key**（**绝不要填 `service_role`**，
-   应用会直接拒绝并保持「未配置」）；
-3. 放到应用数据目录：
+2. 把 `supabaseUrl` 里的 `<project-ref>` 换成你自己的 Supabase 项目 ref（`https://<project-ref>.supabase.co`）；
+3. 把 `anonKey` 换成 Supabase 项目里的 **anon public key**（或新版 `sb_publishable_…`）；
+   **绝不要填管理员密钥或 `sb_secret_…`**——密钥走白名单，非 anon 形态一律被拒并保持「未配置」
+   （示例文件原样照抄也是未配置，这是故意的；注释里写明了）；
+4. 放到应用数据目录：
 
    ```bash
    cp sync.config.json "$HOME/Library/Application Support/com.poisson.todo/sync.config.json"
    ```
 
-4. 重启应用 → 侧栏底部出现「同步 · 未登录」→ 点开 → **GitHub 登录**；
-5. 首次登录会在系统里打开浏览器做 GitHub 授权，回调地址是 `http://127.0.0.1:<随机端口>`
+5. 重启应用 → 侧栏底部出现「同步 · 未登录」→ 点开 → **GitHub 登录**；
+6. 首次登录会在系统里打开浏览器做 GitHub 授权，回调地址是 `http://127.0.0.1:<随机端口>`
    （loopback + PKCE，不用隐式流程）；授权完成后浏览器页面会提示「可以关闭」，回到应用即已登录。
 
 云端表结构与 RLS 策略见 `supabase/schema.sql`（`enable row level security` + `auth.uid() = user_id`），
@@ -191,8 +215,19 @@ Anon key 只在**运行期**读取，不会打进安装包、也不进仓库：
   落败值只丢弃，**不回写云端**。
 - 删除：软删除（`deleted = 1`）；**墓碑终结**——已删条目不会被任何非删除记录复活。
 - 范围：**只同步 `todos`**；`daily_picks`（今天推了哪条方法）是本机状态，不同步。
-- 密钥：只接受 anon key；`service_role` 不在客户端代码、仓库、打包产物任何一处出现（可用
-  `grep -rn "service_role\|SUPABASE_SERVICE"` 与产物 `strings` 复核）。
+- 密钥：只接受 **anon 角色的 JWT** 或 **`sb_publishable_` 前缀**的密钥（白名单），其余一律拒绝、
+  保持「未配置」；**管理员（服务端）角色密钥**与 `sb_secret_…` 不在客户端代码、仓库、打包产物任何一处出现。
+  **白名单边界只认这两个形态**——不是任意 `sb_` 前缀，也不是任意 JWT。
+  复核命令（口径 = PRD v1.6：只看代码与配置值位，说明性文本不计入判定）：
+
+  ```bash
+  npm run check:no-secrets              # 扫 src/ src-tauri/ e2e/ package.json sync.config.example.json
+  git grep -nE "sb_secret_|eyJ[A-Za-z0-9_-]{10,}"   # legacy JWT 形态；唯一命中应是负向夹具
+  grep -rac "sb_secret_" dist/          # 前端产物（Tauri 压缩嵌入 .app，二进制 strings 看不到）
+  ```
+
+  legacy JWT 的唯一命中是 `scripts/check-sync.mjs` 的**负向夹具**（签名段为字面量 `sig`），
+  不是可用凭据；管理员角色密钥属于 legacy JWT，被同一正则覆盖，运行期还会被白名单拒绝。
 
 ### 5. 自证命令
 
@@ -228,7 +263,7 @@ node scripts/check-permutation.mjs   # 推送确定性比对：7 个抽样日期
 node scripts/check-data-layer.mjs    # 数据层 localStorage 路径行为自检（9 组断言）
 node scripts/check-db-parity.mjs     # 双后端等价性对拍：同一操作序列下两条后端结果一致
 node scripts/check-bundle-config.mjs # S6 打包配置自证：三份 conf 合并 + schema + workflow 结构（44 条断言）
-node scripts/check-sync.mjs          # S10 同步自检：防抖/拉取/LWW/墓碑/401 五组路径 + v3 迁移结构（75 条断言）
+node scripts/check-sync.mjs          # S10 同步自检：防抖/拉取/LWW/墓碑/401 五组路径 + v3 迁移结构（78 条断言，含密钥白名单负向断言）
 node scripts/check-deleted-filter.mjs # S10 软删除静态断言：FROM todos 未带 deleted = 0 即失败
 node scripts/check-s2-ui.mjs         # S2 界面自证：外壳/日历/当日面板，截图落 docs/evidence/s2/
 node scripts/check-s3-ui.mjs         # S3 界面自证：每日工作法七区块/渐隐/换一条/往期/方法库，截图落 docs/evidence/s3/
@@ -288,7 +323,7 @@ src/
 │  ├─ engine.ts                防抖推送 / 拉取合并 / 重试退避 / 401 重登
 │  ├─ merge.ts                 LWW + 墓碑终结（规则唯一实现处）
 │  ├─ api.ts / oauth.ts        Supabase REST 客户端 / loopback + PKCE
-│  ├─ config.ts                运行期配置校验（拒绝 service_role）
+│  ├─ config.ts                运行期配置校验（白名单：anon 角色 JWT / sb_publishable_ 前缀）
 │  ├─ clock.ts / timers.ts     可注入时间源与定时器（FR-SYNC-15）
 │  └─ events.ts                数据层写操作 → 引擎的变更总线
 ├─ stores/
@@ -386,8 +421,10 @@ v1 / v2 **逐字未动**；v3 只对 `todos` 做 `ADD COLUMN` + 回填 + 建索�
 | 架构 | 仅 arm64；不产出 universal 二进制，Intel Mac 不在本期范围 |
 | 系统菜单栏 | 框架默认英文（Q-01），见「一、3」 |
 | Windows 产物 | **未在本机验证**（无交叉编译），验证路径是 CI 的 `windows-latest` job |
+| Windows 上的同步 | **不可用**：会话存储（`/usr/bin/security` 钥匙串）与浏览器拉起（`/usr/bin/open`）都是 macOS 实现，Windows 上登录必失败、状态区停在「未登录」；本地功能不受影响。Windows 只交付**可构建能力** |
 | 桌面人工 checklist | M-01 ~ M-14 的执行情况见 `docs/verification/mac-desktop.md`；受 TCC 权限限制的项已标 BLOCKED 并给出复现命令 |
 | 同步（可选） | 逻辑已交付并用本地 stub 验证；**真实 Supabase 读写 / GitHub OAuth 往返 / 云侧 RLS 均未验证**（无 anon key），见「五、同步（可选）」 |
+| 待推改动不会自动补推 | 退出应用时未到 5 秒防抖窗口的改动、以及未登录期间产生的改动，**只留在本地库**：启动只做拉取、不扫描待推队列，因此不会补推——**只有该行下次被编辑时才会重新排队上云**（OPEN-02 默认口径） |
 | 同步的时钟前提 | `updated_at_ms` 取客户端时钟；某台设备时钟偏快会「永远胜出」（PRD R-T-13 / RISK-13，规则不因此改动） |
 
 ## 文档
@@ -397,6 +434,8 @@ v1 / v2 **逐字未动**；v3 只对 `todos` 做 `ADD COLUMN` + 回填 + 建索�
 | `docs/requirements/ZACHTD-2-macos-prd.md` | PRD（需求唯一口径） |
 | `docs/design/ZACHTD-2-macos-design.md` | 技术设计与实施规划 |
 | `docs/test/ZACHTD-2-test-plan.md` | 测试计划 |
+| `docs/test/ZACHTD-2-test-report.md` | 测试报告：AC-01 ~ AC-68 逐条台账（§14 统一表）、S7 / S10.5 分段证据、NOT-VERIFIED 清单 |
 | `docs/verification/mac-desktop.md` | S6 桌面取证、人工 checklist M-01~M-14、数据复核（升级 / 重装 / 迁移） |
+| `docs/verification/s10/sync-evidence.md` | S10 同步层：stub 证据、v2 → v3 迁移实跑、密钥边界分账 |
+| `docs/verification/git-delivery.md` | S9 git 交付：远端 / 分支 / commit / 备份 tag / 强推前后 master SHA / 回滚命令 / CI 状态 |
 | `docs/verification/data/` | 数据复核的原始快照（`sqlite3` 导出文本） |
-| `_ctx/SPEC.md` / `_ctx/PLAYBOOK.md` | Windows 基线的实现规格与构建流程 |

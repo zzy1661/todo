@@ -45,3 +45,9 @@ src-tauri/gen/
 # 平台运行时产物（保留在磁盘，不进版本库）
 .claude/
 quick-create-attachments/
+.multica/
+.opencode/
+result.md
+# agent 说明与临时补丁脚本：运行时/过程文件，不入库（交付说明见 README）
+AGENTS.md
+_ctx/
