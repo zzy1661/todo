@@ -23,7 +23,7 @@ import {
   parseCallbackQuery,
 } from './oauth.ts';
 import type { SyncApiLike, RawSessionPayload } from './api.ts';
-import { SyncHttpError } from './api.ts';
+import { SyncHttpError, isMissingRemoteTable } from './api.ts';
 import type { SessionStore } from './sessionStore.ts';
 import type { SyncConfig } from './config.ts';
 import type {
@@ -88,6 +88,13 @@ function toSession(raw: RawSessionPayload, now: number, previous?: SyncSession):
 
 const isUnauthorized = (error: unknown): boolean =>
   error instanceof SyncHttpError && error.status === 401;
+
+/**
+ * 云端表缺失时给用户看的可执行提示（不含任何敏感值）。
+ * `supabase/schema.sql` 是仓库里唯一来源，避免把 SQL 抄进 UI。
+ */
+const MISSING_TABLE_DETAIL =
+  '云端缺少 todos 表（PGRST205）：请在 Supabase SQL Editor 执行仓库里的 supabase/schema.sql，然后点「立即重试」';
 
 export class SyncEngine {
   private readonly options: SyncEngineOptions;
@@ -227,6 +234,16 @@ export class SyncEngine {
       return;
     }
     if (isUnauthorized(error)) return; // 刷新失败 → 已置为未登录，不再重试
+    if (isMissingRemoteTable(error)) {
+      // 部署缺失：退避重试改变不了结果，只提示建表；待推条目留在 pending 里
+      this.setStatus({
+        phase: 'error',
+        detail: MISSING_TABLE_DETAIL,
+        lastResult: 'failed',
+        lastError: 'PGRST205 云端表 public.todos 不存在',
+      });
+      return;
+    }
     const message = error instanceof Error ? error.message : String(error);
     if (this.retryIndex < this.retryDelays.length) {
       const delay = this.retryDelays[this.retryIndex];
@@ -283,6 +300,15 @@ export class SyncEngine {
         return this.pull(reason);
       }
       if (isUnauthorized(error)) return null;
+      if (isMissingRemoteTable(error)) {
+        this.setStatus({
+          phase: 'error',
+          detail: MISSING_TABLE_DETAIL,
+          lastResult: 'failed',
+          lastError: 'PGRST205 云端表 public.todos 不存在',
+        });
+        return null;
+      }
       const message = error instanceof Error ? error.message : String(error);
       this.setStatus({
         phase: 'error',

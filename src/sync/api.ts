@@ -21,6 +21,21 @@ export class SyncHttpError extends Error {
   }
 }
 
+/**
+ * PostgREST 的「表不在 schema cache 里」：`404` + `PGRST205`。
+ *
+ * 这不是网络故障而是**部署缺失** —— 项目的 `supabase/schema.sql` 还没在
+ * Supabase SQL Editor 里执行过（或表名/项目接错了）。重试没有任何意义，
+ * 必须提示用户去建表，而不是让它掉进 1s/2s/4s/8s/16s 的退避里空转。
+ */
+export function isMissingRemoteTable(error: unknown): boolean {
+  return (
+    error instanceof SyncHttpError &&
+    error.status === 404 &&
+    error.message.includes('PGRST205')
+  );
+}
+
 /** Supabase `token` 端点的原始返回（字段为 snake_case） */
 export interface RawSessionPayload {
   access_token: string;
