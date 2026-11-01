@@ -4,11 +4,12 @@
 开箱即用、不要求登录、默认不发起任何网络请求。多设备同步是**可选层**（Supabase），
 未配置 key 时与本地版完全一致。
 
-> **当前阶段：S9 上传 git 与最终交付（S10 同步层已实现，云端真实连通待 key）**
+> **当前阶段：S9 上传 git 与最终交付（S10 同步层已实现，云端已真实连通）**
 > macOS 侧已产出 `.app` + `.dmg`；Windows 侧交付的是**可构建能力**（配置 + CI），
-> **安装包未在本机产出**（Tauri 无交叉编译），详见「Windows」一节。
+> **安装包未在本机产出**（Tauri 无交叉编译），但 **CI 已实跑成功、产物可在 Actions 下载**，详见「Windows」一节。
 > 同步逻辑（登录登出、5 秒防抖推送、启动/登录后拉取、LWW、软删除、RLS SQL）已落地并用本地
-> stub 验证；**真实 Supabase / GitHub OAuth / 云侧 RLS 一律 `NOT-VERIFIED`**（无 key），
+> stub 验证；**真实 Supabase 读写 / GitHub OAuth 往返 / 云侧 RLS 隔离已于 2026-11-01 实测通过**
+> （RLS 用的是等价判据，未用第二个账号；详见测试报告 §13.18），
 > 见「五、同步（可选）」与「已知边界」。
 
 ---
@@ -114,12 +115,14 @@ localStorage 降级实现（`todo_local_db` / `todo_local_daily_db`），上层 
 
 ---
 
-## 三、Windows：配置与 CI 已交付，安装包未在本机验证
+## 三、Windows：配置与 CI 已交付，CI 已实跑成功（安装包未在本机验证）
 
 > **诚实声明**：macOS 机器**不能**交叉编译出 Windows 安装包（Tauri 无交叉编译支持）。
 > 本仓库交付的是 **Windows 可构建能力**：平台配置 + CI 流水线。
-> **Windows 产物未在本机产出，也未在本机运行过**；唯一验证路径是 GitHub Actions 的
-> `windows-latest` job，其结果要等仓库 push 之后才可见。本机只验证了配置合法性与前端跨平台性。
+> **Windows 产物未在本机产出，也未在任何 Windows 机器上运行过**；验证路径是 GitHub Actions 的
+> `windows-latest` job —— **该 job 已于 2026-11-01 实跑成功**（`master` @ `d2beb6e`，两个 job 全绿，
+> Windows 步骤真的执行了 `npx tauri build` 并上传产物），产物 artifact **`todo-windows`（5.36 MB）**
+> 可在仓库 Actions 页下载。本机只验证了配置合法性与前端跨平台性。
 >
 > **Windows 上同步入口不可用**：会话存储（`/usr/bin/security` 钥匙串）与浏览器拉起
 > （`/usr/bin/open`）都是 macOS 实现，Windows 上登录必然失败、状态区停在「未登录」；
@@ -258,8 +261,10 @@ node scripts/check-remote-schema.mjs   # 真实项目只读探测：public.todos
 npx playwright test -c playwright.sync.config.ts   # 同步 E2E（零云端请求 / 无登录拦截 / 状态区）
 ```
 
-> **NOT-VERIFIED**：真实 Supabase 读写、真实 GitHub OAuth 往返、云侧 RLS 越权不可见。
-> 这三项要等 anon key 到位后由 S10.5 补跑，**不计入通过率**。
+> **已实测（2026-11-01）**：真实 Supabase 读写（201 / 200 / 204）、真实 GitHub OAuth 往返、
+> 云侧 RLS 隔离（伪造 `user_id` 写入被 42501 拒 + 未认证读取 0 行 + 本人读到 7 行）。
+> **局限**：RLS 用的是**等价判据**，**没有用第二个账号实测「A 的 token 读 B 的行」**；
+> 「已登录状态区」的像素截图仍未取。详见 `docs/test/ZACHTD-2-test-report.md` §13.18。
 
 ## 技术栈
 
@@ -441,10 +446,10 @@ v1 / v2 **逐字未动**；v3 只对 `todos` 做 `ADD COLUMN` + 回填 + 建索�
 | 最低系统版本 | 声明 `macOS 12.0`，但**只在 macOS 14.1 / Apple Silicon 实机验证过**，更低版本未实测（PRD OP-04） |
 | 架构 | 仅 arm64；不产出 universal 二进制，Intel Mac 不在本期范围 |
 | 系统菜单栏 | 框架默认英文（Q-01），见「一、3」 |
-| Windows 产物 | **未在本机验证**（无交叉编译），验证路径是 CI 的 `windows-latest` job |
+| Windows 产物 | **已在 GitHub Actions 跑通**：`windows-latest` job 2026-11-01 实跑成功（真执行 `npx tauri build` + 上传产物），artifact **`todo-windows`（5.36 MB）** 可在 Actions 下载；**但产物未在本机、也未在任何 Windows 机器上运行过**（本机无交叉编译） |
 | Windows 上的同步 | **不可用**：会话存储（`/usr/bin/security` 钥匙串）与浏览器拉起（`/usr/bin/open`）都是 macOS 实现，Windows 上登录必失败、状态区停在「未登录」；本地功能不受影响。Windows 只交付**可构建能力** |
-| 桌面人工 checklist | M-01 ~ M-14 的执行情况见 `docs/verification/mac-desktop.md`；受 TCC 权限限制的项已标 BLOCKED 并给出复现命令 |
-| 同步（可选） | 逻辑已交付并用本地 stub 验证；**真实 Supabase 读写 / GitHub OAuth 往返 / 云侧 RLS 均未验证**（无 anon key），见「五、同步（可选）」 |
+| 桌面人工 checklist | M-01 ~ M-14 的执行情况见 `docs/verification/mac-desktop.md`；**桌面像素级项由人类实机人工验收确认（无自动化截图）**，受 TCC 权限限制而仍缺自动取证的项保留原判定与复现命令 |
+| 同步（可选） | 逻辑已交付并用本地 stub 验证；**真实 Supabase 读写 / GitHub OAuth 往返 / 云侧 RLS 隔离已于 2026-11-01 实测通过**（RLS 用等价判据，**未用第二个账号实测「A token 读 B 行」**；已登录状态区的像素截图仍未取），见「五、同步（可选）」 |
 | 待推改动不会自动补推 | 退出应用时未到 5 秒防抖窗口的改动、以及未登录期间产生的改动，**只留在本地库**：启动只做拉取、不扫描待推队列，因此不会补推——**只有该行下次被编辑时才会重新排队上云**（OPEN-02 默认口径） |
 | 同步的时钟前提 | `updated_at_ms` 取客户端时钟；某台设备时钟偏快会「永远胜出」（PRD R-T-13 / RISK-13，规则不因此改动） |
 
