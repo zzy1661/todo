@@ -18,6 +18,7 @@ import {
   buildAuthorizeUrl,
   createPkcePair,
   createState,
+  describeCallbackState,
   loopbackRedirectUri,
   parseCallbackQuery,
 } from './oauth.ts';
@@ -303,6 +304,8 @@ export class SyncEngine {
     }
     if (this.loginInFlight) return;
     this.loginInFlight = true;
+    /** 收到的回调 query 里的 state（只在失败时用于排障，且只取长度） */
+    let callbackState: string | null = null;
     try {
       const pkce = await createPkcePair();
       const state = createState();
@@ -318,9 +321,11 @@ export class SyncEngine {
       await this.options.oauth.open(url);
       const query = await this.options.oauth.wait(this.oauthTimeoutMs);
       const callback = parseCallbackQuery(query);
+      callbackState = callback.state;
+      // GoTrue 会把 state 换成它自己的 flow state 回跳，等值校验必然失败 —— 不再校验。
+      // 防伪由 PKCE 承担：verifier 只在本机进程内，攻击者的 code 换不出会话。
       if (callback.error) throw new Error(`${callback.error} ${callback.errorDescription}`.trim());
-      if (!callback.code) throw new Error('回调未携带授权码');
-      if (callback.state !== state) throw new Error('state 校验失败，已放弃本次登录');
+      if (!callback.code) throw new Error('回调缺少授权码，请回应用重试');
       const raw = await this.options.api.exchangeCode(callback.code, pkce.verifier);
       this.session = toSession(raw, this.options.clock.now());
       if (!this.session.userId) throw new Error('登录返回缺少用户标识');
@@ -336,9 +341,11 @@ export class SyncEngine {
       if (this.pending.size > 0) this.scheduleFlush(this.debounceMs);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      // 失败才附排障信息；只含长度，不含 state / code / verifier 任何值
+      const diagnostic = callbackState === null ? '' : `；${describeCallbackState(callbackState)}`;
       this.setStatus({
         phase: this.session ? 'signed-in' : 'signed-out',
-        detail: `登录失败：${message}`,
+        detail: `登录失败：${message}${diagnostic}`,
         lastError: message,
       });
     } finally {

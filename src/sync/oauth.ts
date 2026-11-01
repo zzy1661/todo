@@ -6,7 +6,12 @@
  *    换 token 必须带 `code_verifier`。**不得**使用隐式流程（把 access token 放在 URL
  *    fragment 里的老做法）：授权码只从 query 取，token 只经服务端换回。
  * 2. 回调地址是 `http://127.0.0.1:<随机端口>`（回环监听由 Rust 侧 `sync_oauth_listen` 完成）。
- * 3. `state` 必须原样回验，防止把别人的授权码塞进本机回调。
+ * 3. 回调的**可信性由 PKCE verifier 绑定**，不靠 `state` 等值比较。
+ *    GoTrue 在 `/auth/v1/authorize` 阶段会把自己的 flow state（36 字符 UUID）
+ *    替换掉客户端传入的 `state`，回跳时回来的也是它那一个；因此「回调 state ===
+ *    客户端 state」必然不成立。我们仍照发 `state`（保留可观测性），但换 token 必须
+ *    带本次会话独有的 `code_verifier` —— 攻击者拿到的 code 绑的是他自己的 verifier，
+ *    换不出会话（这正是 supabase-js 的做法）。
  *
  * 本文件只做纯计算与 URL 拼装，便于静态检索（TC-063）与单测。
  */
@@ -60,9 +65,22 @@ export async function createPkcePair(): Promise<PkcePair> {
   return { verifier, challenge: base64UrlEncode(new Uint8Array(digest)) };
 }
 
-/** 随机 state（32 字节 → 43 字符 base64url） */
+/** 随机 state（32 字节 → 43 字符 base64url）。仅用于可观测性，不作为防伪依据 */
+export const STATE_LENGTH = 43;
+
 export function createState(): string {
   return base64UrlEncode(randomBytes(32));
+}
+
+/**
+ * 排障用的回调诊断串：**只报告长度，不报告任何 state 值**。
+ *
+ * 用于登录失败时面板 `detail` 里区分「回调根本没带 state」与
+ * 「state 被 GoTrue 换成了它自己的 36 字符 UUID」——后者是正常现象，
+ * 前者说明回调链路不对。不得把 state 原文写进页面或日志。
+ */
+export function describeCallbackState(callbackState: string): string {
+  return `回调 state 长度 ${callbackState.length} / 期望 ${STATE_LENGTH}`;
 }
 
 export interface AuthorizeUrlOptions {
