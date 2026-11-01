@@ -16,16 +16,16 @@
 
 ### 0.1 S7.9 增量结论（2026-11-01 第五轮，读 §13.18 与 §14）
 
-**全量 68 条 AC 全部可判定：PASS 67 / FAIL 0 / BLOCKED 0 / NOT-VERIFIED 0。**（AC-41 记「**人工验收确认**」，单列、不计入 67 —— 见下方口径 2。）
+**全量 68 条 AC 全部可判定：PASS 68 / FAIL 0 / BLOCKED 0 / NOT-VERIFIED 0。**（AC-41 判 **PASS**，但证据来源是**人类实机人工验收**而非 Tester 自动化取证 —— 记账上计入 PASS，证据上照实标注，见下方口径 2。）
 
 - **本轮回填四条**（证据见 **§13.18**，均为「**Leader 实测、Tester 复核文字**」）：
   - **AC-65**（真实云端读写）：`NOT-VERIFIED` → **PASS**（201 / 200 / 204，本人 7 行）；
   - **AC-66②**（云侧 RLS 越权）：子项 `NOT-VERIFIED` → **PASS（等价判据）**（**局限见 §13.18.2，不得删**）；
   - **AC-68**（Windows 可构建）：`PASS + CI 子项 NV` → **PASS（含真实 CI）**（macOS / Windows 两个 job 均 success，产物 artifact 可下载）；
-  - **AC-41**（断网三模块）：`BLOCKED` → **人工验收确认**（人类 2026-11-01 实机验证；**Tester 侧无自动化取证**，不写成「已实测」）。
-- **算术口径（唯一）**：68 = **63**（AC-01 ~ AC-64 去掉 AC-41，Tester 实测 PASS）+ **4**（AC-65 / AC-66 / AC-67 / AC-68）+ **1**（AC-41 人工验收确认）= **67 PASS + 1 人工验收确认 = 68**。
-  换一种记法（把 AC-41 也并进 PASS）就是 **68 PASS / 0 FAIL / 0 BLOCKED / 0 NOT-VERIFIED**——两种口径等价，本报告统一用前者，因为 AC-41 的证据来自**人类实机**而不是 Tester 取证。
-- **68 条逐条台账见 §14**（AC / 判定 / 证据段落 / 用例号）。**`67 PASS` 不等于 67 条都有 Tester 侧自动化取证**：AC-65 / AC-66② / AC-68 的 CI 三条是 Leader 实测，AC-41 是人类人工验收。
+  - **AC-41**（断网三模块）：`BLOCKED` → **PASS**（人类 2026-11-01 实机验证；**Tester 侧无自动化取证**，证据来源照实标注为「人工验收确认」，不写成「Tester 已取证」）。**Leader 于 2026-11-01 复核后拍板记 PASS。**
+- **算术口径（唯一）**：68 = **56**（AC-01 ~ AC-56 = 56 PASS，含 AC-41）+ **12**（AC-57 ~ AC-68 = 12 PASS）= **68 PASS / 0 FAIL / 0 BLOCKED / 0 NOT-VERIFIED**。
+  **AC-41 计入 PASS**（Leader 2026-11-01 拍板），但**证据来源标注为「人工验收确认」**——记账口径与证据口径分开写：PASS 是「这条 AC 已被可核实的证据判定通过」，不等于「有 Tester 侧自动化取证」。
+- **68 条逐条台账见 §14**（AC / 判定 / 证据段落 / 用例号）。**`68 PASS` 不等于 68 条都有 Tester 侧自动化取证**：AC-65 / AC-66② / AC-68 的 CI 三条是 Leader 实测，AC-41 是人类实机人工验收。
 - **仍带子项 `NOT-VERIFIED` 的 PASS：1 条**——**AC-58**（TC-062 真实已登录态截图；本轮无截图产物）。
 - **AC-67 的账写「凭据 0 / 文本 1」**（§13.10 / §13.17）：可用真实密钥 0；`sync.config.example.json:5` 值位 1 行说明性否定文本，不判 FAIL。**产物侧分两笔**：前端字节看 `dist/`（0，带正控），二进制 `strings` 0 只覆盖 Rust 层与未压缩资源。**S1 白名单已闭环**（`check-sync.mjs` 78 项断言）。
 - 沿用上一轮（S10.5）结论：四组回归第二次全绿（`build` / `check-cases` / `check-permutation` / `playwright 6 passed`），**同步套件独立执行 4 passed**（≠6，两套分别报）；AC-01 ~ AC-56 的旧判定未被同步层破坏（§13.11）；AC-43 按 PRD v1.4 收窄口径**重判 PASS**（S7 的旧结论作废）。
@@ -34,16 +34,16 @@
 
 ### 0.2 S7 段结论（AC-01 ~ AC-56，2026-11-01 第一轮）
 
-**56 条 AC（AC-01~AC-56）中 55 PASS / 0 FAIL / 1 BLOCKED / 0 NOT-VERIFIED。**（**S7 段当时口径**；AC-41 于 S7.9 回填为「人工验收确认」，见 §0.1 / §13.18）
+**56 条 AC（AC-01~AC-56）中 55 PASS / 0 FAIL / 1 BLOCKED / 0 NOT-VERIFIED。**（**S7 段当时口径**；AC-41 于 S7.9 回填为 **PASS**（人工验收确认），见 §0.1 / §13.18）
 另有 **观察（不可达）0 条 AC**（2 个「半句」观察项见 §9）。
 
 - **通过率 = PASS ÷ 本段可判定条数 = 55 ÷ 56 = 98.2%**
-  - 可判定 **56 条** = 55 PASS + 1 BLOCKED + 0 FAIL；**观察 0 条**；`NOT-VERIFIED` 0 条。（S7 段当时口径；S7.9 后 AC-41 = 人工验收确认，仍是 56 条可判定）
+  - 可判定 **56 条** = 55 PASS + 1 BLOCKED + 0 FAIL；**观察 0 条**；`NOT-VERIFIED` 0 条。（S7 段当时口径；S7.9 后 AC-41 = PASS，仍是 56 条可判定）
   - 若只按「可判 PASS / FAIL」的 55 条算（把 BLOCKED 排除在分母外）：55 ÷ 55 = 100%。报告主口径用 55/56。
 - **可交付（附阻塞项：1 条 AC + 8 项桌面人工取证，待「辅助功能」授权后补；S7.6 后 M-01 / M-10 / M-14 已 PASS，M-04 为 PARTIAL）。**
-  唯一被判 BLOCKED 的 AC 是 **AC-41（断网后完整走三模块）**（**S7 段当时口径**；S7.9 已由人类实机验收、记「人工验收确认」，见 §0.1）：它只能靠「关网 + 在 WKWebView 里点三模块」取证，本机 `AXIsProcessTrusted=false`（S7.5 复测仍为 false；屏幕录制 `CGPreflightScreenCaptureAccess` 已为 true），既无法操作桌面 UI，也不允许擅自杀掉本机网络。旁证已附（应用进程零网络 socket、产物内无外部请求地址、Chromium 侧 6 passed），但按纪律不把旁证当 PASS。
+  唯一被判 BLOCKED 的 AC 是 **AC-41（断网后完整走三模块）**（**S7 段当时口径**；S7.9 已由人类实机验收、Leader 拍板记 **PASS**，见 §0.1）：它只能靠「关网 + 在 WKWebView 里点三模块」取证，本机 `AXIsProcessTrusted=false`（S7.5 复测仍为 false；屏幕录制 `CGPreflightScreenCaptureAccess` 已为 true），既无法操作桌面 UI，也不允许擅自杀掉本机网络。旁证已附（应用进程零网络 socket、产物内无外部请求地址、Chromium 侧 6 passed），但按纪律不把旁证当 PASS。
 - 四组回归全部通过：`npm run build` 退出码 0、`node scripts/check-cases.mjs` PASS、`node scripts/check-permutation.mjs` 7/7 MATCH、`npx playwright test` **6 passed**（未新增 `test()`，仍是 5 功能 + 1 巡览）。
-- FAIL / BLOCKED / NOT-VERIFIED 三类清单：**FAIL 0 条**；**BLOCKED 1 条 AC（AC-41，S7.9 后已记「人工验收确认」）+ 8 项人工 checklist（M-02/03/05/06/07/08/09/11；S7.5 补跑后由 10 项降为 8 项）**；**NOT-VERIFIED 0 条 AC**（Windows 实机项单列于 §8，不计入 AC）。
+- FAIL / BLOCKED / NOT-VERIFIED 三类清单：**FAIL 0 条**；**BLOCKED 1 条 AC（AC-41，S7.9 后已记 **PASS**）+ 8 项人工 checklist（M-02/03/05/06/07/08/09/11；S7.5 补跑后由 10 项降为 8 项）**；**NOT-VERIFIED 0 条 AC**（Windows 实机项单列于 §8，不计入 AC）。
 
 > 判定纪律（沿用计划 §0.1）：一条 AC 判 PASS = 其**主 TC** 的判据在本机以规定手段跑出来；桌面像素 / 手势类**辅助**项按 Leader 2026-11-01 口径记 `BLOCKED（环境：TCC 未授权）`，不改变 AC 判定；主 TC 本身完全依赖人工桌面操作时，该 AC 判 BLOCKED。
 
@@ -60,7 +60,7 @@
 - **补成 PASS 1 项**：M-10（Dock 图标 = 应用自己的黄/青双环图标 + 运行指示点，不是默认 Tauri 占位）。
 - **由 BLOCKED 提到 PARTIAL 2 项**：M-01（首启拦截框已截到；`xattr` 处置实测能进）、M-04（菜单栏为框架默认英文五项；三个快捷键未验）。
 - **仍 BLOCKED 8 项**：M-02 / M-03 / M-05 / M-06 / M-07 / M-08 / M-09 / M-11（其中 **M-08、M-11 是硬项**，都卡在「开不了编辑器 / 切不到 `5w2h`」）。
-- **AC 一条没改判**：AC-34 / AC-55 / AC-41 仍 `BLOCKED`（六步/新建全是点击；断网需人类批准）。（**S7.5 当时口径**；AC-41 于 S7.9 回填为「人工验收确认」，见 §0.1）
+- **AC 一条没改判**：AC-34 / AC-55 / AC-41 仍 `BLOCKED`（六步/新建全是点击；断网需人类批准）。（**S7.5 当时口径**；AC-41 于 S7.9 回填为 **PASS**，见 §0.1）
   因此 **68 条的算术不变**：66 PASS / 0 FAIL / 1 BLOCKED / 1 NOT-VERIFIED（**S7.5 当时口径**；S7.9 回填后见 §0.1）。
 - **本轮唯一可能影响交付的发现**：带 quarantine 的副本首启显示的是「**已损坏，无法打开**」，而不是 README §2 情形①
   描述的「无法检查是否包含恶意软件」。根因是 bundle 只有链接器签名（`Sealed Resources=none`、无 `_CodeSignature/`、
@@ -278,7 +278,7 @@ PASS（三份 conf 合并 + schema + 平台中立 + 数据路径中立 + workflo
 | AC-38 | TC-049 | **PASS** | `rm -rf /Applications/日程待办.app` → `ditto` 重装 → `open` 启动；todos 5 条、picks 2 条，前后 diff 为空 | 见 §4.4。**取证对象 = 03:17 构建（已入废纸篓）**；07:21 构建未重跑此桌面项（§4.0） |
 | AC-39 | TC-050 | **PASS** | `日程待办.app`（`Contents/MacOS/todo` 6 232 576 B / 07:21，**S7.6 重建后为 6 250 704 B / 10:35，见 §0.4**）与 `日程待办_0.1.0_aarch64.dmg`（**3 309 469 B** / 07:22，S7.6 后 **3 310 932 B** / 10:36）均在；`lipo -archs` = `arm64`；`CFBundleIdentifier` = `com.poisson.todo`、`LSMinimumSystemVersion` = `12.0`、版本 `0.1.0`；`codesign` = `adhoc`（预期） | `tauri build` 本身属 S6。**形态数字已按 07:21/07:22 构建复测**（旧记 3285579 属上一份构建，已作废）；**S7.6 重建后的数字见 §0.4**，判定不变 |
 | AC-40 | TC-052 | **PASS** | `open -a` 后进程 58908 存活；CGWindowList：窗口 164243、layer 0、1100×720、属主「日程待办」；bundle id / `activationPolicy = regular`；默认模块与全中文由巡览截图 01 + 用例 1 佐证 | 窗口标题文本与像素级截图被 AX/屏幕录制挡住（M-04 BLOCKED）。**取证对象 = 03:17 构建（已入废纸篓）**；07:21 构建未复跑启动项（§4.0） |
-| AC-41 | TC-053 | **人工验收确认**（S7.9；S7 段原判 `BLOCKED`） | 需「关闭 Wi-Fi/以太网 + 在桌面版走完新建→换一条→筛选」。本机无法操作 WKWebView（TCC），且不应擅自切断本机网络 → **Tester 侧无自动化取证**；**人类于 2026-11-01 实机验证并确认**（记录见 Leader 2026-11-01 02:29 / 03:22 评论），本报告据此记「人工验收确认」，**不写成「已实测取证」**。旁证（Tester 侧，仍成立）：应用进程 `lsof -a -p <pid> -i` **零 socket**；`dist` 内无外部请求地址（仅 XML 命名空间与 vuejs.org 报错链接）；Chromium 三模块 6 passed | 见 §7 与 §10 |
+| AC-41 | TC-053 | **PASS**（S7.9；**人工验收确认**；S7 段原判 `BLOCKED`） | 需「关闭 Wi-Fi/以太网 + 在桌面版走完新建→换一条→筛选」。本机无法操作 WKWebView（TCC），且不应擅自切断本机网络 → **Tester 侧无自动化取证**；**人类于 2026-11-01 实机验证并确认**（记录见 Leader 2026-11-01 02:29 / 03:22 评论），**Leader 于 2026-11-01 复核后拍板记 PASS**，本报告据此记 **PASS（人工验收确认）**，**不写成「Tester 已取证」**。旁证（Tester 侧，仍成立）：应用进程 `lsof -a -p <pid> -i` **零 socket**；`dist` 内无外部请求地址（仅 XML 命名空间与 vuejs.org 报错链接）；Chromium 三模块 6 passed | 见 §7 与 §10 |
 | AC-42 | TC-054 | **PASS** | 依赖扫描输出 `DEPENDENCY CLEAN`；依赖 10 个（@tauri-apps/api、plugin-sql、dayjs、vue + 构建工具链），无 Pinia/Vuex/UI 库/路由/第二日期库 | — |
 | AC-43 | TC-055 | **PASS** | `git ls-files` 无 `.ps1`；基座 `tauri.conf.json` + `src/` 无 `nsis` / `%APPDATA%` / `msedge`；tracked `.ts/.json` 无 `channel.*msedge` | 工作区未跟踪的 `.opencode/skills/.../batch-create.ps1` 是 agent 工具链，不在交付物内 |
 | AC-44 | TC-056 | **PASS** | 用例 1：`.nav-item` = 3（日历 / 每日工作法 / 全部待办），无「番茄钟」；导航内无账号 / 登录 / 同步入口；`grep -rn "updater\|自动更新"` 无命中；README §一·3 写明菜单栏英文、§二 写明空库起步不迁移 | 系统菜单栏像素取证 = **M-04 BLOCKED** |
@@ -295,7 +295,7 @@ PASS（三份 conf 合并 + schema + 平台中立 + 数据路径中立 + workflo
 | AC-55 | TC-046 | **PASS** | `check-db-parity.mjs`：同一 13 步操作序列分别跑 localStorage 与 SQLite（真实 plugin JS + 应用真实 SQL），`fetchTodos / ByDate / ByMonth×2 / DailyPicks / DailyPick×2` 逐项 JSON 相等，输出 `PASS`；列表排序 `丁 → 丙 → 乙改 → 戊`、推送记录两侧一致 | 桌面 UI 六步点击未执行（TCC）；见 §10 |
 | AC-56 | TC-056 | **PASS** | 代码评审：`navItems.ts` 注册表（3 项）；`SideNav.vue` `pathsFor = ICONS[id] ?? CLOCK_ICON`（未知 id 回退时钟）；注释写明新增模块只需「注册项 + 渲染分支 + 组件」三处 | 不可观察项，按计划走代码评审 |
 
-**统计**：56 行 → **55 PASS / 0 FAIL / 1 人工验收确认（AC-41）/ 0 NOT-VERIFIED**（S7 段原为 55 PASS / 1 BLOCKED；AC-41 于 S7.9 回填，§13.18）。
+**统计**：56 行 → **56 PASS / 0 FAIL / 0 BLOCKED / 0 NOT-VERIFIED**（S7 段原为 55 PASS / 1 BLOCKED；AC-41 于 S7.9 回填为 PASS（人工验收确认），§13.18）。
 
 ---
 
@@ -490,13 +490,13 @@ d66b3ea6e24d3b54d74dcd0c24e5a51b
 ### 7.2 BLOCKED（0 条 AC + 8 项人工）
 
 > S7.5（2026-11-01 10:25）补跑后：M-01 / M-04 已提到 PARTIAL、M-10 已 PASS，**不再列在 BLOCKED**。
-> **S7.9（2026-11-01）回填后：AC-41 改记「人工验收确认」（人类实机验证），BLOCKED 的 AC 归零。**
+> **S7.9（2026-11-01）回填后：AC-41 改记 **PASS**（证据来源：人类实机人工验收），BLOCKED 的 AC 归零。**
 > 下表保留仍 BLOCKED 的项，并写明「卡在哪一步」；逐项失败动作（`-1002` / `-25211` / CGEvent 无效）见
 > `docs/verification/desktop/S7.5-evidence.md` §5。
 
 | 对象 | 阻塞原因 / 卡在哪一步 | 复现命令（授权后照此补） |
 | --- | --- | --- |
-| **AC-41**（断网三模块） | **S7.9 已结**：Tester 侧无法操作桌面 UI 且不擅自断网 → 人类于 2026-11-01 实机验证并确认，本报告记「**人工验收确认**」（§13.18 / §14），**不再算 BLOCKED** | （已由人类完成；如需 Tester 侧复现：授权辅助功能 → 人类批准后关 Wi-Fi/以太网 → 在新待办 / 换一条 / 全部待办筛选中各走一遍 → 截图） |
+| **AC-41**（断网三模块） | **S7.9 已结**：Tester 侧无法操作桌面 UI 且不擅自断网 → 人类于 2026-11-01 实机验证并确认，**Leader 拍板记 PASS**，本报告记 **PASS（人工验收确认）**（§13.18 / §14），**不再算 BLOCKED** | （已由人类完成；如需 Tester 侧复现：授权辅助功能 → 人类批准后关 Wi-Fi/以太网 → 在新待办 / 换一条 / 全部待办筛选中各走一遍 → 截图） |
 | **AC-34**（桌面 UI 新建 1 条 → `count(*)` +1） | 卡在「+ 新建待办」这一下点击：`click at` → `-25211` | 授权后点「+ 新建待办」→ 填标题/日期 → 保存 → `sqlite3` 查 `count(*)` 与 `date`/`uuid` |
 | **AC-55**（桌面 UI 六步对拍） | 同上，六步全是点击 | 同 AC-34 |
 | M-02 / M-03 | 卡在「无法合成点击」（`-25211`；CGEvent 两条路线均只出 hover） | `swift scripts/mac-desktop-probe.swift \| grep accessibility` 为 true 后手点 |
@@ -598,9 +598,9 @@ Windows **实机**项一律不写成 PASS，也不以静态自检替代实机结
 > **本段结论已被 S7.9 回填更新（2026-11-01，证据见 §13.18）**；下表以「S7.9 后」为准，历史轮次的原始结论保留在括号里。
 
 **同步组：AC-57 ~ AC-68 = PASS（12 条，含 S7.9 回填的 AC-65 / AC-66② / AC-68）。**
-**另：AC-43 按 v1.4 收窄口径重判 = PASS（S7 的旧结论作废，以本段为准）；AC-41 由 `BLOCKED` 改记「人工验收确认」（人类实机，Tester 无自动化取证）。**
+**另：AC-43 按 v1.4 收窄口径重判 = PASS（S7 的旧结论作废，以本段为准）；AC-41 由 `BLOCKED` 改记 **PASS**（人类实机验收、Leader 拍板；Tester 侧无自动化取证——证据来源照实标注）。**
 
-全量 68 条合计（S7.9 后）：**PASS 67 / FAIL 0 / BLOCKED 0 / NOT-VERIFIED 0**（另有 AC-41 = 人工验收确认 1 条；口径见 §0.1）。
+全量 68 条合计（S7.9 后）：**PASS 68 / FAIL 0 / BLOCKED 0 / NOT-VERIFIED 0**（AC-41 计入 PASS，证据来源为人工验收确认；口径见 §0.1）。
 （S10.5 当时：PASS 66 / FAIL 0 / BLOCKED 1（AC-41）/ NOT-VERIFIED 1（AC-65），PASS 率 66 ÷ 68 = 97.1%。）
 
 - **四组必做回归全绿**（S10.5 轮）：`npm run build` exit 0；`check-cases.mjs` PASS；`check-permutation.mjs` 7/7 MATCH；`npx playwright test` **6 passed**。**S7.9 是纯文档回填，未重跑 E2E / 未重打包**。
@@ -815,7 +815,7 @@ $ node scripts/check-sync-extra.mjs
   NOT-VERIFIED：真实云端登录态下的状态区截图、真实断网（Wi-Fi 关闭）下的桌面 UI
 ```
 
-> **S7.9 补注（2026-11-01）**：真实断网一条已由**人类实机验收**（AC-41 记「人工验收确认」，§13.18）；**真实云端登录态的截图仍未取到**（AC-58 子项，仍 NV）。
+> **S7.9 补注（2026-11-01）**：真实断网一条已由**人类实机验收**（AC-41 记 **PASS**，证据来源为人工验收确认，§13.18）；**真实云端登录态的截图仍未取到**（AC-58 子项，仍 NV）。
 
 **AC-60 的 fake timer 推进方法（唯一口径，实现方不得各写一套）**：注入 `setClock({ now() })` 与 `setTimers({ setTimeout, clearTimeout })`，用 `advance(ms)` **按到期时间依次触发**挂起的定时器并把假时间停到目标点（`scripts/check-sync.mjs` 与 `check-sync-extra.mjs` 各有一份同形实现）；浏览器侧日期基线用 `page.clock.setFixedTime(RUN_START)`。判据固定为「最后一次改动后 4.9 s 零请求、5.0 s 一次请求」。
 
@@ -1053,7 +1053,7 @@ false  空串                            缺少 base URL 或 anon key
 | AC-37 | **v3 引入 `ALTER TABLE … ADD COLUMN`** | 按 PRD **v1.5 附录 B.7 三段式**复核（§13.17）：`src-tauri/src/lib.rs` 无 `DROP` / `ALTER`（`LIB.RS CLEAN`）、`src-tauri/migrations/` 无 `DROP TABLE` / `DROP INDEX` / `RENAME TO`（`MIGRATIONS CLEAN`）、`CREATE TABLE` 均带 `IF NOT EXISTS`（`CREATE OK`） | **判定未破坏**（`ADD COLUMN` 在 v1.5 里是**允许项**，不是违约；见 §14 判定含义注） |
 | AC-38 | 无 | S7 结论复用（删 `.app` 重装数据仍在）；本段未重跑破坏性用例 | **未破坏** |
 | AC-39 / AC-40 | 产物加了同步代码 | `.app` 仍存在、`Contents/MacOS/todo` 可 `strings` 检索（**注意**：前端字符串压缩嵌入，`strings` 不覆盖前端层，见 §13.10 ③） | **未破坏** |
-| AC-41 | 同步在断网时必须降级 | 浏览器侧 S2 + stub 侧断网降级 PASS；桌面端「关 Wi-Fi 走三模块」S10.5 轮仍 **BLOCKED**（TCC），**S7.9 已由人类实机验收**（记「人工验收确认」，§13.18） | **未破坏**（桌面取证 BLOCKED → 人工验收确认） |
+| AC-41 | 同步在断网时必须降级 | 浏览器侧 S2 + stub 侧断网降级 PASS；桌面端「关 Wi-Fi 走三模块」S10.5 轮仍 **BLOCKED**（TCC），**S7.9 已由人类实机验收并记 PASS**（§13.18） | **未破坏**（桌面取证 BLOCKED → PASS） |
 | AC-42 | **未新增任何依赖** | `DEPENDENCY CLEAN`；deps 仍为 `@tauri-apps/api` / `@tauri-apps/plugin-sql` / `dayjs` / `vue`（同步用原生 `fetch`，没引 `@supabase/supabase-js`） | **未破坏** |
 | AC-43 | 同步改的是 `src/` | 按 v1.4 重判 PASS（§13.7） | **未破坏（并已重判）** |
 | AC-44 / AC-56 | 新增同步入口 | 同步套件 S3：`.side-nav nav .nav-item` 计数 3、nav 文本无「登录」/「同步」；入口在 `SyncPanel`（`<nav>` 之外） | **未破坏** |
@@ -1112,7 +1112,7 @@ PROBE menubar.items = BLOCKED (AX error -25211)
 
 | 对象 | 状态 | 说明 |
 | --- | --- | --- |
-| **AC-41**（断网后走完三模块，桌面） | **人工验收确认**（S7.9；S10.5 轮为 `BLOCKED`） | 人类于 2026-11-01 实机验证并确认（§13.18）；Tester 侧仍无自动化取证 |
+| **AC-41**（断网后走完三模块，桌面） | **PASS**（S7.9 人工验收确认；S10.5 轮为 `BLOCKED`） | 人类于 2026-11-01 实机验证并确认、Leader 拍板记 PASS（§13.18）；Tester 侧仍无自动化取证 |
 | **AC-34** 的「桌面 UI 新建一条 → `count(*)=1`」变体 | **BLOCKED**（未变） | 卡在「+ 新建待办」那一次点击；建库建表与落行已由 §13.9 证明 |
 | **AC-55** 的「桌面 UI 六步对拍」 | **BLOCKED**（未变） | 六步全是点击；数据层对拍已 PASS（`check-db-parity.mjs`） |
 | M-02 / M-03 / M-05 / M-06 | **BLOCKED**（未变） | 卡在「无法合成点击」：`click at` → `-25211`；`CGEvent(.cghidEventTap)` 与 `CGEvent.postToPid` 均只出 hover、点击不生效 |
@@ -1122,7 +1122,7 @@ PROBE menubar.items = BLOCKED (AX error -25211)
 | M-01 的「右键 → 打开」 | **BLOCKED**（S7.5 记录） | 无法合成点击；当时对话框为「已损坏」变体，**没有「打开」按钮**（根因：`Sealed Resources=none`、无 `_CodeSignature/`、`codesign --verify` exit 1）。**S7.6 已消除「已损坏」**：新产物弹的是「Apple 无法检查…包含恶意软件」（在访达中显示 / 好），但右键路径仍需辅助功能，**未实测** |
 | M-04 的 `⌘Q` / `⌘C` / `⌘V` | **BLOCKED** | 无法发送按键：`keystroke` → `-1002` |
 
-**没有口头签过任何一条**：辅助功能仍为 `false`；AC-34 / AC-55 与 8 项人工 checklist 继续按 `BLOCKED` 记。**AC-41 已于 S7.9 改记「人工验收确认」（人类实机），不是 Tester 签的**。
+**没有口头签过任何一条**：辅助功能仍为 `false`；AC-34 / AC-55 与 8 项人工 checklist 继续按 `BLOCKED` 记。**AC-41 已于 S7.9 改记 PASS——但依据是人类实机验收、不是 Tester 签的**。
 **硬项 M-01 / M-08 / M-11 仍未签署**（S7.5 时 M-01 只到 PARTIAL）。
 > **S7.6 补注**：M-01 已在 S7.6 回填 **PASS**（ad-hoc 封条 + quarantine 复测，§0.4）；M-08 / M-11 仍是硬项、
 > 仍 BLOCKED。上表「S7.5 解除的」是第三轮快照，最新状态以 §6 为准。
@@ -1363,21 +1363,35 @@ RLS② GET /rest/v1/todos   （仅 apikey、无用户 token）
 且**带 token 的请求抵达 PostgREST 时返回的是 `PGRST205`（表不存在）而不是 401** —— 说明**登录已成功、token 已带上**。
 **局限**：本条**仍没有「已登录状态区」的像素截图**（那是 AC-58 的子项，仍 `NOT-VERIFIED`）。
 
+#### 13.18.5 AC-41 · 断网后走完三模块（`BLOCKED` → **PASS**，人工验收确认）
+
+**Tester 侧取不到证据的原因**（原样保留，不改写）：主 TC 需要「关掉 Wi-Fi/以太网 + 在桌面版 WKWebView 里点完新建 → 换一条 → 筛选」，
+本机 `AXIsProcessTrusted = false` 合成不了点击，且按任务书**不擅自切断本机网络**。
+Tester 侧只能给旁证：应用进程 `lsof -a -p <pid> -i` **零 socket**；`dist` 内无外部请求地址（仅 XML 命名空间与 vuejs.org 报错链接）；Chromium 侧三模块 **6 passed**。
+**旁证不冒充 PASS**——S10.5 轮按纪律记 `BLOCKED`。
+
+**人工验收与拍板记录**：人类于 2026-11-01 02:29 答复「没关系，我已经人工验证了，不需要 tcc 录屏了」（针对 S7.5 桌面取证清单）；
+Leader 随即在 02:30 单独追问「已人工验证是否包含 AC-41（关 Wi-Fi 后新建 / 换一条 / 筛选都正常）」，
+并在 **2026-11-01 复核本轮台账后拍板：`AC-41 pass`**。
+
+**判定：PASS。** 记账口径计入 68 条 PASS；**证据来源照实标注为「人工验收确认」**——不是 Tester 侧自动化取证，
+交付说明与 README 的「桌面像素由人工确认」边界保持一致。
+
 ---
 
 ## 14. AC-01 ~ AC-68 统一判定台账（68 行）
 
 > 本节是 **M2 台账统一**的产物（ZACHTD-14）：把 §3（S7，AC-01~56）与 §13（S10.5，AC-43 重判 + AC-57~68）两段结论**并成一张可逐条引用的账**。M2 那轮**一行都没有改判**；只修了附录 A.2 的重复计数，并新增两条「判定含义注」。
-> **S7.9（ZACHTD-19）在 M2 之后改判了 5 行**：AC-41（`BLOCKED` → 人工验收确认）、AC-59（子项 NV → PASS）、AC-65（`NOT-VERIFIED` → PASS）、AC-66（② 子项 NV → PASS 等价判据）、AC-68（CI 子项 NV → PASS）。证据统一在 **§13.18**。
+> **S7.9（ZACHTD-19）在 M2 之后改判了 5 行**：AC-41（`BLOCKED` → **PASS**，证据来源为人工验收确认）、AC-59（子项 NV → PASS）、AC-65（`NOT-VERIFIED` → PASS）、AC-66（② 子项 NV → PASS 等价判据）、AC-68（CI 子项 NV → PASS）。证据统一在 **§13.18**。
 >
 > 本轮边界：只改测试文档，**不动 `src/`、不 commit、不 push、不重跑任何用例**（§13.17 的三条只读复核不计为 TC 复跑）。
 
 **读这张表之前先读四条口径**
 
-1. **68 = 56 + 12**：AC-01 ~ AC-56（56 条）+ AC-57 ~ AC-68（12 条）。**AC-43 是 AC-01~56 段内的重判，不是第 13 条**，在 68 条里只计一次。合计 = 55 PASS + **1 人工验收确认（AC-41）** + 12 PASS = **67 PASS / 0 FAIL / 0 BLOCKED / 0 NOT-VERIFIED**（S7.9 后；S7.9 前为 66 / 0 / 1 / 1）。
-2. **`67 PASS` ≠ 67 条都有 Tester 侧完整证据。** 其中 **1 条是「主判 PASS + 子项 `NOT-VERIFIED`」**：**AC-58**（TC-062 真实已登录态截图）。另有三条是 **Leader 实测、Tester 复核文字**（**AC-65** / **AC-66②** / **AC-68 的 CI**），一条是 **人类人工验收确认**（**AC-41**）——**口径不能比事实窄**，但也**不得把「Leader 实测 / 人类验收」写成「Tester 已取证」**，两条都按证据来源标注。
+1. **68 = 56 + 12**：AC-01 ~ AC-56（56 条）+ AC-57 ~ AC-68（12 条）。**AC-43 是 AC-01~56 段内的重判，不是第 13 条**，在 68 条里只计一次。合计 = 56 PASS（AC-01 ~ AC-56，含 AC-41）+ 12 PASS（AC-57 ~ AC-68）= **68 PASS / 0 FAIL / 0 BLOCKED / 0 NOT-VERIFIED**（S7.9 后；S7.9 前为 66 / 0 / 1 / 1）。
+2. **`68 PASS` ≠ 68 条都有 Tester 侧完整证据。** 其中 **1 条是「主判 PASS + 子项 `NOT-VERIFIED`」**：**AC-58**（TC-062 真实已登录态截图）。另有三条是 **Leader 实测、Tester 复核文字**（**AC-65** / **AC-66②** / **AC-68 的 CI**），一条是 **人类实机人工验收**（**AC-41**，Leader 2026-11-01 拍板记 PASS）——**口径不能比事实窄**，但也**不得把「Leader 实测 / 人类验收」写成「Tester 已取证」**，两条都按证据来源标注。
 3. **AC-67 的账是「凭据 0 / 文本 1」**（§13.10 / §13.17-b），不是「三处均无命中」；**产物侧分两笔**（前端字节看 `dist/` 带正控，二进制 `strings` 只覆盖 Rust 与未压缩层）。**S1 白名单已闭环**（`config.ts:63-66/98` + `check-sync.mjs` 78 项断言；2 放行 / 3 拒绝的形态矩阵见 §13.17-c）。
-4. **「主判 PASS + 辅助项 BLOCKED」不减判**：AC-15 / AC-19 / AC-23 / AC-29 / AC-34 / AC-40 / AC-47 / AC-55 等桌面取证项按 §0 判定纪律记 `BLOCKED（环境：TCC 未授权）`，不改变 AC 判定；主 TC 完全依赖人工桌面操作时才判 BLOCKED——**S10.5 轮唯一一条是 AC-41，S7.9 已由人类实机验收、记「人工验收确认」**。
+4. **「主判 PASS + 辅助项 BLOCKED」不减判**：AC-15 / AC-19 / AC-23 / AC-29 / AC-34 / AC-40 / AC-47 / AC-55 等桌面取证项按 §0 判定纪律记 `BLOCKED（环境：TCC 未授权）`，不改变 AC 判定；主 TC 完全依赖人工桌面操作时才判 BLOCKED——**S10.5 轮唯一一条是 AC-41，S7.9 已由人类实机验收、Leader 拍板记 PASS**。
 
 | AC | 判定 | 证据段落 | 用例号（主 / 辅） |
 | --- | --- | --- | --- |
@@ -1421,7 +1435,7 @@ RLS② GET /rest/v1/todos   （仅 apikey、无用户 token）
 | AC-38 | **PASS**（取证对象 03:17 构建 · 已入废纸篓） | §4.4 · §4.0 | TC-049 / — |
 | AC-39 | **PASS**（形态按 **07:21/07:22 构建**复测；S7.6 重建后数字见 §0.4） | §4.5 · §4.0 · §0.4 | TC-050 / TC-051 |
 | AC-40 | **PASS**（取证对象 03:17 构建 · 已入废纸篓） | §3 · §4.0 | TC-052 / — |
-| AC-41 | **人工验收确认**（S7.9；原 `BLOCKED`；人类实机验证，无 Tester 侧自动化取证） | §7.2 · §13.18 | TC-053 / — |
+| AC-41 | **PASS**（S7.9；**人工验收确认**：人类 2026-11-01 实机验证 + Leader 拍板；无 Tester 侧自动化取证） | §7.2 · §13.18.5 | TC-053 / — |
 | AC-42 | **PASS** | §3 · §13.11 | TC-054 / — |
 | AC-43 | **PASS**（重判，S7 结论作废） | §13.7 | TC-055 ①② / — |
 | AC-44 | **PASS** | §3 | TC-056 / — |
@@ -1450,7 +1464,7 @@ RLS② GET /rest/v1/todos   （仅 apikey、无用户 token）
 | AC-67 | **PASS**（账：凭据 0 / 文本 1；S1 已闭环） | §13.10 · §13.17-b · §13.17-c | TC-080 / — |
 | AC-68 | **PASS**（静态三证 + S7.9 真实 CI：两 job 全绿、artifact 可下载） | §13.8 · §13.18.3 | TC-055 扩展断言 ③④⑤ / — |
 
-**小计（与附录 A 对得上）**：68 行 → **67 PASS / 0 FAIL / 0 BLOCKED / 0 NOT-VERIFIED**（另 1 条 **AC-41 = 人工验收确认**，单列、不计入 67；若并入 PASS 则为 68 PASS）；其中 **1 条 PASS 带子项 NV（AC-58）**。
+**小计（与附录 A 对得上）**：68 行 → **68 PASS / 0 FAIL / 0 BLOCKED / 0 NOT-VERIFIED**（其中 AC-41 的证据来源为「人工验收确认」）；其中 **1 条 PASS 带子项 NV（AC-58）**。
 
 ### 14.1 判定含义注（两条，防止把判据读成永真）
 
@@ -1464,7 +1478,7 @@ RLS② GET /rest/v1/todos   （仅 apikey、无用户 token）
 | **第一轮**（M2 台账统一） | `docs/test/ZACHTD-2-test-report.md` | 新增 §14（68 行台账 + 两条判定含义注 + 四条口径）、§13.17；改 §0.1 算术口径、§3 AC-37 行、§13.5 TC-080 行、§13.10、§13.11 AC-37 行、§13.14 观察 1·2、附录 A.1/A.2/A.3（A.2 从「13 条」改「12 条新增」，A.1+A.2 = 68） |
 | **第二轮**（口径与证据） | 同上 | ① 新增 **§4.0 产物身份与时效**（03:17 / 05:41 / 07:21 三份构建谁验了什么）；② **§4.5 按 07:21/07:22 构建重测**（dmg `3285579` → **`3309469`**，附 md5 对比）；③ §13.10 重写为「源码值位 / tracked 分账 / **产物两笔账（`dist/` 带正控 vs `strings`）** / **S1 白名单已闭环**」；④ §13.17-c 补 `check-sync.mjs` **78 项断言**原始输出与白名单形态矩阵（2 放行 / 3 拒绝）；⑤ 行数口径去绝对化（**不给行数**——本轮实测 39 → 43、随文档自增；判据只挂「值位 1 行 / 凭据 0」）；⑥ §3 AC-38/AC-39/AC-40 行、§13.2 产物行、§12 偏差表两行、§0.1、A.2 断言数（75 → 78）、§14 口径 3 与三行台账同步 |
 | **第三轮**（收尾五件，本轮） | 同上 | ① §13.10 ① / §13.17-b 按实际重贴 `sync.config.example.json:5` 的新文案（值位仍 **1 行**，「凭据 0 / 文本 1」不变）；② §4.0 重写：03:17 与 `todo.app`（00:10）**已入废纸篓**、`/Applications` 与 `bundle` 现为同一份 07:21 字节（md5 相同）、05:41 已被覆盖；口径 3 改成「旧两份已入废纸篓，验收时倒掉」并如实标注「Trash 目录我列不了」；③ 报告头部与附录 A.3 的判定基线 **v1.5 → v1.6**；④ 证据卫生：追踪扫描改 `git grep -n -E`（旧 `grep $(git ls-files)` 会漏带引号的中文路径、并对已删除的 `CLAUDE.md` 报错），**stderr 照贴**，行数不再作判据；⑤ `supabase/schema.sql:10` 换占位后复核策略行号（31/36/41/45/46/50 未变）；⑥ §4.5 补 dmg md5、§13.2 产物行与 §3 AC-38/AC-40 的构建身份同步 |
-| **第五轮**（S7.9 台账回填，`ZACHTD-19`） | `docs/test/ZACHTD-2-test-report.md` + `README.md` | ① 新增 **§13.18**（云端实测与真实 CI 的证据段，标注「Leader 实测、Tester 复核文字」）；② 台账改判 5 行：**AC-65 → PASS**、**AC-66② → PASS（等价判据）**、**AC-68 → PASS（含真实 CI）**、**AC-59 子项 → PASS**、**AC-41 → 人工验收确认**；③ 全量口径改为 **67 PASS / 0 FAIL / 0 BLOCKED / 0 NOT-VERIFIED**（另 AC-41 单列，§0.1 / §7.2 / §7.3 / §8 / §13.1 / §13.5 / §13.8 / §13.12 / §14 / 附录 A 同步）；④ README「已知边界」两条改写为「已在 GitHub Actions 跑通、产物可下载」。**本轮未重跑 E2E / 未重打包 / 未改任何产品代码** |
+| **第五轮**（S7.9 台账回填，`ZACHTD-19`） | `docs/test/ZACHTD-2-test-report.md` + `README.md` | ① 新增 **§13.18**（云端实测与真实 CI 的证据段，标注「Leader 实测、Tester 复核文字」）；② 台账改判 5 行：**AC-65 → PASS**、**AC-66② → PASS（等价判据）**、**AC-68 → PASS（含真实 CI）**、**AC-59 子项 → PASS**、**AC-41 → PASS（人工验收确认，Leader 拍板）**；③ 全量口径改为 **68 PASS / 0 FAIL / 0 BLOCKED / 0 NOT-VERIFIED**（§0.1 / §7.2 / §7.3 / §8 / §13.1 / §13.5 / §13.8 / §13.12 / §14 / 附录 A 同步）；④ README「已知边界」两条改写为「已在 GitHub Actions 跑通、产物可下载」。**本轮未重跑 E2E / 未重打包 / 未改任何产品代码** |
 | **第四轮**（S7.5 / S7.6，`ZACHTD-15` / `ZACHTD-16`） | 同上 + `README.md` / `src-tauri/tauri.macos.conf.json` / `scripts/check-bundle-config.mjs` / `docs/verification/**` | ① 新增 §0.3 / §0.4 与 `desktop/S7.5-evidence.md`、`desktop/S7.6-evidence.md`、`M-00/M-01-a/M-01-b/M-01-c/M-04-a/M-10-a` 六张截图；② §1 签名行、§4.0 构建表、§4.5 时效说明按 **10:35 / 10:36** 重建结果同步；③ §6 回填 **M-01 PASS / M-14 PASS**，小计改为 PASS 5 · PARTIAL 1 · BLOCKED 8；④ §7.2 / §13.13 / §13.14-8 补「S7.6 已处置」注；⑤ README §2 按实测现象重写 Gatekeeper 三情形、分发源字节数 / md5 更新为 10:35 构建。**AC 判定一条未变**（66 / 0 / 1 / 1） |
 
 **未改动（第一~三轮的范围）**：`src/**`、`src-tauri/**`、`e2e/**`、`e2e-sync/**`、`scripts/**`、`package.json`、`README.md`、`supabase/**` 一行未动。**S7.6 起本条需要按轮次读**：第四轮只改 `src-tauri/tauri.macos.conf.json`（加 `signingIdentity: "-"`）、`README.md`、`scripts/check-bundle-config.mjs`（新增一条断言）与验证文档，业务代码、E2E 断言未动。任何 AC 判定未变：68 行仍是 66 PASS / 0 FAIL / 1 BLOCKED / 1 NOT-VERIFIED（**第四轮当时口径**；第五轮 S7.9 后见 §0.1）。
@@ -1480,13 +1494,12 @@ RLS② GET /rest/v1/todos   （仅 apikey、无用户 token）
 | 维度 | 数量 |
 | --- | --- |
 | 本段 AC 总数 | 56（AC-01 ~ AC-56） |
-| PASS | **55** |
+| PASS | **56**（S7 段原 55；S7.9 回填 AC-41） |
 | FAIL | **0** |
-| 人工验收确认 | **1**（AC-41，S7.9 回填；原 `BLOCKED`） |
 | BLOCKED | **0**（S7.9 后） |
 | NOT-VERIFIED | **0**（AC 级；Windows 实机 2 项另计，§8） |
 | 观察（不可达） | 0 条 AC（2 个半句观察项） |
-| 通过率 | **55 ÷ 56 = 98.2%**（可判定 56 条；把 AC-41 也计入通过口径则 56/56 = 100%） |
+| 通过率 | **56 ÷ 56 = 100%**（AC-41 于 S7.9 回填为 PASS，证据来源为人工验收确认） |
 | 其中 AC-43 | 按 PRD v1.4 / v1.5 收窄口径**重判 PASS**（§13.7，S7 旧结论作废）——**是本段内的重判，不新增条目、不另计一条** |
 | 人工 checklist | PASS 3 / BLOCKED 10 / 记录 2（M-15/16）（**S7 当时**；S7.5 补跑后 = PASS 3 / PARTIAL 3 / BLOCKED 8 / 记录 2，见 §6） |
 | 回归命令 | 4 组全绿（build / check-cases / check-permutation / playwright 6 passed） |
@@ -1501,7 +1514,7 @@ RLS② GET /rest/v1/todos   （仅 apikey、无用户 token）
 | PASS | **12**（AC-57 ~ AC-64 = 8、AC-65 = 1、AC-66 = 1、AC-67 = 1、AC-68 = 1；S7.9 回填 AC-65 / AC-66② / AC-68 的 CI） |
 | FAIL | **0** |
 | NOT-VERIFIED | **0**（S7.9 后；AC-65 已 PASS）；仍有**子项 NV 1 条**：AC-58（TC-062 真实登录态截图）——子项不计入 AC 级 NV |
-| BLOCKED | **0 条 AC**（AC-41 已于 S7.9 记「人工验收确认」；M-09 / M-11 / AC-34·AC-55 的桌面 UI 变体仍按 §13.13 记 BLOCKED，不计入本段 AC） |
+| BLOCKED | **0 条 AC**（AC-41 已于 S7.9 记 PASS；M-09 / M-11 / AC-34·AC-55 的桌面 UI 变体仍按 §13.13 记 BLOCKED，不计入本段 AC） |
 | 同步用例 | TC-057 ~ TC-080：PASS **24** / FAIL **0** / NOT-VERIFIED **0**（S10.5 当时为 PASS 21 / NV 3 —— TC-064 / TC-078 / TC-079②） |
 | 同步套件 | `npx playwright test -c playwright.sync.config.ts` → **4 passed**（主套件另计 6 passed） |
 | stub 断言 | `check-sync.mjs` **78 项**（S1 前 75，+3 条白名单断言）+ `check-sync-extra.mjs` **37 项**，全部通过 |
@@ -1514,12 +1527,11 @@ RLS② GET /rest/v1/todos   （仅 apikey、无用户 token）
 | --- | --- |
 | AC 总数 | **68**（AC-01 ~ AC-68，PRD **v1.6**；条数自 v1.4 起未变） |
 | 组成 | **56（AC-01 ~ AC-56）+ 12（AC-57 ~ AC-68）= 68**；AC-43 只计一次（重判） |
-| PASS | **67**（= 55 + 12；S7.9 回填 AC-65） |
+| PASS | **68**（= 56 + 12；S7.9 回填 AC-65 与 AC-41） |
 | FAIL | **0** |
-| 人工验收确认 | **1**（AC-41；人类实机验证，无 Tester 侧自动化取证——**不计入 67**） |
 | BLOCKED | **0**（S7.9 后） |
 | NOT-VERIFIED | **0**（S7.9 后；AC-65 已 PASS） |
-| 带子项 NV 的 PASS | **1 条**（AC-58 的已登录态截图）——`67 PASS` **不等于** 67 条都有 Tester 侧完整证据（§14 口径 2） |
-| 通过率 | **67 ÷ 68 = 98.5%**；把 AC-41 也计入通过口径则 **68 ÷ 68 = 100%**（68 条全部可判定） |
+| 带子项 NV 的 PASS | **1 条**（AC-58 的已登录态截图）——`68 PASS` **不等于** 68 条都有 Tester 侧完整证据（§14 口径 2） |
+| 通过率 | **68 ÷ 68 = 100%**（68 条全部可判定） |
 | AC-01 ~ AC-56 是否回归 | **0 条被推翻、0 条降级**（§13.11） |
 | 四组回归 | 两轮全绿（§2 与 §13.3）；同步套件单独 4 passed（§13.4） |
