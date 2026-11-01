@@ -89,8 +89,10 @@ git push origin pre-macos-port-backup:master --force-with-lease=refs/heads/maste
 `pull_request` 与手动 `workflow_dispatch`，所以本次推送**会**触发两条 job
 （`macos-latest` / `windows-latest`，Windows job 真的执行 `npx tauri build`）。
 
-但本机既看不到结果，也无法观察：HTTPS 到 github.com 不通、`gh` 未安装。
-因此这里**只记 `NOT-VERIFIED`**，不写「CI 已通过」。
+但本机读不到结果：仓库是**私有**的，未认证的 GitHub API 对 `repos/zzy1661/todo`
+一律返回 `404 Not Found`（Actions 列表同样 404），而本机既没有 `gh`、也没有可用的 token
+去认证（交付口径也不允许把 token 写进任何文件）。因此这里**只记 `NOT-VERIFIED`**，
+不写「CI 已通过」。
 `windows-latest` 的结论尤其重要：README 里「Windows 侧交付可构建能力」是**静态三证**
 （`check-bundle-config.mjs` 44 条断言 + matrix 真跑 `tauri build` + 交付说明标注未本机验证），
 不是构建成功的实测。等 GitHub 上跑完，以实际结论复核这一句。
