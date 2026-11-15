@@ -87,6 +87,58 @@ const KEYCHAIN_ACCOUNT: &str = "supabase-session";
 /// 运行期同步配置文件名：放在 app data 目录，**不入库**（仓库只有 `.example`）
 const SYNC_CONFIG_FILE: &str = "sync.config.json";
 
+/// 定时同步状态文件名：与配置同目录（PRD FR-SYNC-17）。
+///
+/// 为什么是独立文件而不是 SQLite 第三张表：`todos` / `daily_picks` 两表固定
+/// （BR-07），迁移只增不改（BR-08），加表会同时踩两条红线。
+/// 文件里**只有时间戳**，没有任何凭据，不需要像会话那样进钥匙串。
+const SYNC_STATE_FILE: &str = "sync.state.json";
+
+/// 读定时同步状态（缺失即返回 None，前端据此按「首次建立周期」处理）
+#[tauri::command]
+fn sync_state_read(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    let dir = app
+        .path()
+        .app_config_dir()
+        .map_err(|e| format!("无法解析应用数据目录: {e}"))?;
+    let path = dir.join(SYNC_STATE_FILE);
+    match fs::read_to_string(&path) {
+        Ok(text) => Ok(Some(text)),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(err) => Err(format!("读取 {} 失败: {err}", path.display())),
+    }
+}
+
+/// 写定时同步状态（原子替换：先写临时文件再 rename，避免半截文件被读到）
+#[tauri::command]
+fn sync_state_write(app: tauri::AppHandle, blob: String) -> Result<(), String> {
+    let dir = app
+        .path()
+        .app_config_dir()
+        .map_err(|e| format!("无法解析应用数据目录: {e}"))?;
+    fs::create_dir_all(&dir).map_err(|e| format!("创建应用数据目录失败 {}: {e}", dir.display()))?;
+    let path = dir.join(SYNC_STATE_FILE);
+    let tmp = dir.join(format!("{SYNC_STATE_FILE}.tmp"));
+    fs::write(&tmp, blob.as_bytes()).map_err(|e| format!("写入 {} 失败: {e}", tmp.display()))?;
+    fs::rename(&tmp, &path).map_err(|e| format!("替换 {} 失败: {e}", path.display()))?;
+    Ok(())
+}
+
+/// 清除定时同步状态（下次启动按「首次建立周期」重新起算）
+#[tauri::command]
+fn sync_state_clear(app: tauri::AppHandle) -> Result<(), String> {
+    let dir = app
+        .path()
+        .app_config_dir()
+        .map_err(|e| format!("无法解析应用数据目录: {e}"))?;
+    let path = dir.join(SYNC_STATE_FILE);
+    match fs::remove_file(&path) {
+        Ok(()) => Ok(()),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(err) => Err(format!("删除 {} 失败: {err}", path.display())),
+    }
+}
+
 /// 读运行期配置（缺失即返回 None，前端据此 `sync.enabled = false` 并短路所有云端调用）
 #[tauri::command]
 fn sync_config_read(app: tauri::AppHandle) -> Result<Option<String>, String> {
@@ -363,6 +415,9 @@ pub fn run() {
         )
         .invoke_handler(tauri::generate_handler![
             sync_config_read,
+            sync_state_read,
+            sync_state_write,
+            sync_state_clear,
             sync_session_save,
             sync_session_load,
             sync_session_clear,

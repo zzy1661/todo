@@ -25,6 +25,12 @@ import {
   serializeSession,
   type SessionStore,
 } from '../sync/sessionStore.ts';
+import {
+  createMemoryStateStore,
+  parseSyncState,
+  serializeSyncState,
+  type SyncStateStore,
+} from '../sync/stateStore.ts';
 import { onLocalTodoChange } from '../sync/events.ts';
 import { nowMs } from '../sync/clock.ts';
 import { currentTimers } from '../sync/timers.ts';
@@ -80,6 +86,36 @@ function createKeychainSessionStore(): SessionStore {
         await invoke('sync_session_clear');
       } catch {
         /* 清除失败不影响本地已置未登录 */
+      }
+    },
+  };
+}
+
+/**
+ * 桌面端：定时同步锚点状态（PRD FR-SYNC-17）。
+ *
+ * 落在 app data 目录的独立状态文件，**不进 SQLite**（BR-07 两表固定、BR-08 迁移只增不改）。
+ * 文件里只有时间戳，没有凭据，因此不进钥匙串。
+ */
+function createFileStateStore(): SyncStateStore {
+  return {
+    kind: 'file',
+    async load() {
+      try {
+        const raw = await invoke<string | null>('sync_state_read');
+        return parseSyncState(raw);
+      } catch {
+        return null; // 读不到就当「首次建立周期」，不让启动失败
+      }
+    },
+    async save(state) {
+      await invoke('sync_state_write', { blob: serializeSyncState(state) });
+    },
+    async clear() {
+      try {
+        await invoke('sync_state_clear');
+      } catch {
+        /* 清除失败不影响同步本身 */
       }
     },
   };
@@ -163,10 +199,16 @@ async function startSync(): Promise<void> {
     ? createKeychainSessionStore()
     : createMemorySessionStore();
 
+  // 定时同步锚点：桌面端落盘（跨重启延续周期），浏览器 / 未配置时用内存实现
+  const stateStore = config.enabled && isTauriEnv()
+    ? createFileStateStore()
+    : createMemoryStateStore();
+
   engine = new SyncEngine({
     config,
     api: new SupabaseRestApi({ baseUrl: config.baseUrl, anonKey: config.anonKey }),
     sessionStore,
+    stateStore,
     local: {
       loadByUuids: (uuids) => fetchTodoSyncRows(uuids),
       applyRemote: (rows) => applyRemoteTodos(rows),
@@ -278,4 +320,20 @@ export function lastSyncText(status: SyncStatus): string {
   const time = dayjs(status.lastSyncAt).format('M月D日 HH:mm:ss');
   const result = status.lastResult === 'ok' ? '成功' : status.lastResult === 'failed' ? '失败' : '';
   return `上次同步 ${time}${result ? ` · ${result}` : ''}`;
+}
+
+/**
+ * 定时同步说明（PRD FR-SYNC-17）。
+ *
+ * 口径：
+ * - 未启用 → 空串（状态区不显示这一行，避免出现「0 天」这种怪文案）；
+ * - 已启用但未排期（未登录） → 「每 N 天自动同步 · 登录后开始」；
+ * - 已排期 → 「每 N 天自动同步 · 下次 M月D日 HH:mm」。
+ */
+export function autoSyncText(status: SyncStatus): string {
+  if (!status.autoSyncEnabled || status.autoSyncIntervalMs <= 0) return '';
+  const days = Math.round(status.autoSyncIntervalMs / (24 * 60 * 60 * 1000));
+  const period = `每 ${days} 天自动同步`;
+  if (!status.nextAutoSyncAt) return `${period} · 登录后开始`;
+  return `${period} · 下次 ${dayjs(status.nextAutoSyncAt).format('M月D日 HH:mm')}`;
 }

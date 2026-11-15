@@ -55,6 +55,12 @@ export interface SyncStatus {
   /** 最近一次同步的结果；未同步过为 null */
   lastResult: 'ok' | 'failed' | null;
   lastError: string;
+  /** 定时同步是否启用（FR-SYNC-17） */
+  autoSyncEnabled: boolean;
+  /** 定时同步周期（毫秒）；0 = 已关闭 */
+  autoSyncIntervalMs: number;
+  /** 下一轮定时同步的时刻（毫秒）；null = 未排期 */
+  nextAutoSyncAt: number | null;
 }
 
 export const EMPTY_STATUS: SyncStatus = {
@@ -64,6 +70,9 @@ export const EMPTY_STATUS: SyncStatus = {
   lastSyncAt: null,
   lastResult: null,
   lastError: '',
+  autoSyncEnabled: false,
+  autoSyncIntervalMs: 0,
+  nextAutoSyncAt: null,
 };
 
 /** 合并结果统计（AC-61 / AC-63 的观察点） */

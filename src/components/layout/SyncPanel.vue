@@ -12,6 +12,7 @@
  */
 import { computed } from 'vue';
 import {
+  autoSyncText,
   closePanel,
   lastSyncText,
   login,
@@ -25,6 +26,7 @@ import {
 const status = computed(() => syncState.status);
 const label = computed(() => phaseLabel(status.value));
 const lastText = computed(() => lastSyncText(status.value));
+const autoText = computed(() => autoSyncText(status.value));
 const signedIn = computed(
   () => status.value.phase === 'signed-in' || status.value.phase === 'syncing'
 );
@@ -60,6 +62,7 @@ const canLogin = computed(
       <p v-if="status.email" class="sync-account">{{ status.email }}</p>
       <p class="sync-detail">{{ status.detail }}</p>
       <p v-if="lastText" class="sync-last">{{ lastText }}</p>
+      <p v-if="autoText" class="sync-auto" data-sync-auto>{{ autoText }}</p>
       <p v-if="status.phase === 'disabled'" class="sync-hint">
         未配置 Supabase：本地功能不受影响，也不会发起任何网络请求。填入
         <code>sync.config.json</code> 后可登录同步。
@@ -194,7 +197,8 @@ const canLogin = computed(
 }
 
 .sync-detail,
-.sync-last {
+.sync-last,
+.sync-auto {
   font-size: 11px;
   color: var(--color-text-secondary);
 }

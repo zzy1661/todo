@@ -14,6 +14,7 @@
 import type { Clock } from './clock.ts';
 import type { Timers, TimerHandle } from './timers.ts';
 import { decideMerge } from './merge.ts';
+import { AutoSync, autoSyncIntervalMs } from './autoSync.ts';
 import {
   buildAuthorizeUrl,
   createPkcePair,
@@ -25,6 +26,8 @@ import {
 import type { SyncApiLike, RawSessionPayload } from './api.ts';
 import { SyncHttpError, isMissingRemoteTable } from './api.ts';
 import type { SessionStore } from './sessionStore.ts';
+import type { SyncState, SyncStateStore } from './stateStore.ts';
+import { createMemoryStateStore, isAutoSyncDue } from './stateStore.ts';
 import type { SyncConfig } from './config.ts';
 import type {
   LocalTodoRow,
@@ -69,6 +72,11 @@ export interface SyncEngineOptions {
   retryDelays?: number[];
   /** 回环等待超时，默认 180s */
   oauthTimeoutMs?: number;
+  /**
+   * 定时同步的锚点存储（FR-SYNC-17）。缺省用内存实现 —— 进程内有效，
+   * 跨重启延续需要传入落盘实现（桌面端为独立状态文件，见 stateStore.ts）。
+   */
+  stateStore?: SyncStateStore;
 }
 
 const DEFAULT_RETRY_DELAYS = [1000, 2000, 4000, 8000, 16000];
@@ -101,6 +109,8 @@ export class SyncEngine {
   private readonly debounceMs: number;
   private readonly retryDelays: number[];
   private readonly oauthTimeoutMs: number;
+  private readonly stateStore: SyncStateStore;
+  private readonly autoSync: AutoSync;
 
   private session: SyncSession | null = null;
   private status: SyncStatus;
@@ -119,6 +129,24 @@ export class SyncEngine {
     this.debounceMs = options.debounceMs ?? 5000;
     this.retryDelays = options.retryDelays ?? DEFAULT_RETRY_DELAYS;
     this.oauthTimeoutMs = options.oauthTimeoutMs ?? 180_000;
+    this.stateStore = options.stateStore ?? createMemoryStateStore();
+    // 未配置同步时整个同步层是短路的（FR-SYNC-10），定时同步自然也不成立：
+    // 此时状态区不该出现「每 2 天自动同步」的字样，免得让人以为配好 key 就会自动同步。
+    const intervalMs = options.config.enabled
+      ? autoSyncIntervalMs(options.config.autoSyncDays)
+      : 0;
+    this.autoSync = new AutoSync({
+      timers: options.timers,
+      clock: options.clock,
+      intervalMs,
+      // 定时同步 = 拉一次云端 + 推一次本地待推集合（与手动重试同一条路径）
+      run: (reason) => this.runAutoSyncRound(reason),
+      onSynced: (at) => {
+        void this.saveAnchor(at);
+        // 锚点推进后下一轮的时刻变了，状态区要跟着刷新
+        this.publishAutoSyncState();
+      },
+    });
     this.status = {
       phase: options.config.enabled ? 'signed-out' : 'disabled',
       detail: options.config.enabled ? '未登录' : '未配置同步',
@@ -126,6 +154,9 @@ export class SyncEngine {
       lastSyncAt: null,
       lastResult: null,
       lastError: '',
+      autoSyncEnabled: intervalMs > 0,
+      autoSyncIntervalMs: intervalMs,
+      nextAutoSyncAt: null,
     };
   }
 
@@ -149,6 +180,21 @@ export class SyncEngine {
     return this.options.config.enabled;
   }
 
+  /** 定时同步是否启用（FR-SYNC-17） */
+  isAutoSyncEnabled(): boolean {
+    return this.autoSync.enabled;
+  }
+
+  /** 定时同步周期（毫秒）；0 = 已关闭 */
+  autoSyncInterval(): number {
+    return this.autoSync.periodMs;
+  }
+
+  /** 下一轮定时同步的时刻（毫秒）；null = 未排期 */
+  nextAutoSyncAt(): number | null {
+    return this.autoSync.nextDueAt;
+  }
+
   /* ----------------------------------------------------------- 生命周期 */
 
   /** 启动：已登录则拉取一次；未登录/未配置则什么都不做（零请求） */
@@ -160,11 +206,12 @@ export class SyncEngine {
     const stored = await this.options.sessionStore.load();
     if (!stored) {
       this.setStatus({ phase: 'signed-out', detail: '未登录', email: '' });
+      // 未登录不排期：定时器一旦挂上就可能发请求，违反 FR-SYNC-10 的零请求红线
       return;
     }
     this.session = stored;
     this.setStatus({ phase: 'signed-in', detail: '已登录', email: stored.email });
-    await this.pull('启动');
+    await this.enterSession('启动');
   }
 
   dispose(): void {
@@ -173,6 +220,7 @@ export class SyncEngine {
     if (this.retryTimer !== null) this.options.timers.clearTimeout(this.retryTimer);
     this.debounceTimer = null;
     this.retryTimer = null;
+    this.autoSync.cancel();
   }
 
   /* ----------------------------------------------------------- 变更 → 防抖 */
@@ -362,8 +410,8 @@ export class SyncEngine {
         email: this.session.email,
         lastError: '',
       });
-      // 登录成功后立即拉取一次（FR-SYNC-06）
-      await this.pull('登录');
+      // 登录成功后立即拉取一次（FR-SYNC-06），并建立定时同步排期
+      await this.enterSession('登录');
       if (this.pending.size > 0) this.scheduleFlush(this.debounceMs);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -385,6 +433,8 @@ export class SyncEngine {
     this.pending.clear();
     if (this.debounceTimer !== null) this.options.timers.clearTimeout(this.debounceTimer);
     this.debounceTimer = null;
+    // 登出后必须停掉定时器：留着的定时器到点会发请求，违反 FR-SYNC-10
+    this.autoSync.cancel();
     try {
       await this.options.sessionStore.clear();
     } finally {
@@ -392,6 +442,7 @@ export class SyncEngine {
         phase: this.options.config.enabled ? 'signed-out' : 'disabled',
         detail: '未登录',
         email: '',
+        nextAutoSyncAt: null,
       });
     }
     if (token && this.options.config.enabled) {
@@ -402,6 +453,108 @@ export class SyncEngine {
         /* 忽略：本地会话已清，云端 token 到期自然失效 */
       }
     }
+  }
+
+  /* ----------------------------------------------------------- 定时同步 */
+
+  /**
+   * 建立会话后的统一入口：拉一次云端 + 建立定时同步排期。
+   *
+   * 启动（FR-SYNC-05）与登录（FR-SYNC-06）都走这里，两者的差别只在传入的原因文案。
+   *
+   * **为什么把拉取与排期合并成一步**：锚点过期时补做的那一轮本身就是
+   * 「拉 + 推」，若先无条件拉一次、再补做一轮，同一次启动会打两遍云端。
+   * 这里改成：先判断是否到期 —— 到期就只跑补做那一轮（它含拉取），
+   * 没到期才走常规的启动 / 登录拉取。两种情况下启动都恰好拉一次。
+   */
+  private async enterSession(reason: string): Promise<void> {
+    const overdue = await this.prepareAutoSync();
+    if (overdue) {
+      // 补做一轮：拉 + 推，成功后锚点推进
+      await this.autoSync.runNow(`${reason}（补做）`);
+      this.publishAutoSyncState();
+      return;
+    }
+    await this.pull(reason);
+    this.publishAutoSyncState();
+  }
+
+  /**
+   * 载入锚点并排期；返回「是否已到期、需要在本次启动补做一轮」。
+   *
+   * 三种情形：
+   * 1. 锚点为空（首次建立周期）→ 把锚点定在当下并落盘，排期到「当下 + 周期」；
+   * 2. 锚点已过期（应用关了很久）→ 返回 true，由调用方补做一轮；
+   * 3. 锚点未过期 → 按锚点排期，节拍跨重启延续。
+   */
+  private async prepareAutoSync(): Promise<boolean> {
+    if (!this.autoSync.enabled || !this.session) {
+      this.publishAutoSyncState();
+      return false;
+    }
+
+    const state = await this.loadState();
+    const anchor = state?.autoSyncAnchorAt ?? null;
+
+    if (anchor === null) {
+      // 首次建立周期：锚点定在当下并落盘，否则重启会把周期一直往后推
+      const now = this.options.clock.now();
+      this.autoSync.setAnchor(now);
+      await this.saveAnchor(now);
+      this.autoSync.schedule();
+      this.publishAutoSyncState();
+      return false;
+    }
+
+    this.autoSync.restore(anchor);
+    if (isAutoSyncDue(state, this.options.clock, this.autoSync.periodMs)) {
+      return true;
+    }
+    this.autoSync.schedule();
+    this.publishAutoSyncState();
+    return false;
+  }
+
+  /**
+   * 一轮定时同步：拉一次云端 + 推一次本地待推集合。
+   *
+   * 与手动重试（`retry`）同一条路径，区别只在于触发时机：
+   * 手动是用户点按钮，这里是定时器到点。
+   */
+  private async runAutoSyncRound(reason: string): Promise<boolean> {
+    if (!this.options.config.enabled || !this.session) return false;
+    const stats = await this.pull(reason);
+    if (!stats) return false;
+    // 推送在 pull 之后：拉取结果不进推送队列（NEG-04），这里推的是本地改动
+    await this.flush();
+    return true;
+  }
+
+  /** 读取落盘状态；读失败当作没有状态（不打断启动） */
+  private async loadState(): Promise<SyncState | null> {
+    try {
+      return await this.stateStore.load();
+    } catch {
+      return null;
+    }
+  }
+
+  /** 落盘锚点；写失败只影响「跨重启续期」，不影响本轮同步本身 */
+  private async saveAnchor(at: number): Promise<void> {
+    try {
+      await this.stateStore.save({ autoSyncAnchorAt: at });
+    } catch {
+      /* 锚点写不进去不应阻塞同步 */
+    }
+  }
+
+  /** 把排期信息同步到状态区（供界面显示「下次自动同步」时间） */
+  private publishAutoSyncState(): void {
+    this.setStatus({
+      autoSyncEnabled: this.autoSync.enabled,
+      autoSyncIntervalMs: this.autoSync.periodMs,
+      nextAutoSyncAt: this.autoSync.nextDueAt,
+    });
   }
 
   /* ----------------------------------------------------------- 手动重试 */

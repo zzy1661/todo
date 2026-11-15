@@ -1,16 +1,17 @@
 /**
  * 同步层本地 stub 回归（S10 必做项 8 / PRD FR-SYNC-15 / 测试计划 §5.8）。
  *
- * 五组路径逐条真跑，全部打在本机假云端（`scripts/mock-supabase.mjs`）上，
+ * 九组路径逐条真跑，全部打在本机假云端（`scripts/mock-supabase.mjs`）上，
  * 数据走真实数据层（`src/db/database.ts` 的 localStorage 实现，语义与 SQLite 对齐）：
  *   ① 5 秒防抖 + 合并 + 只推变更条目 + 软删除 payload
  *   ② 启动拉取合并 / 登录成功后立即拉取
  *   ③ LWW（双向、同毫秒稳定序、6 小时时钟偏移）
  *   ④ 墓碑终结（远端删除不可被旧数据复活）+ 本地软删除行仍在库
  *   ⑤ 401 失效 → 刷新重试 → 刷新失败置未登录
- * 另加：⑥ 未配置时零请求（AC-57 的同步侧证据）
- *      ⑦ 登录可信性：GoTrue 托管 state、防伪靠 PKCE verifier（S7.8 回归）
- *      ⑧ 云端表缺失（PGRST205）：提示建表、不空转重试
+ *   ⑥ 未配置时零请求（AC-57 的同步侧证据）
+ *   ⑦ 登录可信性：GoTrue 托管 state、防伪靠 PKCE verifier（S7.8 回归）
+ *   ⑧ 云端表缺失（PGRST205）：提示建表、不空转重试
+ *   ⑨ 每 2 天自动同步：假时钟推进 2 天 → 真跑一轮拉取（FR-SYNC-17）
  * 以及：v3 迁移在真实 SQLite 上的结构证据（AC-64 / TC-076）
  *
  * **不覆盖**：真实 Supabase / 真实 GitHub OAuth / 真实 RLS —— 一律 NOT-VERIFIED。
@@ -55,6 +56,7 @@ const { setTimers } = await import('../src/sync/timers.ts');
 const { SyncEngine } = await import('../src/sync/engine.ts');
 const { SupabaseRestApi } = await import('../src/sync/api.ts');
 const { createMemorySessionStore } = await import('../src/sync/sessionStore.ts');
+const { createMemoryStateStore } = await import('../src/sync/stateStore.ts');
 const { onLocalTodoChange } = await import('../src/sync/events.ts');
 const { contentKey } = await import('../src/sync/merge.ts');
 const { configFromEnv, parseSyncConfig } = await import('../src/sync/config.ts');
@@ -246,11 +248,16 @@ const publishable = parseSyncConfig({
 assert(publishable.config.enabled === true, 'sb_publishable_ 前缀的密钥必须被接受（AC-67）');
 
 /** 造一个引擎，并把「本地写 → 防抖推送」总线上线（与 store 层的接法一致） */
-function buildEngine(stub, { sessionStore, oauth, onStatus = () => {} }) {
+function buildEngine(
+  stub,
+  { sessionStore, oauth, onStatus = () => {}, stateStore, autoSyncDays } = {}
+) {
+  const cfg = config(stub.url);
   const engine = new SyncEngine({
-    config: config(stub.url),
+    config: { ...cfg, ...(autoSyncDays === undefined ? {} : { autoSyncDays }) },
     api: new SupabaseRestApi({ baseUrl: stub.url, anonKey: ANON_KEY }),
     sessionStore,
+    ...(stateStore ? { stateStore } : {}),
     local: {
       loadByUuids: (uuids) => db.fetchTodoSyncRows(uuids),
       applyRemote: (rows) => db.applyRemoteTodos(rows),
@@ -813,6 +820,264 @@ section('⑧ 云端表缺失（PGRST205）：报可执行的补救步骤，且�
   endSection();
 }
 
+/* ================================================================ 路径 ⑨ */
+
+/** 2 天的毫秒数（FR-SYNC-17 的默认周期） */
+const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
+
+section('⑨ 每 2 天自动同步：假时钟推进 2 天 → 真跑一轮拉取（FR-SYNC-17）');
+{
+  // ── ① 登录后推进 2 天：定时器到点，自己发起一次拉取
+  resetLocal();
+  const stub = await createMockSupabase();
+  const store = createMemorySessionStore();
+  const stateStore = createMemoryStateStore();
+  const { engine, off } = buildEngine(stub, {
+    sessionStore: store,
+    oauth: createOAuthLauncher(),
+    stateStore,
+  });
+
+  eq(engine.isAutoSyncEnabled(), true, '默认应启用定时同步（每 2 天）');
+  eq(engine.autoSyncInterval(), TWO_DAYS_MS, '默认周期应为 2 天');
+
+  await engine.login();
+  eq(stub.pullCount(), 1, '登录后立即拉取一次（FR-SYNC-06）');
+  const nextDue = engine.nextAutoSyncAt();
+  assert(typeof nextDue === 'number', '登录后应排期下一轮定时同步');
+  eq(nextDue, clock.now() + TWO_DAYS_MS, '下一轮应排在 2 天后');
+
+  // 推进到 1 天：还没到期，不应有任何定时同步请求
+  stub.resetLog();
+  await advance(TWO_DAYS_MS - 1000);
+  eq(stub.pullCount(), 0, '未到 2 天时不得发起定时拉取');
+
+  // 推进到 2 天：定时器到点，应自动拉取一次
+  await advance(1000);
+  eq(stub.pullCount(), 1, '满 2 天应自动拉取一次（FR-SYNC-17）');
+  eq(stub.pushCount(), 0, '没有本地改动时不应推送');
+  assert(
+    engine.getStatus().detail.includes('定时同步'),
+    `定时同步应体现在状态区，实际「${engine.getStatus().detail}」`
+  );
+
+  // 锚点已推进：下一轮应重新排在 2 天后
+  const nextDue2 = engine.nextAutoSyncAt();
+  eq(nextDue2, clock.now() + TWO_DAYS_MS, '一轮成功后应重新排期到 2 天后');
+  const saved = await stateStore.load();
+  eq(saved?.autoSyncAnchorAt, clock.now(), '成功后锚点应落盘');
+
+  off();
+  engine.dispose();
+  await stub.close();
+}
+
+{
+  // ── ② 锚点跨重启延续：重启后仍按原锚点排期，不会被重置
+  resetLocal();
+  const stub = await createMockSupabase();
+  const store = createMemorySessionStore();
+  // 锚点在 1 天前：周期尚未走完，重启后不应立刻补做
+  const stateStore = createMemoryStateStore({
+    autoSyncAnchorAt: clock.now() - 24 * 60 * 60 * 1000,
+  });
+  const first = buildEngine(stub, {
+    sessionStore: store,
+    oauth: createOAuthLauncher(),
+    stateStore,
+  });
+  await first.engine.login();
+  const dueBefore = first.engine.nextAutoSyncAt();
+  eq(dueBefore, clock.now() - 24 * 60 * 60 * 1000 + TWO_DAYS_MS, '重启后应按原锚点排期');
+  first.off();
+  first.engine.dispose();
+
+  const second = buildEngine(stub, {
+    sessionStore: store,
+    oauth: createOAuthLauncher(),
+    stateStore,
+  });
+  stub.resetLog();
+  await second.engine.start();
+  eq(stub.pullCount(), 1, '重启后仍按 FR-SYNC-05 拉取一次');
+  eq(
+    second.engine.nextAutoSyncAt(),
+    clock.now() - 24 * 60 * 60 * 1000 + TWO_DAYS_MS,
+    '重启不得把周期重置成「从现在起 2 天」'
+  );
+  second.off();
+  second.engine.dispose();
+  await stub.close();
+}
+
+{
+  // ── ③ 锚点过期：应用关了很久 → 下次启动补做一轮
+  resetLocal();
+  const stub = await createMockSupabase();
+  const store = createMemorySessionStore();
+
+  // 先用一个「干净的」状态建立登录会话（模拟之前正常用着）
+  const warmup = buildEngine(stub, {
+    sessionStore: store,
+    oauth: createOAuthLauncher(),
+    stateStore: createMemoryStateStore(),
+  });
+  await warmup.engine.login();
+  warmup.off();
+  warmup.engine.dispose();
+
+  // 锚点停在 5 天前：应用关着的时间早已超过一个周期
+  const stateStore = createMemoryStateStore({
+    autoSyncAnchorAt: clock.now() - 5 * 24 * 60 * 60 * 1000,
+  });
+  const { engine, off } = buildEngine(stub, {
+    sessionStore: store,
+    oauth: createOAuthLauncher(),
+    stateStore,
+  });
+  stub.resetLog();
+  await engine.start();
+  eq(stub.pullCount(), 1, '锚点过期时启动应补做一轮（只拉一次，不重复打云端）');
+  assert(
+    engine.getStatus().detail.includes('补做'),
+    `补做应体现在状态区，实际「${engine.getStatus().detail}」`
+  );
+  const saved = await stateStore.load();
+  eq(saved?.autoSyncAnchorAt, clock.now(), '补做成功后锚点应推进到当下');
+  off();
+  engine.dispose();
+  await stub.close();
+}
+
+{
+  // ── ④ 未登录时零请求：定时器不得存在（FR-SYNC-10）
+  resetLocal();
+  const stub = await createMockSupabase();
+  const stateStore = createMemoryStateStore();
+  const { engine, off } = buildEngine(stub, {
+    sessionStore: createMemorySessionStore(),
+    oauth: createOAuthLauncher(),
+    stateStore,
+  });
+  await engine.start();
+  eq(engine.nextAutoSyncAt(), null, '未登录时不得排期');
+  stub.resetLog();
+  await advance(TWO_DAYS_MS * 2);
+  eq(stub.state.requests.length, 0, '未登录时推进 4 天也不得有任何云端请求（FR-SYNC-10）');
+  off();
+  engine.dispose();
+  await stub.close();
+}
+
+{
+  // ── ⑤ 登出后停掉定时器：不得再有定时请求
+  resetLocal();
+  const stub = await createMockSupabase();
+  const { engine, off } = buildEngine(stub, {
+    sessionStore: createMemorySessionStore(),
+    oauth: createOAuthLauncher(),
+    stateStore: createMemoryStateStore(),
+  });
+  await engine.login();
+  await engine.logout();
+  eq(engine.nextAutoSyncAt(), null, '登出后应取消排期');
+  stub.resetLog();
+  await advance(TWO_DAYS_MS * 2);
+  eq(stub.state.requests.length, 0, '登出后推进 4 天也不得有任何云端请求');
+  off();
+  engine.dispose();
+  await stub.close();
+}
+
+{
+  // ── ⑥ 周期可配置：autoSyncDays = 0 → 关闭定时同步
+  resetLocal();
+  const stub = await createMockSupabase();
+  const { engine, off } = buildEngine(stub, {
+    sessionStore: createMemorySessionStore(),
+    oauth: createOAuthLauncher(),
+    stateStore: createMemoryStateStore(),
+    autoSyncDays: 0,
+  });
+  eq(engine.isAutoSyncEnabled(), false, 'autoSyncDays = 0 应关闭定时同步');
+  await engine.login();
+  eq(engine.nextAutoSyncAt(), null, '关闭后不得排期');
+  stub.resetLog();
+  await advance(TWO_DAYS_MS * 2);
+  eq(stub.pullCount(), 0, '关闭定时同步后不得有定时拉取');
+  off();
+  engine.dispose();
+  await stub.close();
+}
+
+{
+  // ── ⑥' 未配置同步时整个同步层短路：不得显示「每 2 天自动同步」
+  resetLocal();
+  const stub = await createMockSupabase();
+  const engine = new SyncEngine({
+    config: { enabled: false, baseUrl: stub.url, anonKey: '', source: 'none' },
+    api: new SupabaseRestApi({ baseUrl: stub.url, anonKey: ANON_KEY }),
+    sessionStore: createMemorySessionStore(),
+    local: {
+      loadByUuids: (uuids) => db.fetchTodoSyncRows(uuids),
+      applyRemote: (rows) => db.applyRemoteTodos(rows),
+    },
+    oauth: createOAuthLauncher(),
+    clock,
+    timers,
+    onStatus: () => {},
+  });
+  eq(engine.isAutoSyncEnabled(), false, '未配置同步时定时同步不算启用');
+  eq(engine.autoSyncInterval(), 0, '未配置同步时周期应为 0');
+  eq(engine.getStatus().autoSyncEnabled, false, '未配置时状态区不得声称定时同步已启用');
+  await engine.start();
+  stub.resetLog();
+  await advance(TWO_DAYS_MS * 2);
+  eq(stub.state.requests.length, 0, '未配置时推进 4 天也不得有任何云端请求');
+  engine.dispose();
+  await stub.close();
+}
+
+{
+  // ── ⑥'' 周期天数的归一化：非法值回落到默认、超限夹到 24、0 表示关闭
+  const withDays = (days) =>
+    parseSyncConfig(
+      {
+        supabaseUrl: 'https://example.supabase.co',
+        anonKey: ANON_KEY,
+        ...(days === undefined ? {} : { autoSyncDays: days }),
+      }
+    ).config.autoSyncDays;
+  eq(withDays(undefined), 2, '缺省周期应为 2 天');
+  eq(withDays(0), 0, '周期 0 表示关闭');
+  eq(withDays('abc'), 2, '非法周期应回落到默认 2 天而不是静默关闭');
+  eq(withDays(999), 24, '超上限周期应夹到 24 天（setTimeout 延时上限约 24.85 天）');
+  eq(withDays(1), 1, '合法周期应原样保留');
+}
+
+{
+  // ── ⑦ 定时轮次也推送本地改动（不止拉取）
+  resetLocal();
+  const stub = await createMockSupabase();
+  const { engine, off } = buildEngine(stub, {
+    sessionStore: createMemorySessionStore(),
+    oauth: createOAuthLauncher(),
+    stateStore: createMemoryStateStore(),
+  });
+  await engine.login();
+  // 本地改动先被防抖推送掉，不留待推集合
+  await db.createTodo({ title: '定时前建', date: '2026-11-08', priority: 1, note: '' });
+  await advance(5000);
+  stub.resetLog();
+  await advance(TWO_DAYS_MS);
+  eq(stub.pullCount(), 1, '2 天后应拉取一次');
+  eq(stub.pushCount(), 0, '本地改动已推过，定时轮次不应重复推送');
+  off();
+  engine.dispose();
+  await stub.close();
+  endSection();
+}
+
 /* ================================================================ 迁移证据 */
 
 section('v3 迁移结构证据（TC-076 / AC-64，只给 todos 加列）');
@@ -908,7 +1173,7 @@ if (failures.length > 0) {
   for (const failure of failures) console.error(`  - ${failure}`);
   process.exit(1);
 }
-console.log(`✓ 同步自检 PASS：${checks} 项断言，八组路径 + v3 迁移结构证据全部通过`);
+console.log(`✓ 同步自检 PASS：${checks} 项断言，九组路径 + v3 迁移结构证据全部通过`);
 console.log('  NOT-VERIFIED：真实 Supabase 读写、真实 GitHub OAuth 往返、云侧 RLS 越权不可见');
 
 /* ------------------------------------------------------------------ 辅助 */
