@@ -1714,6 +1714,89 @@ CI 证明的是「真实 Windows 上能出包」。为了回答「本机能不�
   Windows 上命令不存在 → 登录必然失败。本次只修了「用系统浏览器打开授权页」这一半，
   **没有会话存储，OAuth 往返仍不完整**，该边界不变（README 已同步改写表述）。
 
+### 13.24 全平台复检：为什么这些问题之前没被发现，以及补上的守护（v1.11）
+
+> 触发：需求方追问「为什么之前没发现这几个真问题？再检查一遍是否有遗漏问题」。
+> 这一节既是**复盘**，也是**新增的回归防护**的记录。
+
+#### 13.24.1 复盘：三层验证各自覆盖了什么、漏了什么
+
+| 我做过的验证 | 实际覆盖 | **漏掉的** |
+| --- | --- | --- |
+| `cargo xwin check --target x86_64-pc-windows-msvc` | 类型、借用、目标平台 API **存在性** | **运行时行为**。`/usr/bin/open` 是字符串字面量，编译期完全合法 |
+| CI 的 Windows job | **能出包**（`tauri build` 成功、产物上传） | **双击后有没有窗口**。AC-68 的判据原文是「可构建能力」，本就不含运行 |
+| E2E `6 passed` | 跑在**浏览器**里，不经 Tauri runtime | `invoke` 链路、panic、窗口创建、WebView2 加载 |
+| 根因分析 | **推测**「WebView2 缺失是主因」 | 没有实机证据就写进报告；且**没有第二、第三条候选路径** |
+
+**根因不是「审阅不仔细」，而是「没有任何一条可执行的断言在守护这类问题」。**
+逐行审阅必然有漏，而漏掉的代价是「用户装完双击没反应」——这类问题在 CI 全绿的仓库里照样发生。
+
+#### 13.24.2 本轮复检发现并修掉的问题
+
+复检按**类别**扫（不只扫已知的三个）：
+
+| # | 问题 | 类别 | 状态 |
+| --- | --- | --- | --- |
+| 1 | `startup.rs` 用 `dirs::data_dir()`，而 Tauri 的 `app_config_dir()` 用的是 `dirs::config_dir()` | **数据路径** | 已修：改成 `config_dir`。两者在 Windows / macOS 上恰好相同，**在 Linux 上不同**（配置目录 vs 数据目录）——日志会与 SQLite 数据库分家。**这是 v1.10 我自己引入的** |
+| 2 | `cmd /C start "" <url>` 的 URL **未加引号** | **命令调用** | 已修：`cmd` 里 `&` `|` `^` 是命令分隔符，URL 含这些字符或空格时会被拆成多条命令 |
+| 3 | 钥匙串在非 macOS 平台报「调用 security 失败: No such file or directory」 | **错误可读性** | 已修：改为平台分派，非 macOS 返回「当前平台暂不支持安全会话存储」，`load` 返回「未登录」、`clear` 成功 |
+| 4 | **平台专有调用没有任何守护** | **回归防护** | 已修：新增 `scripts/check-platform-portability.mjs` |
+
+#### 13.24.3 新增的守护：平台专有调用必须被 `#[cfg]` 保护
+
+`scripts/check-platform-portability.mjs` 把「平台专有调用必须被 `#[cfg(...)]` 保护」
+变成可执行断言，接入 CI 的两个 job（`npm run check:platform`）。
+
+- **守护范围**：`src/`（前端）与 `src-tauri/src/`（Rust）——只扫产品代码；
+- **守护规则**：7 条（`/usr/bin/` 下的命令、`osascript`、`xdg-open`、`powershell`、
+  `cmd.exe`、`cmd` 进程调用、`cmd /C` 参数）；
+- **判定**：平台专有调用必须落在某个带平台限定的 `#[cfg(...)]` 分支内。
+
+**守护脚本自身经历了三轮修正才真正有效**（每轮都用「故意注入回归」验证）：
+
+| 轮次 | 缺陷 | 表现 |
+| --- | --- | --- |
+| 1 | cfg 正则用 `[^)]*`，处理不了**嵌套括号** | `all(unix, not(target_os = "macos"))` 的右括号被吃掉 → 否定语义解析不出来 → **合法代码被误判为违规** |
+| 2 | 「向上找最近的 cfg」会**越过 item 边界** | 上一个 cfg 块残留的属性让下一个没保护的 item 被误判为已保护 → **故意注入的回归漏报** |
+| 3 | 按**缩进**定位 item 头会被**链式调用**骗到 | `ProcessCommand::new("cmd").args([...])` 折行后，中间那段缩进比函数头深、比函数体首行浅 → 被当成 item 头 → **`cmd /C` 误报** |
+
+最终判定改为「用**语法关键字**（`fn`/`const`/`impl`…）定位 item 头，
+再取其上方连续属性行里的 cfg，多个 cfg 取交集」，并对**嵌套 item** 特殊处理
+（嵌套 fn 继承外层函数的 cfg 保护，故要求 item 头缩进**严格小于**目标行）。
+
+**守护有效性验证**（故意注入回归，确认脚本会判红）：
+
+| 注入的回归 | 结果 |
+| --- | --- |
+| macOS 版 `open_in_browser` 去掉 cfg | **判红** ✓ |
+| Windows 版 `open_in_browser` 去掉 cfg | **判红** ✓ |
+| Linux 版 `open_in_browser` 去掉 cfg | **判红** ✓ |
+| `startup.rs` 的 `osascript` 去掉 cfg | **判红** ✓ |
+| 钥匙串 `keychain_save` 去掉 macos cfg | **判红** ✓ |
+
+#### 13.24.4 本轮复检**没有**发现问题的部分（同样记录，避免下次重查）
+
+| 维度 | 检查方式 | 结论 |
+| --- | --- | --- |
+| 前端平台分支 | 扫 `src/` 的 `process.platform` / 平台路径 | **零命中**，前端无平台特定代码 |
+| E2E / 自证脚本 | 扫 `path.join` / `process.execPath` / 临时目录 | 全部用**跨平台 API**，无硬编码路径与 shell 语法 |
+| CI workflow | 逐步骤审 Windows 假设 | `shell: bash` 在 Windows runner 上有 Git Bash（已实测通过）；产物路径用正斜杠，Node/PowerShell 均可处理 |
+| 回环监听端口 | 审 `TcpListener::bind` | 绑 `127.0.0.1:0`（端口 0 = 系统分配），**不涉及特权端口**，Windows 无需管理员权限 |
+| 文件原子写 | 审 `fs::rename` | Rust 的实现带 `MOVEFILE_REPLACE_EXISTING`，**Windows 上会覆盖目标而非失败**；临时文件与目标同目录，不会跨卷 |
+| 落盘失败的容错 | 审 `engine.ts` 的 `stateStore.save/load` | 两处都有 try/catch，落盘失败**不会**打断同步流程或前端 |
+| WebView2 预检的误判风险 | 审 wry 的 `webview_version()` | 用的是 **官方 API `GetAvailableCoreWebView2BrowserVersionString`**，检测**任意通道**（Stable/Beta/Dev）的 Evergreen Runtime，**不会因用户装的是 Dev 通道而误判**——这一点很关键，否则预检会让应用主动拒绝启动，比原问题更糟 |
+| 同步初始化的失败 | 审 `initSync()` | 同步初始化失败只置 `phase: 'error'`，**不影响本地功能**，不阻断启动 |
+| 编码 / 换行 / 路径大小写 | 审文件读写 | Rust 侧统一 UTF-8；JSON 不受 CRLF 影响；Windows 路径不区分大小写（比 macOS 宽松） |
+
+#### 13.24.5 遗留（明确不改，只记录）
+
+- **Windows 上同步入口仍不可用**：会话存储需要 Windows 凭据管理器（DPAPI）才能实现，
+  属**新增能力**而非本次缺陷修复的范围；README 已写明该边界。
+- **SQLite 位于漫游目录（Windows 的 `%APPDATA%`）**：域漫游环境下文件可能被同步到多台机器，
+  引发 SQLite 锁冲突。这是 Tauri 的默认目录选择，改它属于架构变更（PRD 的数据目录契约），
+  本轮**只记录不改**。
+- **CI 产物未签名**：Windows SmartScreen 拦截仍在，本期无证书不做签名。
+
 ---
 
 ## 14. AC-01 ~ AC-70 统一判定台账（70 行）

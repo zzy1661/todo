@@ -156,9 +156,19 @@ fn sync_config_read(app: tauri::AppHandle) -> Result<Option<String>, String> {
     }
 }
 
-/// 会话写入 macOS 登录钥匙串（PRD 任务书 §1：不得写进 localStorage / 日志 / 明文文件）
+/// 会话写入系统钥匙串（PRD 任务书 §1：不得写进 localStorage / 日志 / 明文文件）
+///
+/// **只有 macOS 实现了系统钥匙串**。其它平台返回一句人话，
+/// 而不是去执行一个并不存在的 `/usr/bin/security`、再把
+/// 「No such file or directory」这种底层错误抛给用户。
 #[tauri::command]
 fn sync_session_save(blob: String) -> Result<(), String> {
+    keychain_save(&blob)
+}
+
+/// macOS：写入登录钥匙串。
+#[cfg(target_os = "macos")]
+fn keychain_save(blob: &str) -> Result<(), String> {
     let output = ProcessCommand::new("/usr/bin/security")
         .args([
             "add-generic-password",
@@ -168,7 +178,7 @@ fn sync_session_save(blob: String) -> Result<(), String> {
             "-a",
             KEYCHAIN_ACCOUNT,
             "-w",
-            &blob,
+            blob,
         ])
         .output()
         .map_err(|e| format!("调用 security 失败: {e}"))?;
@@ -184,6 +194,12 @@ fn sync_session_save(blob: String) -> Result<(), String> {
 /// 读钥匙串中的会话；不存在返回 None（视为未登录）
 #[tauri::command]
 fn sync_session_load() -> Result<Option<String>, String> {
+    keychain_load()
+}
+
+/// macOS：读钥匙串中的会话。
+#[cfg(target_os = "macos")]
+fn keychain_load() -> Result<Option<String>, String> {
     let output = ProcessCommand::new("/usr/bin/security")
         .args([
             "find-generic-password",
@@ -205,6 +221,12 @@ fn sync_session_load() -> Result<Option<String>, String> {
 /// 清除会话（退出登录 / 令牌失效）
 #[tauri::command]
 fn sync_session_clear() -> Result<(), String> {
+    keychain_clear()
+}
+
+/// macOS：清除钥匙串中的会话。
+#[cfg(target_os = "macos")]
+fn keychain_clear() -> Result<(), String> {
     let output = ProcessCommand::new("/usr/bin/security")
         .args([
             "delete-generic-password",
@@ -219,6 +241,32 @@ fn sync_session_clear() -> Result<(), String> {
     let _ = output;
     Ok(())
 }
+
+/// 非 macOS：没有系统钥匙串实现。
+///
+/// 这三个函数是**明确的「不支持」**，而不是「假装成功」——
+/// `load` 返回「未登录」，`save` 返回一句人话，`clear` 直接成功。
+/// 这样 Windows 用户点「登录」时看到的是「当前平台暂不支持安全会话存储」，
+/// 而不是「调用 security 失败: No such file or directory」。
+#[cfg(not(target_os = "macos"))]
+fn keychain_save(_blob: &str) -> Result<(), String> {
+    Err(UNSUPPORTED_KEYCHAIN.to_string())
+}
+
+#[cfg(not(target_os = "macos"))]
+fn keychain_load() -> Result<Option<String>, String> {
+    Ok(None)
+}
+
+#[cfg(not(target_os = "macos"))]
+fn keychain_clear() -> Result<(), String> {
+    Ok(())
+}
+
+/// 非 macOS 平台上的会话存储提示。
+#[cfg(not(target_os = "macos"))]
+const UNSUPPORTED_KEYCHAIN: &str =
+    "当前平台暂不支持安全会话存储（仅 macOS 实现了系统钥匙串）；本地功能不受影响。";
 
 /// 回环监听的结果：主线程生成的 channel 接收端
 static OAUTH_RX: OnceLock<Mutex<Option<mpsc::Receiver<String>>>> = OnceLock::new();
@@ -416,12 +464,15 @@ fn open_in_browser(url: &str) -> std::io::Result<()> {
 
 /// Windows：没有 `open`，用 `cmd /C start`。
 ///
-/// `start` 的第一个参数被当作窗口标题，所以要传一个空串占位，
-/// 否则 URL 会被当成标题、浏览器不会被拉起。
+/// 两个细节都不可省：
+/// 1. `start` 的第一个参数被当作**窗口标题**，要传一个空串占位，
+///    否则 URL 会被当成标题、浏览器不会被拉起；
+/// 2. URL 本身要**加引号**——`cmd` 里 `&` `|` `^` 是命令分隔符，
+///    URL 带这些字符（或空格）时不加引号会被拆成多条命令。
 #[cfg(target_os = "windows")]
 fn open_in_browser(url: &str) -> std::io::Result<()> {
     ProcessCommand::new("cmd")
-        .args(["/C", "start", "", url])
+        .args(["/C", "start", "", &format!("\"{url}\"")])
         .spawn()
         .map(|_| ())
 }

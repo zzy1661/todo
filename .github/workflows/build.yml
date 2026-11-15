@@ -73,6 +73,12 @@ jobs:
       - name: Secret guard (no hardcoded Supabase keys)
         run: npm run check:no-secrets
 
+      # 平台可移植性：平台专有调用（/usr/bin/、osascript、cmd /C…）必须被
+      # #[cfg(...)] 保护，否则另一端的运行时会静默失败——这类问题编译期查不出来
+      # （2026-11-02 的 Windows「双击没反应」就是这么漏过去的）。
+      - name: Platform portability guard
+        run: npm run check:platform
+
       - name: Build frontend
         run: npm run build
 

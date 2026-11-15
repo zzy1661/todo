@@ -28,14 +28,20 @@ const LOG_FILE: &str = "startup.log";
 
 /// 应用数据目录。
 ///
-/// 用「平台约定的数据目录根 + `identifier`」拼出，与 Tauri 的 `app_data_dir()`
-/// 同一套规则（`dirs::data_dir()` 在各端分别落到各自约定的位置）。
+/// 用「平台约定的**配置**目录根 + `identifier`」拼出，与 Tauri 的 `app_config_dir()`
+/// **完全同一套规则**——Tauri 内部用的就是 `dirs::config_dir()`：
+/// 各端的具体位置由 `dirs` 决定（与 Tauri 内部用的是同一个函数），
+/// 这里不写死任何一端的路径字面量。
+///
+/// 注意这里必须是 `config_dir` 而不是 `data_dir`：两者在 Windows 与 macOS 上恰好相同，
+/// 但在 Linux 上不同（`~/.config` vs `~/.local/share`）——用错会让启动日志与
+/// SQLite 数据库分家。
 ///
 /// **刻意不写死任一端的路径字面量**：数据落盘位置只由 `identifier` 决定，
 /// 两端各自遵循平台约定（BR 的数据路径中立约束，`scripts/check-bundle-config.mjs`
 /// 会对源码做字面量扫描）。
 pub fn data_dir() -> PathBuf {
-    match dirs::data_dir() {
+    match dirs::config_dir() {
         Some(root) => root.join(APP_IDENTIFIER),
         None => std::env::temp_dir().join(APP_IDENTIFIER),
     }
