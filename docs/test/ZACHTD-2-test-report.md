@@ -1618,13 +1618,42 @@ E2E 在 Windows 环境下 6 passed（说明新内容库与新断言在 Windows �
 `tauri build` 真编译并产出了 NSIS + MSI 安装包（`Upload bundles` 配 `if-no-files-found: error`，
 产物缺失会直接判红，因此该步 success 即证明两个安装包确实存在）。
 
-#### 13.22.4 本地交叉编译尝试与其结论（**不作为验证依据**）
+#### 13.22.4 本机交叉编译验证（`cargo-xwin`）——**补齐了「编译层」这一环**
 
-为在 CI 之外多做一层佐证，本机尝试 `rustup target add x86_64-pc-windows-msvc` + `cargo check --target x86_64-pc-windows-msvc`。
-**该尝试因环境限制失败，与本次代码无关**：`libsqlite3-sys` 的 C 编译步骤报
-`'stdlib.h' file not found`——macOS 的 clang 找不到 **Windows CRT 头文件**（本机无 Windows SDK）。
-这是「macOS 上交叉编译 Windows 原生依赖」的固有障碍，**不能据此判断代码有 Windows 兼容问题**，
-因此**不计入判定**，只作过程记录。已把交叉编译产物目录移出 `src-tauri/target/`，工作树保持干净。
+CI 证明的是「真实 Windows 上能出包」。为了回答「本机能不能也验一遍」，
+本机用**微软的 `cargo-xwin`** 做了交叉编译验证——它会自动下载 Windows CRT / SDK，
+让 macOS 上直接编译 `x86_64-pc-windows-msvc` target。
+
+| 步骤 | 做法 | 结果 |
+| --- | --- | --- |
+| 装工具链 | `cargo install cargo-xwin`（微软维护）+ `rustup component add llvm-tools-preview` + `rustup target add x86_64-pc-windows-msvc` | ✓ |
+| 解决 C 依赖 | 初次尝试报 `'stdlib.h' file not found`（macOS 的 clang 找不到 Windows CRT 头文件）；换用 `cargo-xwin` 后由它注入 xwin 下载的 CRT/SDK 头文件 | ✓ `libsqlite3-sys` 编译通过 |
+| 解决打包器 | 报 `failed to find tool "llvm-lib"`；改用 `llvm-tools-preview` 自带的 **`llvm-ar`**（可产出 COFF `.lib`），以 `AR_x86_64_pc_windows_msvc` 覆盖 | ✓ |
+| 解决资源编译器 | 报 `NotAttempted("llvm-rc")`；`llvm-rc` 需要完整 LLVM（Homebrew 在当前网络下拉 `homebrew-core` 元数据超时），改为**临时**让 build script 跳过资源编译这一步 | ✓ 见下 |
+| 解决 codegen 目标 | 跳过 `tauri_build::build()` 后 `TAURI_ENV_TARGET_TRIPLE` 缺失，`tauri-codegen` 会 fallback 到 host(macOS) 而误引 `embed_plist`；补上该 env 后解决 | ✓ |
+| **最终结果** | `cargo xwin check --target x86_64-pc-windows-msvc` | **exit 0** |
+
+**结论**：**本项目的 Rust 代码（含本次新增的 `sync_state_read` / `sync_state_write` / `sync_state_clear` 三条命令）
+在 `x86_64-pc-windows-msvc` target 下编译通过**——依赖树、Tauri 窗口层、SQLite 原生依赖、以及本次改动的三条命令
+全部在 Windows 目标下过了编译。唯一的告警是 `cfg(mobile)` 的 check-cfg 提示，来自 tauri 宏展开，与本次改动无关。
+
+**这一步跳过了什么**：跳过的只是 **Windows 资源编译**（把图标 / 版本信息 / manifest 编进 PE 的 `.res`），
+它需要 `llvm-rc` 或 `windres`——**这一环已由 CI 在真实 Windows 上验证通过**（Windows job 真跑 `npx tauri build`，
+产出的 NSIS + MSI 里就带着这些资源）。因此两层证据互补，**没有留下未验证的代码路径**。
+
+**过程卫生**：为做这次验证临时改过 `src-tauri/build.rs`（跳过资源编译 + 补 `TAURI_ENV_TARGET_TRIPLE`），
+**验证完已立即还原**（`git status` 干净，该文件不在提交里）；交叉编译产物目录已移出 `src-tauri/target/`。
+
+#### 13.22.5 为什么 Docker 起 Windows 服务行不通
+
+需求方提出过「用 Docker 起一个 Windows 服务验证」。**在 macOS 上这条路是技术性不可行的**：
+
+| 方案 | 可行性 | 原因 |
+| --- | --- | --- |
+| Docker 跑 Windows 容器 | **不可行** | Windows 容器镜像**需要 Windows 内核**（进程隔离用 Job Object / silo），Docker Desktop for Mac 的守护进程是 Linux VM，**只支持 `linux/amd64` / `linux/arm64`**。实测拉 `mcr.microsoft.com/windows/nanoserver` 直接报 `no matching manifest for linux/arm64/v8` |
+| macOS 上开 Windows 虚拟机跑构建 | 理论可行、实际不采用 | 需要 Parallels / VMware + Windows 许可证 + WebView2 runtime，且无人值守跑完整 Rust + NSIS/WiX 打包极易失败；CI 已用 `windows-latest` 覆盖同一目的且更干净 |
+| 云上 Windows VM | 可行 | 但需要额外的云账号与凭据，超出本项目既有验证路径（`windows-latest` CI 已等价覆盖） |
+| **本机交叉编译（`cargo-xwin`）** | **可行，已采用** | 覆盖「代码能否为 Windows 编译」这一层；「能否打出安装包」由 CI 覆盖 |
 
 > **口径重申**：Windows 侧的「可构建能力」有 CI 运行证据；「已在 Windows 机器上实机运行」仍为 **`NOT-VERIFIED`**
 > （本机无 Windows 环境，产物未在任何 Windows 机器上运行过）。「能构建」≠「已实机验证」。
