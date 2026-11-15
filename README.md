@@ -158,9 +158,11 @@ localStorage 降级实现（`todo_local_db` / `todo_local_daily_db`），上层 
 > Windows 步骤真的执行了 `npx tauri build` 并上传产物），产物 artifact **`todo-windows`（5.36 MB）**
 > 可在仓库 Actions 页下载。本机只验证了配置合法性与前端跨平台性。
 >
-> **Windows 上同步入口不可用**：会话存储（`/usr/bin/security` 钥匙串）与浏览器拉起
-> （`/usr/bin/open`）都是 macOS 实现，Windows 上登录必然失败、状态区停在「未登录」；
-> 本地功能不受影响。Windows 只交付**可构建能力**，不是「可用的同步端」。
+> **Windows 上同步入口仍不可用（边界未变）**：会话存储用的是 macOS 的 `/usr/bin/security` 钥匙串，
+> Windows 上命令不存在 → 登录必然失败、状态区停在「未登录」；本地功能不受影响。
+> （浏览器拉起已于 2026-11-02 改为三平台各自实现——Windows 走 `cmd /C start`——
+> 但**没有会话存储，OAuth 往返就不完整**，所以「Windows 上可用同步」这条仍然不成立。
+> Windows 依然只交付**可构建能力**，不是「可用的同步端」。
 
 ### 1. 平台配置的组织方式
 
@@ -168,11 +170,35 @@ localStorage 降级实现（`todo_local_db` / `todo_local_daily_db`），上层 
 | --- | --- |
 | `src-tauri/tauri.conf.json` | 平台中立基线：`identifier` / `productName` / 窗口 / SQL 预加载 / 图标集合；**不含**任何一端的产物形态 |
 | `src-tauri/tauri.macos.conf.json` | macOS overlay：`targets: ["app","dmg"]`、`minimumSystemVersion: "12.0"`、`hardenedRuntime: false`、DMG 布局 |
-| `src-tauri/tauri.windows.conf.json` | Windows overlay：`targets: ["nsis","msi"]`、`nsis.installMode: currentUser`（装到用户目录，允许中文安装路径）、`nsis.languages: ["SimpChinese","English"]`、`wix.language: ["zh-CN"]`、WebView2 引导安装 |
+| `src-tauri/tauri.windows.conf.json` | Windows overlay：`targets: ["nsis","msi"]`、`nsis.installMode: currentUser`（装到用户目录，允许中文安装路径）、`nsis.languages: ["SimpChinese","English"]`、`wix.language: ["zh-CN"]`、**WebView2 离线安装**（`offlineInstaller`） |
 
 Tauri 会按构建平台**自动合并**对应的 overlay，不需要手动 `--config`。
 
-### 2. 在 Windows 上构建
+### 2. 安装后「双击 exe 没反应」怎么排查
+
+Windows 的 release 构建是 `windows_subsystem = "windows"`，**没有控制台**——
+所以任何静默失败在用户看来都只是「点了没反应」。本项目为此做了三层兜底：
+
+| 症状 | 原因 | 处理 |
+| --- | --- | --- |
+| 双击后**完全没有窗口**，也没有任何弹窗 | ① **SmartScreen 拦截**：CI 产物**未做代码签名**，Windows 11 会弹「Windows 已保护你的电脑」，点「更多信息」→「仍要运行」；② **缺 WebView2 Runtime**：界面靠它渲染，缺了就启动即退 | 装 WebView2：<https://developer.microsoft.com/microsoft-edge/webview2/>（**v0.1.1 起的安装包已内置离线安装器，装的时候不需要联网**） |
+| 弹出一个**错误对话框**（红色叹号） | 应用启动失败，但**现在会告诉你原因** | 按对话框里的提示处理；完整信息在日志里 |
+| 仍然打不开 | 需要看日志 | 打开 `%APPDATA%\com.poisson.todo\startup.log`（每次启动都会追加，包括「WebView2 就绪 / 缺失」） |
+
+**兜底机制**（`src-tauri/src/startup.rs`）：
+
+- **panic hook**：任何 panic / abort 都先写进 `startup.log`，再弹原生消息框（`MessageBoxW`）；
+- **WebView2 预检**：在创建窗口**之前**先探一次运行时，缺失就弹窗说明「本应用依赖 WebView2，
+  请到微软官网下载安装」并附下载地址——而不是静默退出；
+- **启动日志**：每次启动写一行启动标记 + WebView2 版本，出问题时有据可查。
+
+命令行跑一次也能直接看到错误输出（比双击更直接）：
+
+```powershell
+& "$env:LOCALAPPDATA\Programs\日程待办\日程待办.exe"
+```
+
+### 3. 在 Windows 上构建
 
 ```powershell
 npm ci
@@ -185,7 +211,7 @@ npx tauri build              # 出 NSIS .exe 与 MSI .msi
 产物在 `src-tauri\target\release\bundle\nsis\*.exe` 与 `...\bundle\msi\*.msi`。
 前置条件：Node 22、Rust stable（MSVC toolchain）、WebView2（Win10 1803+ 通常已内置）。
 
-### 3. CI 入口
+### 4. CI 入口
 
 `.github/workflows/build.yml`：matrix = `macos-latest` + `windows-latest`，两条 job 走同一套步骤
 （`npm ci` → `npm run build` → 装 Playwright Chromium → `npx playwright test` → `npx tauri build`

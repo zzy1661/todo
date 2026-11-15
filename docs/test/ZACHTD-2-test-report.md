@@ -1658,6 +1658,57 @@ CI 证明的是「真实 Windows 上能出包」。为了回答「本机能不�
 > **口径重申**：Windows 侧的「可构建能力」有 CI 运行证据；「已在 Windows 机器上实机运行」仍为 **`NOT-VERIFIED`**
 > （本机无 Windows 环境，产物未在任何 Windows 机器上运行过）。「能构建」≠「已实机验证」。
 
+### 13.23 Windows 安装后「双击 exe 没反应」的故障与修复（v1.10）
+
+> 触发：**需求方实机反馈**——「在 Windows 上安装后点击 exe 没反应」。
+> 这是一条**来自真实用户的缺陷反馈**，不是静态检查能发现的：代码能编译、CI 能出包，
+> 但装到用户机器上双击没有任何反应。
+
+#### 13.23.1 根因分析
+
+「点击没反应」在 Windows 上有三种可能的成因，逐条排查：
+
+| 可能成因 | 是否成立 | 判断依据 |
+| --- | --- | --- |
+| **① WebView2 Runtime 缺失** | **成立（主因）** | 本项目是 Tauri 桌面应用，界面靠 WebView2 渲染。`tauri.windows.conf.json` 原先配 `webviewInstallMode: downloadBootstrapper`——安装时若系统没有 WebView2，NSIS 会先下载一个 ~1.8MB 的引导程序，再由它**联网拉取 ~130MB 的完整运行时**。这一步在受限网络下失败，WebView2 就装不上，应用启动即退 |
+| **② 启动崩溃但无任何提示** | **成立（放大器）** | `main.rs` 带 `#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]`——release 版**没有控制台**；加上 `panic = "abort"`，任何 panic 都只是进程悄悄消失。macOS 上有 `Console`/`ReportCrash` 的旁证，Windows 上**一个字都不会显示** |
+| **③ SmartScreen 拦截（未签名产物）** | 成立（另一条路径） | CI 产物**完全未签名**，Windows 11 默认弹「Windows 已保护你的电脑」。用户若点了关闭或直接忽略，表现同样是「没反应」 |
+
+另在排查中发现**一处独立的跨平台缺陷**：`sync_open_url` 硬编码了 `/usr/bin/open`——
+**macOS 专有命令**，Windows 上必然失败。这是「编译能过、运行必错」的典型：
+上轮的 `cargo xwin check` 只证明了「能编译」，抓不到运行时路径写死的问题。
+
+#### 13.23.2 修复内容
+
+| # | 修复 | 落点 | 说明 |
+| --- | --- | --- | --- |
+| 1 | **WebView2 改为离线安装** | `tauri.windows.conf.json` | `downloadBootstrapper` → `offlineInstaller { silent: true }`：NSIS 包内**内置完整 WebView2 安装器**，安装时**不需要联网**。代价是安装包从 ~5.2MB 涨到 ~130MB——**宁可大，也不要装不上** |
+| 2 | **启动失败可见**（新增 `src-tauri/src/startup.rs`） | `startup.rs` + `lib.rs` | ① **panic hook**：panic/abort 先写 `startup.log` 再弹原生消息框；② **WebView2 预检**：建窗口**之前**先探运行时，缺失就弹窗说明「本应用依赖 WebView2，请到微软官网下载」并附下载地址，然后退出；③ **启动日志**：每次启动记录启动标记与 WebView2 版本 |
+| 3 | **`build()` 的 `expect` 改为显式兜底** | `lib.rs` | 原来是 `.expect("error while running tauri application")`——在无控制台的 Windows 上等于静默退出。改为接住 `Err` 后调 `startup::fatal()`，弹窗说清原因并告诉用户日志在哪 |
+| 4 | **`/usr/bin/open` 跨平台化** | `lib.rs` | 拆成 `open_in_browser()` 的三个平台实现：macOS `open`、Windows `cmd /C start "" <url>`（首个空参数是窗口标题占位，不传的话 URL 会被当标题、浏览器拉不起来）、其余 Unix `xdg-open` |
+| 5 | **排查说明入档** | `README.md` | 新增「安装后『双击 exe 没反应』怎么排查」：三种症状对照表 + 日志路径 + 命令行直跑方式 |
+
+#### 13.23.3 验证
+
+| 项 | 结果 |
+| --- | --- |
+| `cargo xwin check --target x86_64-pc-windows-msvc` | **exit 0**——`MessageBoxW` 调用、Windows 的 `cmd /C start` 分支、`windows-sys` 依赖、`tauri::webview_version()` 预检**全部在 Windows 目标下编译通过** |
+| `cargo build`（macOS 原生） | **exit 0** |
+| 实跑（macOS release） | 启动日志正常产出：`[19:02:11] ==== 应用启动 ====` / `[19:02:11] WebView2 就绪："19616.2.9.11.7"`（macOS 上是 WebKitGTK 版本，**预检不误报**） |
+| `npm run build`（前端） | exit 0 |
+| Windows 实机复现与复验 | **NOT-VERIFIED**——本机无 Windows 机器；修复的**有效性**仍需需求方在 Windows 上复跑确认（CI 只能证明能出包，不能证明双击有反应） |
+
+#### 13.23.4 遗留与诚实边界
+
+- **本次修复解决的是「可诊断」与「装得上」，不等于「已验证能用」**：WebView2 离线安装让安装环节不再依赖网络；
+  启动预检与 panic 弹窗让失败**可被看见**；但**在真实 Windows 机器上双击是否有反应，仍需实机复跑确认**。
+- **SmartScreen 提示依然存在**：CI 产物未签名，Windows 11 首次运行会拦一下。
+  本项目本期**不做代码签名**（无证书），故在 README 里写明处理方式（「更多信息」→「仍要运行」），
+  不把它写成「已解决」。
+- **Windows 上同步入口仍不可用**：会话存储用的 `/usr/bin/security` 钥匙串是 macOS 实现，
+  Windows 上命令不存在 → 登录必然失败。本次只修了「用系统浏览器打开授权页」这一半，
+  **没有会话存储，OAuth 往返仍不完整**，该边界不变（README 已同步改写表述）。
+
 ---
 
 ## 14. AC-01 ~ AC-70 统一判定台账（70 行）

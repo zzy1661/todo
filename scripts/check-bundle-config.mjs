@@ -177,9 +177,15 @@ check(
   JSON.stringify(win.bundle?.windows?.nsis?.languages),
 );
 check('Windows wix.language 含 zh-CN', JSON.stringify(win.bundle?.windows?.wix?.language).includes('zh-CN'));
+// 2026-11-02：downloadBootstrapper → offlineInstaller。
+// 起因是实机反馈「Windows 上装完双击 exe 没反应」——引导式安装在受限网络下
+// 拉不到完整 WebView2 Runtime（~130MB），装不上 → 应用启动即退。
+// 离线安装器把 WebView2 直接打进安装包，装的时候不需要联网。
+// 断言写成「必须是离线安装模式」而不是钉死某个字面量，意图更清楚。
 check(
-  'Windows webviewInstallMode = downloadBootstrapper',
-  win.bundle?.windows?.webviewInstallMode?.type === 'downloadBootstrapper',
+  'Windows webviewInstallMode = offlineInstaller（离线装 WebView2，不依赖网络）',
+  win.bundle?.windows?.webviewInstallMode?.type === 'offlineInstaller',
+  JSON.stringify(win.bundle?.windows?.webviewInstallMode),
 );
 check('Windows 合并结果不含 dmg / app 目标', !JSON.stringify(win.bundle?.targets).match(/dmg/i));
 check('Windows 合并结果不含 macOS 平台块', !('macOS' in (win.bundle ?? {})));

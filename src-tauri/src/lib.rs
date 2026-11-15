@@ -7,6 +7,8 @@ use std::time::Duration;
 use tauri::Manager;
 use tauri_plugin_sql::{Builder, Migration, MigrationKind};
 
+mod startup;
+
 /// 数据库文件所在目录：Tauri 的 app config dir。
 ///
 /// 该目录**由 `identifier` 决定，两端各自落到平台约定的位置**（macOS 与 Windows
@@ -393,21 +395,69 @@ fn sync_oauth_wait(timeout_ms: u64) -> Result<Option<String>, String> {
 }
 
 /// 用系统默认浏览器打开授权页（只允许 http/https，避免被当成命令执行）
+///
+/// 各平台用各自的开户方式：macOS 是 `open`、Windows 是 `cmd /C start`、
+/// 其余 Unix 是 `xdg-open`。**不能只写 macOS 那一套**——`/usr/bin/open`
+/// 在 Windows 上不存在，命令会直接失败（表现为「点了没反应」）。
 #[tauri::command]
 fn sync_open_url(url: String) -> Result<(), String> {
     if !(url.starts_with("https://") || url.starts_with("http://")) {
         return Err("只允许打开 http(s) 链接".to_string());
     }
-    ProcessCommand::new("/usr/bin/open")
-        .arg(&url)
-        .spawn()
-        .map_err(|e| format!("打开浏览器失败: {e}"))?;
+    open_in_browser(&url).map_err(|e| format!("打开浏览器失败: {e}"))?;
     Ok(())
+}
+
+/// 用系统默认浏览器打开一个 URL。
+#[cfg(target_os = "macos")]
+fn open_in_browser(url: &str) -> std::io::Result<()> {
+    ProcessCommand::new("/usr/bin/open").arg(url).spawn().map(|_| ())
+}
+
+/// Windows：没有 `open`，用 `cmd /C start`。
+///
+/// `start` 的第一个参数被当作窗口标题，所以要传一个空串占位，
+/// 否则 URL 会被当成标题、浏览器不会被拉起。
+#[cfg(target_os = "windows")]
+fn open_in_browser(url: &str) -> std::io::Result<()> {
+    ProcessCommand::new("cmd")
+        .args(["/C", "start", "", url])
+        .spawn()
+        .map(|_| ())
+}
+
+/// 其余 Unix（Linux / BSD）。
+#[cfg(all(unix, not(target_os = "macos")))]
+fn open_in_browser(url: &str) -> std::io::Result<()> {
+    ProcessCommand::new("xdg-open").arg(url).spawn().map(|_| ())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    // 启动期的可诊断性（详见 startup.rs）：
+    // Windows release 没有控制台，任何静默失败对用户都是「双击没反应」。
+    startup::install_panic_hook();
+    startup::write_log("==== 应用启动 ====");
+
+    // WebView2 预检：缺运行时时 Tauri 会在建窗口阶段直接失败。
+    // 这里提前探一次，缺了就弹窗说清楚怎么装，然后退出——而不是静默退出。
+    match tauri::webview_version() {
+        Ok(version) => startup::write_log(&format!("WebView2 就绪：{version:?}")),
+        Err(err) => {
+            startup::fatal(
+                "缺少 Microsoft Edge WebView2 Runtime",
+                &format!(
+                    "本应用靠 WebView2 运行时显示界面，当前系统未安装或版本过低。\n\n\
+                     请安装 WebView2 Runtime 后重新启动：\n\
+                     https://developer.microsoft.com/microsoft-edge/webview2/\n\n\
+                     详细信息：{err}"
+                ),
+            );
+            return;
+        }
+    }
+
+    let result = tauri::Builder::default()
         .plugin(
             Builder::new()
                 .add_migrations("sqlite:todo.db", migrations())
@@ -432,8 +482,20 @@ pub fn run() {
             ensure_app_data_dir(app.handle())?;
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .run(tauri::generate_context!());
+
+    // 不用 expect：Windows release 没有控制台，panic 对用户就是「双击没反应」。
+    // 这里显式兜底——弹窗说清楚原因，并告诉用户日志在哪。
+    if let Err(err) = result {
+        startup::fatal(
+            "日程待办 启动失败",
+            &format!(
+                "应用初始化未完成：\n\n{err}\n\n\
+                 详细信息已写入日志：\n{}",
+                startup::log_path().display()
+            ),
+        );
+    }
 }
 
 #[cfg(test)]
