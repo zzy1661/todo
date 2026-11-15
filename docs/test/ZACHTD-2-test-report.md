@@ -4,7 +4,7 @@
 | --- | --- |
 | 文档编号 | TR-ZACHTD-2 |
 | 关联 Issue | ZACHTD-9（S7 测试执行与报告，AC-01 ~ AC-56）+ **ZACHTD-13（S10.5 同步层执行与全量回归，AC-43 重判 / AC-57 ~ AC-68）** + **ZACHTD-14（S11 判门后的台账统一，M2）** + **ZACHTD-15（S7.5 桌面人工取证补跑，屏幕录制已授权）** + **ZACHTD-16（S7.6 bundle 签名修复与 Gatekeeper 实测）** + **ZACHTD-19（S7.9 台账回填：AC-65 / AC-66② / AC-68 转 PASS，含真实 CI 结论）** |
-| 判定基线 | `docs/requirements/ZACHTD-2-macos-prd.md` **v1.8**（共 **70 条**）：v1.5 = **AC-37 判据收窄为三段式** + **AC-68 判定归属归正为「S10.5 执行并留证」**（表述仍有效）；v1.6 = **AC-67 判据口径收窄 + 白名单兜底**、**OPEN-02 措辞校正**，**不改任何 AC 判定**；v1.7 = **新增 FR-SYNC-17「每 2 天自动同步」+ AC-69（§13.19）**，总数 68 → 69；v1.8 = **新增 FR-DM-17「中国古典智慧」分类 + 16 条古典哲学方法 + AC-70（§13.20）**，总数 69 → 70，**AC-01 ~ AC-69 的判定一律不动**。AC-01 ~ AC-56 见 §3（S7 段）；AC-57 ~ AC-70 见 **§13（S10.5 段及其后增量）**；**AC-01 ~ AC-70 逐条台账见 §14** |
+| 判定基线 | `docs/requirements/ZACHTD-2-macos-prd.md` **v1.9**（共 **70 条**）：v1.5 = **AC-37 判据收窄为三段式** + **AC-68 判定归属归正为「S10.5 执行并留证」**（表述仍有效）；v1.6 = **AC-67 判据口径收窄 + 白名单兜底**、**OPEN-02 措辞校正**，**不改任何 AC 判定**；v1.7 = **新增 FR-SYNC-17「每 2 天自动同步」+ AC-69（§13.19）**，总数 68 → 69；v1.8 = **新增 FR-DM-17「中国古典智慧」分类 + 16 条古典哲学方法 + AC-70（§13.20）**，总数 69 → 70；v1.9 = **该分类扩充到 81 条（原 65 条逐字保留）**，**AC-01 ~ AC-69 的判定一律不动**。AC-01 ~ AC-56 见 §3（S7 段）；AC-57 ~ AC-70 见 **§13（S10.5 段及其后增量）**；**AC-01 ~ AC-70 逐条台账见 §14** |
 | 执行用例 | `docs/test/ZACHTD-2-test-plan.md` **v1.4**：TC-001 ~ TC-056（S7）+ TC-057 ~ TC-080（S10.5）+ TC-081 ~ TC-084（定时同步） |
 | 执行人 | @Tester |
 | 执行日期 | 2026-11-01（CST） |
@@ -526,9 +526,9 @@ S10.5 段新增 **AC-65 = `NOT-VERIFIED`**（无 anon key，按 PRD 明文不得
 
 | 项 | 状态 | 理由 |
 | --- | --- | --- |
-| Windows 安装包（`.exe` / `.msi`）产出 | **PASS（CI 实跑产出）** | 本机无交叉编译能力（Tauri 不支持 macOS → Windows），验证路径是 `windows-latest` CI；**2026-11-01 起仓库已 push 且转 public，CI 实际跑完并成功**，产物 artifact `todo-windows`（5 358 473 B / 5.36 MB）可从 Actions 下载（§13.18.3） |
+| Windows 安装包（`.exe` / `.msi`）产出 | **PASS（CI 实跑产出）** | 本机无交叉编译能力（Tauri 不支持 macOS → Windows），验证路径是 `windows-latest` CI；**2026-11-01 起仓库已 push 且转 public，CI 实际跑完并成功**；**2026-11-02 随本次改动（commit `1836942`）复跑一次，两个 job 仍全绿**，产物 artifact `todo-windows`（5 456 747 B / 5.20 MB）可从 Actions 下载（§13.18.3） |
 | Windows 上的实机运行 / E2E / 安装升级 | **NOT-VERIFIED** | 本机无 Windows 环境，**产物未在任何 Windows 机器上运行过** |
-| Windows 配置与 workflow 是否可构建 | **PASS（静态三证 + 真实 CI，§13.8 / §13.18.3）** | `check-bundle-config.mjs` 44 条断言 PASS + matrix 含 `windows-latest` 且真跑 `npx tauri build` + `Upload bundles` 成功 → 「Windows 可构建能力」现在有运行证据；**但「能构建」≠「已实机验证」** |
+| Windows 配置与 workflow 是否可构建 | **PASS（静态三证 + 真实 CI，§13.8 / §13.18.3）** | `check-bundle-config.mjs` 54 条断言 PASS + matrix 含 `windows-latest` 且真跑 `npx tauri build` + `Upload bundles` 成功 → 「Windows 可构建能力」现在有运行证据；**但「能构建」≠「已实机验证」** |
 
 Windows **实机**项一律不写成 PASS，也不以静态自检替代实机结论；本轮新增的只是「CI 真的构建成功」这一条运行证据。
 
@@ -1356,6 +1356,19 @@ RLS② GET /rest/v1/todos   （仅 apikey、无用户 token）
 | **Windows (NSIS + MSI)** | `Secret guard` → `Build frontend` → `E2E baseline (6 passed)` → `Tauri build (Windows)` → `Upload bundles` | **success** | `todo-windows` **5 358 473 B（5.36 MB）** |
 
 运行记录：`master` @ `d2beb6e`（**判据所依据的那一次运行**），仓库当时共 **12 次**历史运行，该次 **success**（2026-11-01 03:20Z 起；Windows job 03:25Z 完成）。此后的 push 触发的运行以 Actions 页与提交 SHA 为准（文档提交 `8765a22` 那一次同样是两个 job 全绿）。
+
+**2026-11-02 随本次改动复跑一次（run `43740033793`）**：该次运行的 commit 为 `1836942`，
+**包含本轮全部改动**——`src-tauri/src/lib.rs` 新增的 `sync_state_read` / `sync_state_write` / `sync_state_clear`
+三条命令，以及扩充到 146 条的内容库（`classic` 81 条）。结果：
+
+| Job | 关键步骤 | 结论 | 产物 artifact |
+| --- | --- | --- | --- |
+| **macOS (arm64 · .app + .dmg)** | `Secret guard` → `Build frontend` → `E2E baseline (6 passed)` → `Tauri build (macOS)` → `Normalize bundle names` → `Upload bundles` | **success** | `todo-macos` **6 465 678 B（6.16 MB）** |
+| **Windows (NSIS + MSI)** | `Secret guard` → `Build frontend` → `E2E baseline (6 passed)` → `Tauri build (Windows)` → `Normalize bundle names` → `Upload bundles` | **success** | `todo-windows` **5 456 747 B（5.20 MB）** |
+
+**结论：本次改动未破坏 Windows 可构建能力**——Windows job 真跑 `npx tauri build` 并上传了 NSIS + MSI 产物。
+本次纯文档提交会再触发一次 run，届时同样以 Actions 页与提交 SHA 为准。
+
 **判定：PASS** —— Windows job **真跑**了 `npx tauri build` 并上传产物（不是占位），「Windows 可构建能力」这句话现在有运行证据。
 **局限**：Windows 产物**未在任何 Windows 机器上运行过**（本机是 macOS）；「能构建」≠「已实机验证」，§8 与 README 仍按「可构建能力」表述。
 
@@ -1572,6 +1585,49 @@ $ node scripts/check-s3-ui.mjs   # 第 [6] 段「方法库 146 条与分类筛�
   取舍标准是「该典籍的这一句确实能讲清这个工作动作」，而非追求一一对位的唯一性。
 - **新增条目的 `id` 为独立命名**（如 `ge-wu-zhi-zhi`、`zheng-ming`），不复用既有 65 条的 id，
   保证全局唯一且不与历史落库记录混淆。
+
+### 13.22 Windows 编译打包专项检查（v1.9 交付前）
+
+> 触发：需求方要求「检查一下这个项目的 Windows 编译打包是否正常」。
+> 背景：Windows 侧**无交叉编译能力**（Tauri 不支持 macOS → Windows），唯一验证路径是 `windows-latest` CI。
+> 本次检查覆盖本轮**两处高风险改动**：`src-tauri/src/lib.rs` 新增三条 Rust 命令、UI 数量从 65 → 146 条。
+
+#### 13.22.1 结论
+
+**Windows 编译打包正常，无需修复。** 未做任何代码改动即可通过——以下为检查过程与证据。
+
+#### 13.22.2 检查项与证据
+
+| 检查项 | 手段 | 结果 |
+| --- | --- | --- |
+| Windows conf 与 workflow 结构 | `node scripts/check-bundle-config.mjs`（三份 conf 合并 + schema + 平台中立 + 数据路径中立 + workflow 结构） | **PASS，54 条断言全过**：matrix 含 `windows-latest` 且真跑 `npx tauri build`（非占位）、步骤顺序正确、产物路径含 nsis exe 与 msi、`if-no-files-found: error` |
+| 前端 / Rust 是否有平台特定代码 | 扫描 `src/` `e2e/` `src-tauri/src/` 的 `process.platform` / `navigator.userAgent` / `darwin` / `osascript` / `/Applications` / `win32` | **零命中**——无平台分支 |
+| 新增 Rust 命令的跨平台安全性 | 人工审阅 `sync_state_read` / `sync_state_write` / `sync_state_clear` | **安全**：只用 Tauri 2 跨平台 API（`app.path().app_config_dir()`）与 `std::fs`；**原子写**用 `fs::write` 到临时文件 + `fs::rename`，而 Rust 的 `fs::rename` 在 Windows 上带 `MOVEFILE_REPLACE_EXISTING`，**会覆盖目标而非失败**（与 Unix 行为一致） |
+| 前端 invoke 契约 | 审阅 `src/stores/sync.ts` 的 `createFileStateStore()` | 命令名与 Rust `#[tauri::command]` 一一对应；自定义命令**不需要 capability 权限**（capability 只约束插件命令），故 `tauri.windows.conf.json` 无需改动 |
+| **真实 Windows 编译出包** | 推送后由 `windows-latest` CI 实跑 | **PASS**——见下 |
+
+#### 13.22.3 真实 CI 运行（run `43740033793`，commit `1836942`）
+
+| Job | 步骤逐条 | 结论 | 产物 |
+| --- | --- | --- | --- |
+| **Windows (NSIS + MSI)** | `Secret guard` ✓ → `Build frontend` ✓ → `Install Playwright Chromium (windows)` ✓ → **`E2E baseline (6 passed)` ✓** → **`Tauri build (Windows)` ✓** → `Normalize bundle names to ASCII` ✓ → **`Upload bundles` ✓** | **success** | artifact `todo-windows` **5 456 747 B**，含 `.exe`（NSIS）与 `.msi` |
+| **macOS (arm64 · .app + .dmg)** | 同链路 | **success** | artifact `todo-macos` **6 465 678 B** |
+
+**关键点**：Windows job 的 `E2E baseline` 与 `Tauri build (Windows)` **都是真跑**——
+E2E 在 Windows 环境下 6 passed（说明新内容库与新断言在 Windows 上同样成立），
+`tauri build` 真编译并产出了 NSIS + MSI 安装包（`Upload bundles` 配 `if-no-files-found: error`，
+产物缺失会直接判红，因此该步 success 即证明两个安装包确实存在）。
+
+#### 13.22.4 本地交叉编译尝试与其结论（**不作为验证依据**）
+
+为在 CI 之外多做一层佐证，本机尝试 `rustup target add x86_64-pc-windows-msvc` + `cargo check --target x86_64-pc-windows-msvc`。
+**该尝试因环境限制失败，与本次代码无关**：`libsqlite3-sys` 的 C 编译步骤报
+`'stdlib.h' file not found`——macOS 的 clang 找不到 **Windows CRT 头文件**（本机无 Windows SDK）。
+这是「macOS 上交叉编译 Windows 原生依赖」的固有障碍，**不能据此判断代码有 Windows 兼容问题**，
+因此**不计入判定**，只作过程记录。已把交叉编译产物目录移出 `src-tauri/target/`，工作树保持干净。
+
+> **口径重申**：Windows 侧的「可构建能力」有 CI 运行证据；「已在 Windows 机器上实机运行」仍为 **`NOT-VERIFIED`**
+> （本机无 Windows 环境，产物未在任何 Windows 机器上运行过）。「能构建」≠「已实机验证」。
 
 ---
 
