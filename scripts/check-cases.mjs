@@ -2,9 +2,9 @@
  * 内容库校验脚本（CFL-07 口径）。
  *
  * 断言项：
- * - 方法总数 65
- * - 分类分布 thinking 17 / work 17 / report 12 / communication 7 / efficiency 12
- * - `case.type` 仅 practice / story，分布 18 / 47
+ * - 方法总数 146
+ * - 分类分布 thinking 17 / work 17 / report 12 / communication 7 / efficiency 12 / classic 81
+ * - `case.type` 仅 practice / story，分布 36 / 110
  * - 案例正文长度 126–240 字
  * - id 唯一
  * - 必填字段齐全
@@ -22,15 +22,16 @@ import {
   CATEGORY_ORDER,
 } from '../src/data/methods.ts';
 
-const EXPECTED_TOTAL = 65;
+const EXPECTED_TOTAL = 146;
 const EXPECTED_CATEGORY = {
   thinking: 17,
   work: 17,
   report: 12,
   communication: 7,
   efficiency: 12,
+  classic: 81,
 };
-const EXPECTED_CASE_TYPE = { practice: 18, story: 47 };
+const EXPECTED_CASE_TYPE = { practice: 36, story: 110 };
 const CASE_CONTENT_MIN = 126;
 const CASE_CONTENT_MAX = 240;
 const STEPS_MIN = 2;

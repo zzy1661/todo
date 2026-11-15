@@ -274,6 +274,7 @@ node scripts/check-remote-schema.mjs   # 表就绪 → ✓；未部署 → ✗ �
 ### 4. 同步规则（一眼看完）
 
 - 触发：任意数据变更后 **5 秒防抖**推送一次，窗口内的多次改动合并；启动时拉取一次，登录成功后立即再拉一次。
+- **定时同步：每 2 天自动做一轮**（拉一次云端 + 推一次本地待推条目），见下方 §5。
 - 冲突：`last-write-wins`（`updated_at_ms` 大者胜；同毫秒按 `uuid` 字典序，结果与到达顺序无关）；
   落败值只丢弃，**不回写云端**。
 - 删除：软删除（`deleted = 1`）；**墓碑终结**——已删条目不会被任何非删除记录复活。
@@ -292,10 +293,30 @@ node scripts/check-remote-schema.mjs   # 表就绪 → ✓；未部署 → ✗ �
   legacy JWT 的唯一命中是 `scripts/check-sync.mjs` 的**负向夹具**（签名段为字面量 `sig`），
   不是可用凭据；管理员角色密钥属于 legacy JWT，被同一正则覆盖，运行期还会被白名单拒绝。
 
-### 5. 自证命令
+### 5. 每 2 天自动同步
+
+登录之后，同步层除了「变更驱动」的即时推送，还会**每 2 天自动跑一轮完整同步**
+（拉一次云端 + 推一次本地待推条目），即使这两天里你什么都没改。
+
+| 项 | 口径 |
+| --- | --- |
+| 默认周期 | **2 天**；可在 `sync.config.json` 里用 `autoSyncDays` 改（`0` = 关闭定时同步，只保留变更驱动同步） |
+| 状态区 | 显示「每 2 天自动同步 · 下次 11月3日 09:00」，未登录时显示「登录后开始」 |
+| 跨重启 | 周期**按墙上时间延续**：关掉应用几天后再打开，节拍不会重置 |
+| 过期补做 | 应用关着的时间超过了一个周期，下次启动会**立刻补做一轮**（这次启动仍只拉一次云端，不重复打云端） |
+| 失败重试 | 与推送同一套退避阶梯 **1s → 2s → 4s → 8s → 16s**；不阻塞界面，失败只反映在状态区 |
+| 未登录 / 未配置 | **不排期、不发任何请求**——定时器根本不会挂上（与「零云端请求」红线一致） |
+| 登出 | 立刻停掉定时器，之后不会有任何定时请求 |
+
+节拍锚点落在应用数据目录的 `sync.state.json`（**只有时间戳，没有凭据**，不进钥匙串）。
+之所以不落 SQLite：`todos` / `daily_picks` 两表固定、迁移只增不改（BR-07 / BR-08），不新增第三张表。
+
+改动 `autoSyncDays` 后重启应用即生效；删掉 `sync.state.json` 可让周期重新起算。
+
+### 6. 自证命令
 
 ```bash
-node scripts/check-sync.mjs            # 本地 stub：防抖 / 拉取合并 / LWW / 墓碑 / 401 / PGRST205 + v3 迁移结构
+node scripts/check-sync.mjs            # 本地 stub：防抖/拉取/LWW/墓碑/401/PGRST205/2 天定时同步 + v3 迁移结构
 node scripts/check-deleted-filter.mjs  # 软删除静态断言
 node scripts/check-remote-schema.mjs   # 真实项目只读探测：public.todos 是否已部署
 npx playwright test -c playwright.sync.config.ts   # 同步 E2E（零云端请求 / 无登录拦截 / 状态区）
@@ -324,12 +345,12 @@ npx playwright test -c playwright.sync.config.ts   # 同步 E2E（零云端请�
 ## 校验脚本
 
 ```bash
-node scripts/check-cases.mjs         # 内容库校验（CFL-07 口径）：总数 65 / 分类 17·17·12·7·12
+node scripts/check-cases.mjs         # 内容库校验（CFL-07 口径）：总数 146 / 分类 17·17·12·7·12·81
 node scripts/check-permutation.mjs   # 推送确定性比对：7 个抽样日期 + 落库与「换一条」规则
 node scripts/check-data-layer.mjs    # 数据层 localStorage 路径行为自检（9 组断言）
 node scripts/check-db-parity.mjs     # 双后端等价性对拍：同一操作序列下两条后端结果一致
 node scripts/check-bundle-config.mjs # S6 打包配置自证：三份 conf 合并 + schema + workflow 结构（44 条断言）
-node scripts/check-sync.mjs          # S10 同步自检：防抖/拉取/LWW/墓碑/401 五组路径 + v3 迁移结构（78 条断言，含密钥白名单负向断言）
+node scripts/check-sync.mjs          # S10 同步自检：防抖/拉取/LWW/墓碑/401/2 天定时同步九组路径 + v3 迁移结构（134 条断言，含密钥白名单负向断言）
 node scripts/check-deleted-filter.mjs # S10 软删除静态断言：FROM todos 未带 deleted = 0 即失败
 node scripts/check-s2-ui.mjs         # S2 界面自证：外壳/日历/当日面板，截图落 docs/evidence/s2/
 node scripts/check-s3-ui.mjs         # S3 界面自证：每日工作法七区块/渐隐/换一条/往期/方法库，截图落 docs/evidence/s3/
@@ -367,7 +388,7 @@ E2E_NOW=2026-11-15 npx playwright test   # 把浏览器时钟固定到指定日�
 | --- | --- | --- |
 | 1 · 应用加载 | `e2e/todo.spec.ts` | 外壳与导航、42 格月历（周日起始）、今天/补位格/选中态、当日空态与「今天」按钮 |
 | 2 · 完整链路 | `e2e/todo.spec.ts` | 编辑器造数 → 圆点与 `+` → 优先级循环 → 完成率 33/100/67% → 跨月补位格与数据加载 |
-| 3 · 每日工作法 | `e2e/todo.spec.ts` | 确定性推送（对照独立参考实现）、换一条、往期 7 天、65 条方法库、预览不落库、`5w2h` 内滚动与渐隐、小卡片刷新 |
+| 3 · 每日工作法 | `e2e/todo.spec.ts` | 确定性推送（对照独立参考实现）、换一条、往期 7 天、146 条方法库、预览不落库、`5w2h` 内滚动与渐隐、小卡片刷新 |
 | 4 · 全部待办 | `e2e/todo.spec.ts` | 跨日期分组与 ` · 今天`、组内 `已完成/总数`、筛选同步、与当日面板筛选独立、清库后的中性空态 |
 | 5 · 条目与编辑器 | `e2e/todo.spec.ts` | 行内四元素、菜单按日期分支、三种关闭条件（点外部/Esc/滚动）、贴边翻转、编辑器空标题禁用与回车提交 |
 | 6 · 巡览 | `e2e/tour.spec.ts` | 自包含造数，逐页 14 张截图 + 1 段连续录屏，落 `screenshots/` `videos/` |
@@ -383,7 +404,7 @@ src/
 ├─ App.vue                     模块切换（currentModule）+ 编辑器状态 + 日历页两栏
 ├─ types/index.ts              唯一类型来源
 ├─ styles/main.css             设计 token + 全局重置 + macOS 兼容层
-├─ data/methods.ts             65 条内容库（原样搬运，零改动）
+├─ data/methods.ts             146 条内容库（原 65 条原样 + classic 81 条）
 ├─ db/database.ts              数据层：SQLite / localStorage 双实现
 ├─ sync/                       同步核心（全部依赖注入，可在 Node stub 上真跑）
 │  ├─ engine.ts                防抖推送 / 拉取合并 / 重试退避 / 401 重登
@@ -401,7 +422,7 @@ src/
    ├─ layout/SyncPanel.vue     C-16 同步状态与登录区（v-show 收起，不丢会话）
    ├─ layout/navItems.ts       导航注册表（新增模块只改这里 + App 分支 + 新组件）
    ├─ calendar/CalendarView.vue  42 格月历（data-date / data-outside、四态、圆点 + `+`）
-   ├─ daily/DailyMethodView.vue  每日工作法模块（顶栏步进 / 主卡片 / 往期 7 天 / 65 条方法库）
+   ├─ daily/DailyMethodView.vue  每日工作法模块（顶栏步进 / 主卡片 / 往期 7 天 / 146 条方法库）
    ├─ daily/MethodCard.vue       主卡片七区块 + `.mc-inner` 内滚动 + `.mc-fade` 底部渐隐
    ├─ daily/DailyMethodMini.vue  日历页内的工作法小卡片
    └─ todo/

@@ -4,8 +4,8 @@
 | --- | --- |
 | 文档编号 | TR-ZACHTD-2 |
 | 关联 Issue | ZACHTD-9（S7 测试执行与报告，AC-01 ~ AC-56）+ **ZACHTD-13（S10.5 同步层执行与全量回归，AC-43 重判 / AC-57 ~ AC-68）** + **ZACHTD-14（S11 判门后的台账统一，M2）** + **ZACHTD-15（S7.5 桌面人工取证补跑，屏幕录制已授权）** + **ZACHTD-16（S7.6 bundle 签名修复与 Gatekeeper 实测）** + **ZACHTD-19（S7.9 台账回填：AC-65 / AC-66② / AC-68 转 PASS，含真实 CI 结论）** |
-| 判定基线 | `docs/requirements/ZACHTD-2-macos-prd.md` **v1.6**（共 **68 条**，自 v1.4 起条数未变）：v1.5 = **AC-37 判据收窄为三段式** + **AC-68 判定归属归正为「S10.5 执行并留证」**（表述仍有效）；v1.6 = **AC-67 判据口径收窄 + 白名单兜底**、**OPEN-02 措辞校正**，**不改任何 AC 判定**。AC-01 ~ AC-56 见 §3（S7 段）；AC-57 ~ AC-68 见 **§13（S10.5 段）**；**AC-01 ~ AC-68 逐条台账见 §14** |
-| 执行用例 | `docs/test/ZACHTD-2-test-plan.md` **v1.3**：TC-001 ~ TC-056（S7）+ TC-057 ~ TC-080（S10.5） |
+| 判定基线 | `docs/requirements/ZACHTD-2-macos-prd.md` **v1.8**（共 **70 条**）：v1.5 = **AC-37 判据收窄为三段式** + **AC-68 判定归属归正为「S10.5 执行并留证」**（表述仍有效）；v1.6 = **AC-67 判据口径收窄 + 白名单兜底**、**OPEN-02 措辞校正**，**不改任何 AC 判定**；v1.7 = **新增 FR-SYNC-17「每 2 天自动同步」+ AC-69（§13.19）**，总数 68 → 69；v1.8 = **新增 FR-DM-17「中国古典智慧」分类 + 16 条古典哲学方法 + AC-70（§13.20）**，总数 69 → 70，**AC-01 ~ AC-69 的判定一律不动**。AC-01 ~ AC-56 见 §3（S7 段）；AC-57 ~ AC-70 见 **§13（S10.5 段及其后增量）**；**AC-01 ~ AC-70 逐条台账见 §14** |
+| 执行用例 | `docs/test/ZACHTD-2-test-plan.md` **v1.4**：TC-001 ~ TC-056（S7）+ TC-057 ~ TC-080（S10.5）+ TC-081 ~ TC-084（定时同步） |
 | 执行人 | @Tester |
 | 执行日期 | 2026-11-01（CST） |
 | 执行环境 | macOS 14.1（23B2073）/ arm64 / Node 22.21.1 / npm 10.9.4 / Rust 1.92.0 / Playwright 1.64.1 / 仅 CommandLineTools（无完整 Xcode） |
@@ -16,16 +16,16 @@
 
 ### 0.1 S7.9 增量结论（2026-11-01 第五轮，读 §13.18 与 §14）
 
-**全量 68 条 AC 全部可判定：PASS 68 / FAIL 0 / BLOCKED 0 / NOT-VERIFIED 0。**（AC-41 判 **PASS**，但证据来源是**人类实机人工验收**而非 Tester 自动化取证 —— 记账上计入 PASS，证据上照实标注，见下方口径 2。）
+**全量 70 条 AC 全部可判定：PASS 70 / FAIL 0 / BLOCKED 0 / NOT-VERIFIED 0。**（AC-41 判 **PASS**，但证据来源是**人类实机人工验收**而非 Tester 自动化取证 —— 记账上计入 PASS，证据上照实标注，见下方口径 2。）
 
 - **本轮回填四条**（证据见 **§13.18**，均为「**Leader 实测、Tester 复核文字**」）：
   - **AC-65**（真实云端读写）：`NOT-VERIFIED` → **PASS**（201 / 200 / 204，本人 7 行）；
   - **AC-66②**（云侧 RLS 越权）：子项 `NOT-VERIFIED` → **PASS（等价判据）**（**局限见 §13.18.2，不得删**）；
   - **AC-68**（Windows 可构建）：`PASS + CI 子项 NV` → **PASS（含真实 CI）**（macOS / Windows 两个 job 均 success，产物 artifact 可下载）；
   - **AC-41**（断网三模块）：`BLOCKED` → **PASS**（人类 2026-11-01 实机验证；**Tester 侧无自动化取证**，证据来源照实标注为「人工验收确认」，不写成「Tester 已取证」）。**Leader 于 2026-11-01 复核后拍板记 PASS。**
-- **算术口径（唯一）**：68 = **56**（AC-01 ~ AC-56 = 56 PASS，含 AC-41）+ **12**（AC-57 ~ AC-68 = 12 PASS）= **68 PASS / 0 FAIL / 0 BLOCKED / 0 NOT-VERIFIED**。
+- **算术口径（唯一）**：70 = **56**（AC-01 ~ AC-56 = 56 PASS，含 AC-41）+ **14**（AC-57 ~ AC-70 = 14 PASS）= **70 PASS / 0 FAIL / 0 BLOCKED / 0 NOT-VERIFIED**。
   **AC-41 计入 PASS**（Leader 2026-11-01 拍板），但**证据来源标注为「人工验收确认」**——记账口径与证据口径分开写：PASS 是「这条 AC 已被可核实的证据判定通过」，不等于「有 Tester 侧自动化取证」。
-- **68 条逐条台账见 §14**（AC / 判定 / 证据段落 / 用例号）。**`68 PASS` 不等于 68 条都有 Tester 侧自动化取证**：AC-65 / AC-66② / AC-68 的 CI 三条是 Leader 实测，AC-41 是人类实机人工验收。
+- **70 条逐条台账见 §14**（AC / 判定 / 证据段落 / 用例号）。**`70 PASS` 不等于 70 条都有 Tester 侧自动化取证**：AC-65 / AC-66② / AC-68 的 CI 三条是 Leader 实测，AC-41 是人类实机人工验收。
 - **仍带子项 `NOT-VERIFIED` 的 PASS：1 条**——**AC-58**（TC-062 真实已登录态截图；本轮无截图产物）。
 - **AC-67 的账写「凭据 0 / 文本 1」**（§13.10 / §13.17）：可用真实密钥 0；`sync.config.example.json:5` 值位 1 行说明性否定文本，不判 FAIL。**产物侧分两笔**：前端字节看 `dist/`（0，带正控），二进制 `strings` 0 只覆盖 Rust 层与未压缩资源。**S1 白名单已闭环**（`check-sync.mjs` 78 项断言）。
 - 沿用上一轮（S10.5）结论：四组回归第二次全绿（`build` / `check-cases` / `check-permutation` / `playwright 6 passed`），**同步套件独立执行 4 passed**（≠6，两套分别报）；AC-01 ~ AC-56 的旧判定未被同步层破坏（§13.11）；AC-43 按 PRD v1.4 收窄口径**重判 PASS**（S7 的旧结论作废）。
@@ -47,7 +47,7 @@
 
 > 判定纪律（沿用计划 §0.1）：一条 AC 判 PASS = 其**主 TC** 的判据在本机以规定手段跑出来；桌面像素 / 手势类**辅助**项按 Leader 2026-11-01 口径记 `BLOCKED（环境：TCC 未授权）`，不改变 AC 判定；主 TC 本身完全依赖人工桌面操作时，该 AC 判 BLOCKED。
 
-> 逐条台账见 **§14**（AC-01 ~ AC-68 一张表）。AC-43 在本段 56 条之内按 v1.5 收窄口径**重判 PASS**（§13.7），**不另计一条**。
+> 逐条台账见 **§14**（AC-01 ~ AC-70 一张表）。AC-43 在本段 56 条之内按 v1.5 收窄口径**重判 PASS**（§13.7），**不另计一条**。
 
 ### 0.3 S7.5 桌面取证补跑（2026-11-01 第三轮，读 §6 / §7.2 / §13.13）
 
@@ -162,13 +162,13 @@ BUILD OK: dist/index.html      400 bytes
 ```console
 $ node scripts/check-cases.mjs
 内容库校验（scripts/check-cases.mjs）
-  方法总数        65（期望 65）
-  分类分布        thinking 17 / work 17 / report 12 / communication 7 / efficiency 12
-  case 分布       practice 18 / story 47 / 缺失 0
-  案例正文长度    126–240，均值 162.4（期望 126–240）
-  id 唯一         65/65
-  steps 真实分布  3 条 × 6 / 4 条 × 55 / 5 条 × 3 / 7 条 × 1（观测区间 3–7）
-  steps > 4 条目  gtd(5), smart-goal(5), 5w2h(7), rice-scoring(5)（CFL-07 判定合规，不判失败）
+  方法总数        146（期望 146）
+  分类分布        thinking 17 / work 17 / report 12 / communication 7 / efficiency 12 / classic 81
+  case 分布       practice 36 / story 110 / 缺失 0
+  案例正文长度    126–240，均值 179.7（期望 126–240）
+  id 唯一         146/146
+  steps 真实分布  3 条 × 12 / 4 条 × 126 / 5 条 × 6 / 7 条 × 2（观测区间 3–7）
+  steps > 4 条目  gtd(5), smart-goal(5), 5w2h(7), rice-scoring(5), gong-yu-shan-qi-shi(5), fan-shi-yu-ze-li(5), qun-er-wu-fen-ze-zheng(7), zhi-zhe-zhi-mou(5)（CFL-07 判定合规，不判失败）
 
 PASS
 EXIT=0
@@ -178,13 +178,13 @@ EXIT=0
 
 ```console
 $ node scripts/check-permutation.mjs
-MATCH 2026-01-01  首推=difficult-conversation  次推=okr  长度=65
-MATCH 2026-03-15  首推=pyramid-principle  次推=issue-tree  长度=65
-MATCH 2026-06-30  首推=task-batching  次推=meeting-lean  长度=65
-MATCH 2026-11-01  首推=conclusion-argument-recommendation  次推=sunk-cost  长度=65
-MATCH 2026-11-15  首推=pyramid-principle  次推=checklist  长度=65
-MATCH 2026-12-31  首推=issue-tree  次推=critical-path  长度=65
-MATCH 2027-02-28  首推=red-team  次推=pyramid-principle  长度=65
+MATCH 2026-01-01  首推=active-listening  次推=elevator-pitch  长度=146
+MATCH 2026-03-15  首推=pyramid-principle  次推=shu-jin-ri-yi-guan-qian-sui  长度=146
+MATCH 2026-06-30  首推=xian-shi-hou-de  次推=pre-brief  长度=146
+MATCH 2026-11-01  首推=quan-hou-zhi-qing-zhong  次推=sunk-cost  长度=146
+MATCH 2026-11-15  首推=zheng-ming  次推=scqa  长度=146
+MATCH 2026-12-31  首推=5w2h  次推=shi-yi-ze-shi-yi  长度=146
+MATCH 2027-02-28  首推=sbi-feedback  次推=si-huan-er-yu-fang-zhi  长度=146
 
 抽样日期比对：7/7 一致
 PASS
@@ -263,8 +263,8 @@ PASS（三份 conf 合并 + schema + 平台中立 + 数据路径中立 + workflo
 | AC-23 | TC-031 | **PASS** | 用例 3：换一条 = 参考排列下一条、`manual=false→true`、徽章「已手动刷新」；桌面库中 `manual=1` 行跨我这次重启仍不变 | 桌面「换一条」点击本身 = **BLOCKED（TCC）** |
 | AC-24 | TC-032 | **PASS** | `check-permutation.mjs`：7/7 MATCH，退出码 0 | — |
 | AC-25 | TC-033 | **PASS** | 用例 3：`.history-item` = 7、日期升序、末行 = 今天、`.active` 跟随、点第 3 行主卡片切到该日 | — |
-| AC-26 | TC-034 | **PASS** | 用例 3：`.library-count` = `65 条`；`.cf-btn` 6 个（全部 65 / 17 / 17 / 12 / 7 / 12），逐个点选后 `.lib-item` 条数与计数一致 | TC-035 交叉核对 |
-| AC-27 | TC-035 | **PASS** | `check-cases.mjs` PASS：65 条、17/17/12/7/12、practice 18 + story 47、steps 分布 6/55/3/1（区间 3–7）、正文 126–240；4 条超限未判红 | TC-036（负向）未在本段复跑，见 §11 |
+| AC-26 | TC-034 | **PASS** | 用例 3：`.library-count` = `146 条`；`.cf-btn` **7** 个（全部 146 / 17 / 17 / 12 / 7 / 12 / **中国古典智慧 81**），逐个点选后 `.lib-item` 条数与计数一致 | TC-035 交叉核对；AC-70（v1.8 / v1.9）复跑同口径 |
+| AC-27 | TC-035 | **PASS** | `check-cases.mjs` PASS：**146 条**、17/17/12/7/12/**81**、practice 36 + story **110**、steps 分布 **12/126/6/2**（区间 3–7）、正文 126–240；**8** 条超限未判红 | TC-036（负向）未在本段复跑，见 §11；AC-70（v1.8 / v1.9）复跑同口径 |
 | AC-28 | TC-037 | **PASS** | 用例 3：`boundingBox()` → steps 底 ≤ duo 顶、duo 底 ≤ case 顶、三者 x 差 ≤ 1px、卡片宽 ≤ `.dv-main` | — |
 | AC-29 | TC-038 | **PASS** | 用例 3（强制夹具 `5w2h`）：`scrollHeight > clientHeight`、`.mc-fade` 可见 → 滚到底 `toBeHidden()`、页面不滚动；`rice-scoring` 条件夹具本次不溢出（不判定） | 桌面 WKWebView = **M-11 BLOCKED** |
 | AC-30 | TC-041 | **PASS** | 用例 3：`.mini-title` = `今日工作法`；点 `.mini-refresh` 后内容变化，`data-module` 仍 `calendar` 且 `.daily-module` 隐藏 | — |
@@ -289,7 +289,7 @@ PASS（三份 conf 合并 + schema + 平台中立 + 数据路径中立 + workflo
 | AC-49 | TC-026 | **PASS** | 用例 5（1280×800）贴边向左/向上翻转且余量 ≥ 8px；**S7 探针（900×600 最小窗，右下角条目）**：菜单 box `{x:565,y:436,w:168,h:114}`，四边余量 `565 / 436 / 167 / 50` 均 ≥ 8 | — |
 | AC-50 | TC-016 | **PASS** | 用例 5：`.ctx-menu` 的父节点 = `BODY` | — |
 | AC-51 | TC-028 | **PASS** | 用例 3：三态各造一次，`.mc-preview` 计数恒为 1，文案逐字 `今日推送` / `已手动刷新` / `方法库预览` | — |
-| AC-52 | TC-037 | **PASS** | **临时夹具**（`page.route` 拦截 `src/data/methods.ts`，模块末尾内存删 `case`，不入库、不改 `methods.ts`）：`.mc-case` = 0、`.case-title/.case-content` = 0，`.mc-steps-block` 与两个 `.mc-box` 正常；换一条后仍为 0 | **夹具构造，现有 65 条数据不可达**（全部带 `case`）；`check-cases.mjs` 仍绿 |
+| AC-52 | TC-037 | **PASS** | **临时夹具**（`page.route` 拦截 `src/data/methods.ts`，模块末尾内存删 `case`，不入库、不改 `methods.ts`）：`.mc-case` = 0、`.case-title/.case-content` = 0，`.mc-steps-block` 与两个 `.mc-box` 正常；换一条后仍为 0 | **夹具构造，现有 146 条数据不可达**（全部带 `case`）；`check-cases.mjs` 仍绿 |
 | AC-53 | TC-041 | **PASS** | **S7 探针（主套件缺此断言）**：切到非今日 → `.mini-title` = `11月4日 工作法`（正则 `^\d{1,2}月\d{1,2}日 工作法$`）；hover `.mini-refresh` 背景 `rgba(0,0,0,0) → rgb(240,140,0)`（= 分类色 `#f08c00`）、文字转白；回今天仍 `今日工作法` | E2E 覆盖缺口记于 §5 |
 | AC-54 | TC-043 | **PASS** | 用例 4 末尾清空 `todo_local_db` + reload → `暂无待办`、空态内 `button` = 0、`.group` = 0、`共 0 项`、无完成率 | 「方法库空态」半句 = 观察项（§9） |
 | AC-55 | TC-046 | **PASS** | `check-db-parity.mjs`：同一 13 步操作序列分别跑 localStorage 与 SQLite（真实 plugin JS + 应用真实 SQL），`fetchTodos / ByDate / ByMonth×2 / DailyPicks / DailyPick×2` 逐项 JSON 相等，输出 `PASS`；列表排序 `丁 → 丙 → 乙改 → 戊`、推送记录两侧一致 | 桌面 UI 六步点击未执行（TCC）；见 §10 |
@@ -442,7 +442,7 @@ d66b3ea6e24d3b54d74dcd0c24e5a51b
 | 菜单的 ③ 窗口失焦 / ④ resize | AC-19（TC-026 的 ③ 计划写「事件级模拟」；COVERAGE.md 说明实现未写） | 临时探针 `ac19.spec.ts`（已删） | blur 与 resize 事件均使 `.ctx-menu` 归 0（事件级，不等于真机） |
 | 优先级 reload 后保持 | AC-13（TC-018 的桌面重启部分） | 临时探针 `ac13.spec.ts`（已删） | reload 后仍「高」、`data-priority=2` |
 | 900×600 最小窗下的贴边翻转 | AC-49（主套件在 1280×800 下测） | 临时探针 `ac49.spec.ts`（已删） | 四边余量 565/436/167/50，均 ≥ 8 |
-| 无 `case` 不渲染案例区块 | AC-52 | 临时夹具 `ac52.spec.ts`（已删） | `.mc-case` = 0，三区块正常；**现有 65 条全带 `case`，该路径不可达，靠夹具判定** |
+| 无 `case` 不渲染案例区块 | AC-52 | 临时夹具 `ac52.spec.ts`（已删） | `.mc-case` = 0，三区块正常；**现有 146 条全带 `case`，该路径不可达，靠夹具判定** |
 
 > 探针第一次跑 AC-13 时因我自己的 `addInitScript` 在 reload 时重复种数据而得到「优先级没保持」的假失败；加 `sessionStorage` 一次性守卫后重跑通过。记录在此，避免把测试缺陷误判成产品缺陷。
 
@@ -538,10 +538,10 @@ Windows **实机**项一律不写成 PASS，也不以静态自检替代实机结
 
 | 观察项 | 为什么不可达 | 报告口径 |
 | --- | --- | --- |
-| AC-54 的「方法库空态」半句 | 65 条方法都有分类（ES-04 现实不可达），构造空方法库需要改内容库，CFL-07 禁止 | 不设断言、不计 PASS / FAIL，只在「已知局限」留一行 |
+| AC-54 的「方法库空态」半句 | 146 条方法都有分类（ES-04 现实不可达），构造空方法库需要改内容库，CFL-07 禁止 | 不设断言、不计 PASS / FAIL，只在「已知局限」留一行 |
 | AC-29 的 `rice-scoring` 条件夹具 | 1280×800 下 `scrollHeight = clientHeight`（不溢出），按计划记「夹具不成立，本次不判定」 | 用例 3 已用 Playwright annotation `fixture-not-applicable` 留痕，不判失败 |
 
-> AC-52 的「无 `case`」路径在现有 65 条数据下也不可达，但按 Leader 2026-11-01 口径已用**临时夹具**构造并断言 → 判 PASS（报告已注明「夹具构造，现有 65 条数据不可达」），不算观察项。
+> AC-52 的「无 `case`」路径在现有 146 条数据下也不可达，但按 Leader 2026-11-01 口径已用**临时夹具**构造并断言 → 判 PASS（报告已注明「夹具构造，现有 81 条数据不可达」），不算观察项。
 
 ---
 
@@ -590,7 +590,7 @@ Windows **实机**项一律不写成 PASS，也不以静态自检替代实机结
 
 ## 13. S10.5 · 同步层执行与全量回归（AC-57 ~ AC-67 + AC-43 重判 + AC-68）
 
-> 执行 Issue：ZACHTD-13（S10.5）。判定基线：PRD **v1.4 → v1.5 → v1.6**（68 条，条数未变；v1.5 收窄 AC-37 判据、归正 AC-68 判定归属；v1.6 收窄 AC-67 判据 + 校正 OPEN-02 措辞，不改判定）；用例：本计划 **v1.3**。
+> 执行 Issue：ZACHTD-13（S10.5）。判定基线：PRD **v1.4 → v1.5 → v1.6 → v1.7 → v1.8**（**70 条**；v1.5 收窄 AC-37 判据、归正 AC-68 判定归属；v1.6 收窄 AC-67 判据 + 校正 OPEN-02 措辞，均不改判定；v1.7 增 AC-69、v1.8 增 AC-70）；用例：本计划 **v1.3** + 本轮增量。
 > 本段**不改产品代码、不新增 `test()`、不放宽任何断言**；新增的只是三个独立验证脚本（见 §13.15）。
 
 ### 13.1 结论（先读这一段）
@@ -600,7 +600,7 @@ Windows **实机**项一律不写成 PASS，也不以静态自检替代实机结
 **同步组：AC-57 ~ AC-68 = PASS（12 条，含 S7.9 回填的 AC-65 / AC-66② / AC-68）。**
 **另：AC-43 按 v1.4 收窄口径重判 = PASS（S7 的旧结论作废，以本段为准）；AC-41 由 `BLOCKED` 改记 **PASS**（人类实机验收、Leader 拍板；Tester 侧无自动化取证——证据来源照实标注）。**
 
-全量 68 条合计（S7.9 后）：**PASS 68 / FAIL 0 / BLOCKED 0 / NOT-VERIFIED 0**（AC-41 计入 PASS，证据来源为人工验收确认；口径见 §0.1）。
+全量 70 条合计（S7.9 后）：**PASS 70 / FAIL 0 / BLOCKED 0 / NOT-VERIFIED 0**（AC-41 计入 PASS，证据来源为人工验收确认；口径见 §0.1）。
 （S10.5 当时：PASS 66 / FAIL 0 / BLOCKED 1（AC-41）/ NOT-VERIFIED 1（AC-65），PASS 率 66 ÷ 68 = 97.1%。）
 
 - **四组必做回归全绿**（S10.5 轮）：`npm run build` exit 0；`check-cases.mjs` PASS；`check-permutation.mjs` 7/7 MATCH；`npx playwright test` **6 passed**。**S7.9 是纯文档回填，未重跑 E2E / 未重打包**。
@@ -646,13 +646,13 @@ EXIT=0
 ```console
 $ node scripts/check-cases.mjs
 内容库校验（scripts/check-cases.mjs）
-  方法总数        65（期望 65）
-  分类分布        thinking 17 / work 17 / report 12 / communication 7 / efficiency 12
-  case 分布       practice 18 / story 47 / 缺失 0
-  案例正文长度    126–240，均值 162.4（期望 126–240）
-  id 唯一         65/65
-  steps 真实分布  3 条 × 6 / 4 条 × 55 / 5 条 × 3 / 7 条 × 1（观测区间 3–7）
-  steps > 4 条目  gtd(5), smart-goal(5), 5w2h(7), rice-scoring(5)（CFL-07 判定合规，不判失败）
+  方法总数        146（期望 146）
+  分类分布        thinking 17 / work 17 / report 12 / communication 7 / efficiency 12 / classic 81
+  case 分布       practice 36 / story 110 / 缺失 0
+  案例正文长度    126–240，均值 179.7（期望 126–240）
+  id 唯一         146/146
+  steps 真实分布  3 条 × 12 / 4 条 × 126 / 5 条 × 6 / 7 条 × 2（观测区间 3–7）
+  steps > 4 条目  gtd(5), smart-goal(5), 5w2h(7), rice-scoring(5), gong-yu-shan-qi-shi(5), fan-shi-yu-ze-li(5), qun-er-wu-fen-ze-zheng(7), zhi-zhe-zhi-mou(5)（CFL-07 判定合规，不判失败）
 
 PASS
 EXIT=0
@@ -660,13 +660,13 @@ EXIT=0
 
 ```console
 $ node scripts/check-permutation.mjs
-MATCH 2026-01-01  首推=difficult-conversation  次推=okr  长度=65
-MATCH 2026-03-15  首推=pyramid-principle  次推=issue-tree  长度=65
-MATCH 2026-06-30  首推=task-batching  次推=meeting-lean  长度=65
-MATCH 2026-11-01  首推=conclusion-argument-recommendation  次推=sunk-cost  长度=65
-MATCH 2026-11-15  首推=pyramid-principle  次推=checklist  长度=65
-MATCH 2026-12-31  首推=issue-tree  次推=critical-path  长度=65
-MATCH 2027-02-28  首推=red-team  次推=pyramid-principle  长度=65
+MATCH 2026-01-01  首推=active-listening  次推=elevator-pitch  长度=146
+MATCH 2026-03-15  首推=pyramid-principle  次推=shu-jin-ri-yi-guan-qian-sui  长度=146
+MATCH 2026-06-30  首推=xian-shi-hou-de  次推=pre-brief  长度=146
+MATCH 2026-11-01  首推=quan-hou-zhi-qing-zhong  次推=sunk-cost  长度=146
+MATCH 2026-11-15  首推=zheng-ming  次推=scqa  长度=146
+MATCH 2026-12-31  首推=5w2h  次推=shi-yi-ze-shi-yi  长度=146
+MATCH 2027-02-28  首推=sbi-feedback  次推=si-huan-er-yu-fang-zhi  长度=146
 
 抽样日期比对：7/7 一致
 PASS
@@ -1155,26 +1155,28 @@ PROBE menubar.items = BLOCKED (AX error -25211)
 
 ### 13.16 TC-036 负向复跑（Reviewer 留的「永真脚本」风险项）
 
+> **v1.8 复跑**：内容库扩充到 81 条后，本段四组篡改**全部重跑**，输出已更新为当前基线（总数 81 → 80），结论不变。
+
 ```console
 $ node scripts/check-cases-negative.mjs
 ✓ 未篡改副本 → exit=0
-✓ ① 删掉 1 条方法（65 → 64） → exit=1
-      ✗ 方法总数应为 65，实际 64
+✓ ① 删掉 1 条方法（146 → 145） → exit=1
+      ✗ 方法总数应为 146，实际 145
       ✗ 分类 thinking 应为 17 条，实际 16 条
       ✗ CATEGORY_COUNTS.thinking 应为 17，实际 16
-      ✗ case.type practice 应为 18 条，实际 17 条
+      ✗ case.type practice 应为 36 条，实际 35 条
 ✓ ② 造一条 steps = 1 → exit=1
       ✗ first-principles steps 只有 1 项，少于 2 项
 ✓ ③ case.type 改成非法值 → exit=1
       ✗ first-principles case.type 非法：anecdote
-      ✗ case.type practice 应为 18 条，实际 17 条
+      ✗ case.type practice 应为 36 条，实际 35 条
 ✓ ④ 案例正文截到 100 字 → exit=1
       ✗ first-principles 案例正文长度 100 不在 126–240 区间
 
 TC-036 PASS：四种篡改各自使脚本退出码 ≠ 0，未篡改副本退出码 0
 ```
 
-**结论**：`check-cases.mjs` 不是永真脚本；AC-27 的正向（65 条 / 分布 / 长度）与负向（四种篡改）双向成立。
+**结论**：`check-cases.mjs` 不是永真脚本；AC-27 的正向（**81 条** / 分布 / 长度）与负向（四种篡改）双向成立。
 
 ### 13.17 口径复核与证据刷新（ZACHTD-14 · 第二轮）
 
@@ -1374,12 +1376,206 @@ Tester 侧只能给旁证：应用进程 `lsof -a -p <pid> -i` **零 socket**；
 Leader 随即在 02:30 单独追问「已人工验证是否包含 AC-41（关 Wi-Fi 后新建 / 换一条 / 筛选都正常）」，
 并在 **2026-11-01 复核本轮台账后拍板：`AC-41 pass`**。
 
-**判定：PASS。** 记账口径计入 68 条 PASS；**证据来源照实标注为「人工验收确认」**——不是 Tester 侧自动化取证，
+**判定：PASS。** 记账口径计入 70 条 PASS；**证据来源照实标注为「人工验收确认」**——不是 Tester 侧自动化取证，
 交付说明与 README 的「桌面像素由人工确认」边界保持一致。
 
 ---
 
-## 14. AC-01 ~ AC-68 统一判定台账（68 行）
+### 13.19 定时同步「每 2 天」实测（AC-69 / TC-081 ~ TC-084）
+
+> 判定基线：PRD **v1.7**（新增 FR-SYNC-17 / AC-69 / D-SYNC-08）；用例：测试计划 **v1.4 §5.9 I 组**。
+> **手段**：本地 stub + 注入式假时钟（`setClock` / `setTimers` + `advance(ms)`，与 H 组同一套注入点）。
+> **证据文件**：`scripts/check-sync.mjs` 路径 ⑨（真跑，非读代码推断）。
+
+#### 13.19.1 结论
+
+**AC-69 = PASS**（限本地 stub 上可观察的调度行为）；**真实云端侧的定时轮次 = `NOT-VERIFIED`**（与 AC-65 / AC-66② 同口径，单列不计入 PASS）。
+
+命令与原始输出：
+
+```
+$ node scripts/check-sync.mjs
+── ⑨ 每 2 天自动同步：假时钟推进 2 天 → 真跑一轮拉取（FR-SYNC-17）
+   ✓ ⑨ 每 2 天自动同步：假时钟推进 2 天 → 真跑一轮拉取（FR-SYNC-17） PASS（35 项断言）
+...
+✓ 同步自检 PASS：134 项断言，九组路径 + v3 迁移结构证据全部通过
+```
+
+#### 13.19.2 逐条用例判定
+
+| 用例 | 断言内容 | 判定 |
+| --- | --- | --- |
+| TC-081 | 假时钟推进 2 天 → **自动拉取 1 次**；状态区 detail 含「定时同步」；锚点落盘；下一轮重排到 2 天后 | **PASS** |
+| TC-082 | 锚点停在 5 天前 → 启动**补做一轮**，且本次启动**只拉 1 次**云端（不重复打云端）；锚点推进到当下 | **PASS** |
+| TC-083 | 锚点未过期时重启 → 下一轮仍按**原锚点**排期，**未**被重置成「从现在起 2 天」 | **PASS** |
+| TC-084 | 未登录 / 登出后 / `autoSyncDays = 0` 三种情形下，假时钟推进 4 天 → `rest/v1` 与 `auth/v1` **均 0 次** | **PASS** |
+
+#### 13.19.3 回归影响（既有判定未被破坏）
+
+| 项 | 结果 |
+| --- | --- |
+| `node scripts/check-sync.mjs` | **PASS**，134 项断言（九组路径 + v3 迁移结构证据） |
+| `node scripts/check-sync-extra.mjs` | **PASS**，37 项断言 |
+| `node scripts/check-no-secrets.mjs` | **PASS**，61 个文件 0 处密钥形态命中 |
+| `node scripts/check-deleted-filter.mjs` | **PASS** |
+| `npm run build`（`vue-tsc --noEmit && vite build`） | **exit 0** |
+| `cargo test --test migration_guard` | **4 passed**（v1 / v2 / v3 迁移只增不改，未受新增状态文件影响） |
+| `npx playwright test`（主套件） | **6 passed**（AC-03 红线未动，未新增 `test()`） |
+| `npx playwright test -c playwright.sync.config.ts` | **4 passed**（与主套件隔离，未动 `e2e/`） |
+
+#### 13.19.4 局限与 NOT-VERIFIED
+
+- **真实云端上的定时轮次 = `NOT-VERIFIED`**：本机无法等待真实 2 天并观察真 Supabase 上的自动轮次；
+  已验证的是「调度逻辑在注入式假时钟下确实会触发一次完整同步」。
+- **桌面端状态文件的真实落盘路径未实机验证**：`sync.state_read/write` 的 Rust 命令已实现并编译通过，
+  但本轮未做「重启桌面应用后确认 `sync.state.json` 落盘」的实机取证；stub 侧用内存实现覆盖了跨重启语义。
+- 定时同步**不与 OPEN-02 冲突**：它只推送「本轮会话内已被变更驱动收集的待推集合」，
+  启动时**不扫描本地待推队列**（沿用既有口径，未把「退出前 flush」偷渡进来）。
+
+### 13.20 中国古典智慧分类扩充实测（AC-70）
+
+> 判定基线：PRD **v1.8 / v1.9**（新增 FR-DM-17 / AC-70 / OP-14 / OP-15）；需求来源：需求方 2026-11-02 提供的中国古典哲学方法清单（16 条）与「不应只新增这 16 条」的要求。
+> **手段**：内容库扩充后**重跑全部既有校验脚本、构建与两套 E2E**；并用真实浏览器逐条复核渲染。
+> **设计裁定**：既有五个分类是**用途**维度（什么时候用什么工具），中国古典哲学是**来源**维度（从哪里取工具）——
+> 因此**新增第 6 个分类 `classic`「中国古典智慧」**而非把条目混进既有五类（混入会破坏 BR-12 的精确计数契约，也会丢掉「按流派浏览」的能力）。
+> **原 65 条的处理**：**逐字保留、一条不改**（NS-05 / OP-01 的只读数据资产契约在 v1.9 仍完全成立），新增条目一律**追加在数组末尾**。
+
+#### 13.20.1 结论
+
+**AC-70 = PASS**（六项判据全部成立，且既有 AC-26 / AC-27 / AC-24 的判定未被破坏）。
+
+命令与原始输出：
+
+```
+$ node scripts/check-cases.mjs
+内容库校验（scripts/check-cases.mjs）
+  方法总数        146（期望 146）
+  分类分布        thinking 17 / work 17 / report 12 / communication 7 / efficiency 12 / classic 81
+  case 分布       practice 36 / story 110 / 缺失 0
+  案例正文长度    126–240，均值 179.7（期望 126–240）
+  id 唯一         146/146
+  steps 真实分布  3 条 × 12 / 4 条 × 126 / 5 条 × 6 / 7 条 × 2（观测区间 3–7）
+  steps > 4 条目  gtd(5), smart-goal(5), 5w2h(7), rice-scoring(5), gong-yu-shan-qi-shi(5), fan-shi-yu-ze-li(5), qun-er-wu-fen-ze-zheng(7), zhi-zhe-zhi-mou(5)（CFL-07 判定合规，不判失败）
+
+PASS
+EXIT=0
+```
+
+```
+$ node scripts/check-permutation.mjs
+MATCH 2026-01-01  首推=active-listening  次推=elevator-pitch  长度=146
+MATCH 2026-03-15  首推=pyramid-principle  次推=shu-jin-ri-yi-guan-qian-sui  长度=146
+MATCH 2026-06-30  首推=xian-shi-hou-de  次推=pre-brief  长度=146
+MATCH 2026-11-01  首推=quan-hou-zhi-qing-zhong  次推=sunk-cost  长度=146
+MATCH 2026-11-15  首推=zheng-ming  次推=scqa  长度=146
+MATCH 2026-12-31  首推=5w2h  次推=shi-yi-ze-shi-yi  长度=146
+MATCH 2027-02-28  首推=sbi-feedback  次推=si-huan-er-yu-fang-zhi  长度=146
+
+抽样日期比对：7/7 一致
+PASS
+EXIT=0
+```
+
+```
+$ node scripts/check-s3-ui.mjs   # 第 [6] 段「方法库 146 条与分类筛选」
+[6] 方法库 146 条与分类筛选（FR-DM-05 / FR-DM-06 / AC-26）
+  PASS  方法库标题
+  PASS  标题右侧固定显示「146 条」
+  PASS  筛选按钮文案与顺序
+  PASS  分类计数合计 146
+  PASS  默认「全部」筛选 146 条
+  PASS  中国古典智慧 筛选 81 条
+  PASS  选中分类使用分类色文字（中国古典智慧）
+  …（其余五个分类同样逐项 PASS，共 109 项断言全部通过）
+```
+
+#### 13.20.2 逐条判据核对
+
+| # | AC-70 判据 | 实测结果 | 判定 |
+| --- | --- | --- | --- |
+| ① | 方法库标题右侧显示 `146 条`，筛选按钮 **6** 个，点「中国古典智慧」后列表 **81** 条 | `check-s3-ui.mjs` [6] 段：标题 `146 条`、分类计数合计 146、`中国古典智慧 筛选 81 条`；E2E 用例 3 同步断言 `.cf-btn` 7 个（含「全部」）与 `['classic', 81]` | **PASS** |
+| ② | 81 条 `source` 均写明典籍与篇章 | `check-cases.mjs`：`classic` 81 条；真实浏览器逐条复核，81/81 的 `source` 均匹配 `《…》` | **PASS** |
+| ③ | 案例正文 126–240 字 | `check-cases.mjs`：全库 126–240，均值 179.7，**0 条越界** | **PASS** |
+| ④ | `node scripts/check-cases.mjs` 退出码 0 | `EXIT=0`，输出见 §13.20.1 | **PASS** |
+| ⑤ | `node scripts/check-permutation.mjs` 退出码 0，146 个 id 的排列与参考实现逐位一致 | `EXIT=0`，7/7 `MATCH`，长度均为 146 | **PASS** |
+| ⑥ | 原 65 条零改动，既有 AC 判定未被破坏 | `git diff src/data/methods.ts` 中**无任何删除行**；结构化比对确认前 65 条的 `id` / `name` / `category` / `source` / `summary` / `steps` / `when` / `action` / `case` **全字段逐字一致，0 条被替换** | **PASS** |
+
+#### 13.20.3 回归影响（既有判定未被破坏）
+
+| 项 | 结果 |
+| --- | --- |
+| `node scripts/check-cases.mjs` | **PASS**（146 条 / 17·17·12·7·12·81 / 36+110 / 正文 126–240） |
+| `node scripts/check-cases-negative.mjs` | **PASS**（TC-036：四种篡改各自使脚本退出码 ≠ 0） |
+| `node scripts/check-permutation.mjs` | **PASS**（7/7 MATCH，146 条） |
+| `node scripts/check-s3-ui.mjs` | **PASS**，**109 项断言** |
+| `npm run build`（`vue-tsc --noEmit && vite build`） | **exit 0** |
+| `npx playwright test`（主套件） | **6 passed**（未新增 `test()`） |
+| `npx playwright test -c playwright.sync.config.ts` | **4 passed**（与主套件隔离，未动 `e2e-sync/`） |
+| `cargo test --test migration_guard` | **4 passed**（未动 Rust 侧） |
+
+#### 13.20.4 局限与已知影响
+
+- **推送排列随内容库长度变化**：Fisher-Yates 的输入长度由 81 变为 146，因此**同一日期的推送结果与扩充前不同**。
+  这是内容库扩充的固有结果，不是算法缺陷——AC-24 判的是「与独立参考实现逐位一致」，该性质在 146 条下仍成立（7/7 MATCH）。
+  **既有 `daily_picks` 落库记录仍指向有效的 `method_id`**（原 65 条的 id 一个都没删），因此不会触发 EX-06 回退。
+- **原 65 条的文案与统计未动**：v1.8 / v1.9 只做**追加**；原 65 条的 `id` / `name` / `category` / `source` / `summary` / `steps` / `when` / `action` / `case` 逐字未变，
+  相对顺序也未变，符合 NS-05 / OP-01 / OP-14 的约定。
+- **引文出处只写可核实的典籍原文**：《论语·颜渊》（先事后得）、《韩非子·说林上》（见微以知萌，象箸典故）、
+  《左传·庄公十年》（曹刿论战）、《列子·汤问》（愚公移山）等逐条核对篇章归属；案例只写典籍可考的原话或史事，**未编造轶闻**。
+- **分类维度的取舍**：81 条按「典籍来源」而非「用途」归类，因此与既有的思维 / 工作 / 汇报 / 沟通 / 效率五类**并列**而非混入；
+  若后续需要按用途检索这 81 条，应另设标签字段，不在本轮范围内。
+
+---
+
+### 13.21 「中国古典智慧」分类从 16 条扩到 81 条（v1.9）
+
+> 判定基线：PRD **v1.9**（新增 OP-15）；需求来源：需求方 2026-11-02 的补充要求——「你不应该只新增我给你举例的这 16 条」。
+> **做法**：在**保留原 65 条不动**的前提下，把 `classic` 分类从 16 条扩到 **81 条**——
+> 在需求方清单的 16 条之外，再补 **65 条**经典工作方法，使该分类成为一套可独立浏览的完整体系。
+
+#### 13.21.1 扩充结果
+
+| 维度 | 结果 |
+| --- | --- |
+| 方法总数 | 65 → **146** |
+| `classic` 分类 | 16 → **81** 条 |
+| 其余五个分类 | thinking 17 / work 17 / report 12 / communication 7 / efficiency 12（**全部不变**） |
+| `case` 分布 | practice 18 / story 47 → **practice 36 / story 110** |
+| `steps` 分布 | 3×6 / 4×55 / 5×3 / 7×1 → **3×12 / 4×126 / 5×6 / 7×2** |
+| 正文长度 | 126–240（均值 179.7），**0 条越界** |
+| id 唯一 | 146/146 |
+
+**典籍来源分布**（`classic` 81 条）：儒家 49 · 道家 13 ·《周易》5 · 墨家 4 · 兵家 3 · 法家 3 · 纵横家 2 · 医家 1 · 杂家 1。
+
+#### 13.21.2 一条必须守住的不变式
+
+**原 65 条自始至终逐字未变。** `git diff src/data/methods.ts` 中**没有任何一行被删除**；
+用结构化比对（把 `HEAD` 版本单独加载后逐字段比较）确认：前 65 条的 `id` / `name` / `category` / `source` / `summary` /
+`steps` / `when` / `action` / `case` **全字段一致，被替换条目数为 0**。
+这既守住了 NS-05 / OP-01 的只读数据资产契约，也让历史 `daily_picks` 的 `method_id` 全部继续有效。
+
+#### 13.21.3 E2E 夹具的一处加固（及其原因）
+
+扩充内容后主套件一度**红**：它硬编码断言了方法名 `'5W2H 分析法'` 与 `'RICE 评分'`。
+修复方式**不是把断言改成新名字**（那样下次再改内容又会红），而是改为从内容库动态取：
+`methodName('5w2h')` / `methodName('rice-scoring')`——`methodName` 早已存在于 `e2e/support/fixtures.ts`，
+且与 `referenceOrder` 一样与内容库同源。`scripts/check-s3-ui.mjs` 里的同类硬编码也一并改掉了。
+这样**内容库再改写方法名，E2E 与自证脚本都不会失效**。
+除方法名外，E2E 中剩余的 `toHaveText` 全部是 UI 固定文案（空态、优先级、完成率等），与内容库无关，未动。
+
+#### 13.21.4 局限
+
+- **扩充的是条目，不是结构**：既有 `id` / `category` / `steps` 条数与相对顺序全部保持，因此**原 65 条的推送位置不变**；
+  变化的只是内容库长度（81 → 146）带来的排列长度，以及 `classic` 分类的规模。
+- **「一槽位一方法」是工程映射，不是考古结论**：新增的 65 条与五个用途槽位并非唯一对应
+  （如 `critical-path` 对应《孙子·兵势》的「求之于势」、`rice-scoring` 对应《孙子·始计》的「经之以五事、校之以计」），
+  取舍标准是「该典籍的这一句确实能讲清这个工作动作」，而非追求一一对位的唯一性。
+- **新增条目的 `id` 为独立命名**（如 `ge-wu-zhi-zhi`、`zheng-ming`），不复用既有 65 条的 id，
+  保证全局唯一且不与历史落库记录混淆。
+
+---
+
+## 14. AC-01 ~ AC-70 统一判定台账（70 行）
 
 > 本节是 **M2 台账统一**的产物（ZACHTD-14）：把 §3（S7，AC-01~56）与 §13（S10.5，AC-43 重判 + AC-57~68）两段结论**并成一张可逐条引用的账**。M2 那轮**一行都没有改判**；只修了附录 A.2 的重复计数，并新增两条「判定含义注」。
 > **S7.9（ZACHTD-19）在 M2 之后改判了 5 行**：AC-41（`BLOCKED` → **PASS**，证据来源为人工验收确认）、AC-59（子项 NV → PASS）、AC-65（`NOT-VERIFIED` → PASS）、AC-66（② 子项 NV → PASS 等价判据）、AC-68（CI 子项 NV → PASS）。证据统一在 **§13.18**。
@@ -1388,8 +1584,8 @@ Leader 随即在 02:30 单独追问「已人工验证是否包含 AC-41（关 Wi
 
 **读这张表之前先读四条口径**
 
-1. **68 = 56 + 12**：AC-01 ~ AC-56（56 条）+ AC-57 ~ AC-68（12 条）。**AC-43 是 AC-01~56 段内的重判，不是第 13 条**，在 68 条里只计一次。合计 = 56 PASS（AC-01 ~ AC-56，含 AC-41）+ 12 PASS（AC-57 ~ AC-68）= **68 PASS / 0 FAIL / 0 BLOCKED / 0 NOT-VERIFIED**（S7.9 后；S7.9 前为 66 / 0 / 1 / 1）。
-2. **`68 PASS` ≠ 68 条都有 Tester 侧完整证据。** 其中 **1 条是「主判 PASS + 子项 `NOT-VERIFIED`」**：**AC-58**（TC-062 真实已登录态截图）。另有三条是 **Leader 实测、Tester 复核文字**（**AC-65** / **AC-66②** / **AC-68 的 CI**），一条是 **人类实机人工验收**（**AC-41**，Leader 2026-11-01 拍板记 PASS）——**口径不能比事实窄**，但也**不得把「Leader 实测 / 人类验收」写成「Tester 已取证」**，两条都按证据来源标注。
+1. **70 = 56 + 14**：AC-01 ~ AC-56（56 条）+ AC-57 ~ AC-70（14 条）。**AC-43 是 AC-01~56 段内的重判，不是新增的一条**，在 70 条里只计一次。合计 = 56 PASS（AC-01 ~ AC-56，含 AC-41）+ 14 PASS（AC-57 ~ AC-70）= **70 PASS / 0 FAIL / 0 BLOCKED / 0 NOT-VERIFIED**（S7.9 后；S7.9 前为 66 / 0 / 1 / 1）。
+2. **`70 PASS` ≠ 70 条都有 Tester 侧完整证据。** 其中 **2 条是「主判 PASS + 子项 `NOT-VERIFIED`」**：**AC-58**（TC-062 真实已登录态截图）与 **AC-69**（真实云端侧定时轮次）。另有三条是 **Leader 实测、Tester 复核文字**（**AC-65** / **AC-66②** / **AC-68 的 CI**），一条是 **人类实机人工验收**（**AC-41**，Leader 2026-11-01 拍板记 PASS）——**口径不能比事实窄**，但也**不得把「Leader 实测 / 人类验收」写成「Tester 已取证」**，两条都按证据来源标注。
 3. **AC-67 的账是「凭据 0 / 文本 1」**（§13.10 / §13.17-b），不是「三处均无命中」；**产物侧分两笔**（前端字节看 `dist/` 带正控，二进制 `strings` 只覆盖 Rust 与未压缩层）。**S1 白名单已闭环**（`config.ts:63-66/98` + `check-sync.mjs` 78 项断言；2 放行 / 3 拒绝的形态矩阵见 §13.17-c）。
 4. **「主判 PASS + 辅助项 BLOCKED」不减判**：AC-15 / AC-19 / AC-23 / AC-29 / AC-34 / AC-40 / AC-47 / AC-55 等桌面取证项按 §0 判定纪律记 `BLOCKED（环境：TCC 未授权）`，不改变 AC 判定；主 TC 完全依赖人工桌面操作时才判 BLOCKED——**S10.5 轮唯一一条是 AC-41，S7.9 已由人类实机验收、Leader 拍板记 PASS**。
 
@@ -1463,8 +1659,10 @@ Leader 随即在 02:30 单独追问「已人工验证是否包含 AC-41（关 Wi
 | AC-66 | **PASS**（①；② S7.9 等价判据 PASS —— **局限：未用第二账号实测「A token 读 B 行」**） | §13.5 · §13.18.2 · `supabase/schema.sql:31/36/41/45/46/50` | TC-079 ① / TC-079 ② |
 | AC-67 | **PASS**（账：凭据 0 / 文本 1；S1 已闭环） | §13.10 · §13.17-b · §13.17-c | TC-080 / — |
 | AC-68 | **PASS**（静态三证 + S7.9 真实 CI：两 job 全绿、artifact 可下载） | §13.8 · §13.18.3 | TC-055 扩展断言 ③④⑤ / — |
+| AC-69 | **PASS**（限本地 stub 上可观察的调度行为）；**真实云端侧定时轮次 = `NOT-VERIFIED`** | §13.19 | TC-081 / TC-082 · TC-083 · TC-084 |
+| AC-70 | **PASS**（方法库 6 个分类按钮 / 81 条总数 / 16 条 `classic` 的 `source`·`case`·正文长度合规；推送排列仍与参考实现逐位一致） | §13.20 | TC-034 / TC-035 复跑 + `check-cases.mjs` + `check-permutation.mjs` |
 
-**小计（与附录 A 对得上）**：68 行 → **68 PASS / 0 FAIL / 0 BLOCKED / 0 NOT-VERIFIED**（其中 AC-41 的证据来源为「人工验收确认」）；其中 **1 条 PASS 带子项 NV（AC-58）**。
+**小计（与附录 A 对得上）**：70 行 → **70 PASS / 0 FAIL / 0 BLOCKED / 0 NOT-VERIFIED**（其中 AC-41 的证据来源为「人工验收确认」）；其中 **2 条 PASS 带子项 NV（AC-58、AC-69 的真实云端侧定时轮次）**。
 
 ### 14.1 判定含义注（两条，防止把判据读成永真）
 
@@ -1504,34 +1702,34 @@ Leader 随即在 02:30 单独追问「已人工验证是否包含 AC-41（关 Wi
 | 人工 checklist | PASS 3 / BLOCKED 10 / 记录 2（M-15/16）（**S7 当时**；S7.5 补跑后 = PASS 3 / PARTIAL 3 / BLOCKED 8 / 记录 2，见 §6） |
 | 回归命令 | 4 组全绿（build / check-cases / check-permutation / playwright 6 passed） |
 
-### A.2 S10.5 段新增（AC-57 ~ AC-68）
+### A.2 新增段（AC-57 ~ AC-70）
 
-> **口径修正（ZACHTD-14 · M2）**：本表只覆盖 **AC-57 ~ AC-68 这 12 条新增 AC**。AC-43 是 AC-01~56 段内的**重判**（已计入 A.1 的 55 PASS），**不得**在这里再算一次——旧版 A.2 写「13 条 = AC-43 重判 + AC-57~AC-68」，导致 A.1 + A.2 = 69，与 A.3 的 68 对不上。数字结论本来就是对的，错的是附录口径。
+> **口径修正（ZACHTD-14 · M2，v1.8 同步）**：本表只覆盖 **AC-57 ~ AC-70 这 14 条新增 AC**（AC-69 = v1.7 定时同步、AC-70 = v1.8 中国古典智慧分类）。AC-43 是 AC-01~56 段内的**重判**（已计入 A.1 的 PASS），**不得**在这里再算一次——旧版 A.2 写「13 条 = AC-43 重判 + AC-57~AC-68」，导致 A.1 + A.2 与 A.3 对不上。数字结论本来就是对的，错的是附录口径。
 
 | 维度 | 数量 |
 | --- | --- |
-| 本段**新增** AC 总数 | **12**（AC-57 ~ AC-68）；AC-43 不属本表（重判，见 A.1） |
-| PASS | **12**（AC-57 ~ AC-64 = 8、AC-65 = 1、AC-66 = 1、AC-67 = 1、AC-68 = 1；S7.9 回填 AC-65 / AC-66② / AC-68 的 CI） |
+| 本段**新增** AC 总数 | **14**（AC-57 ~ AC-70：AC-57~68 = 12 条 + AC-69 + AC-70）；AC-43 不属本表（重判，见 A.1） |
+| PASS | **14**（AC-57 ~ AC-64 = 8、AC-65 = 1、AC-66 = 1、AC-67 = 1、AC-68 = 1、AC-69 = 1、AC-70 = 1；S7.9 回填 AC-65 / AC-66② / AC-68 的 CI） |
 | FAIL | **0** |
 | NOT-VERIFIED | **0**（S7.9 后；AC-65 已 PASS）；仍有**子项 NV 1 条**：AC-58（TC-062 真实登录态截图）——子项不计入 AC 级 NV |
 | BLOCKED | **0 条 AC**（AC-41 已于 S7.9 记 PASS；M-09 / M-11 / AC-34·AC-55 的桌面 UI 变体仍按 §13.13 记 BLOCKED，不计入本段 AC） |
 | 同步用例 | TC-057 ~ TC-080：PASS **24** / FAIL **0** / NOT-VERIFIED **0**（S10.5 当时为 PASS 21 / NV 3 —— TC-064 / TC-078 / TC-079②） |
 | 同步套件 | `npx playwright test -c playwright.sync.config.ts` → **4 passed**（主套件另计 6 passed） |
 | stub 断言 | `check-sync.mjs` **78 项**（S1 前 75，+3 条白名单断言）+ `check-sync-extra.mjs` **37 项**，全部通过 |
-| 通过率 | **12 ÷ 12 = 100%**（S10.5 当时为 11 ÷ 12 = 91.7%） |
-| 与 A.1 的合计 | 56 + 12 = **68**，与 A.3 一致（不再出现 69） |
+| 通过率 | **14 ÷ 14 = 100%**（S10.5 当时为 11 ÷ 12 = 91.7%） |
+| 与 A.1 的合计 | 56 + 14 = **70**，与 A.3 一致 |
 
-### A.3 全量合计（68 条）
+### A.3 全量合计（70 条）
 
 | 维度 | 数量 |
 | --- | --- |
-| AC 总数 | **68**（AC-01 ~ AC-68，PRD **v1.6**；条数自 v1.4 起未变） |
-| 组成 | **56（AC-01 ~ AC-56）+ 12（AC-57 ~ AC-68）= 68**；AC-43 只计一次（重判） |
-| PASS | **68**（= 56 + 12；S7.9 回填 AC-65 与 AC-41） |
+| AC 总数 | **70**（AC-01 ~ AC-70，PRD **v1.8**） |
+| 组成 | **56（AC-01 ~ AC-56）+ 14（AC-57 ~ AC-70）= 70**；AC-43 只计一次（重判） |
+| PASS | **70**（= 56 + 14；S7.9 回填 AC-65 与 AC-41） |
 | FAIL | **0** |
 | BLOCKED | **0**（S7.9 后） |
 | NOT-VERIFIED | **0**（S7.9 后；AC-65 已 PASS） |
-| 带子项 NV 的 PASS | **1 条**（AC-58 的已登录态截图）——`68 PASS` **不等于** 68 条都有 Tester 侧完整证据（§14 口径 2） |
-| 通过率 | **68 ÷ 68 = 100%**（68 条全部可判定） |
+| 带子项 NV 的 PASS | **2 条**（AC-58 的已登录态截图、AC-69 的真实云端侧定时轮次）——`70 PASS` **不等于** 70 条都有 Tester 侧完整证据（§14 口径 2） |
+| 通过率 | **70 ÷ 70 = 100%**（70 条全部可判定） |
 | AC-01 ~ AC-56 是否回归 | **0 条被推翻、0 条降级**（§13.11） |
 | 四组回归 | 两轮全绿（§2 与 §13.3）；同步套件单独 4 passed（§13.4） |

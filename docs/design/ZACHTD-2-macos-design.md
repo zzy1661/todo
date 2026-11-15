@@ -53,7 +53,7 @@
 
 - 应用外壳 + 三个模块（日历 / 每日工作法 / 全部待办）+ 待办条目 / 右键菜单 / 编辑器；
 - 数据层（SQLite + localStorage 双实现、`todos` + `daily_picks` 两表、迁移只增不改）；
-- 65 条方法内容库（**原样搬运**）；
+- 146 条方法内容库（**原 65 条逐字保留 + 「中国古典智慧」分类扩充到 81 条**：v1.8 补 16 条需求方清单，v1.9 再补 65 条经典工作方法；新增条目一律追加在数组末尾，原条目 `git diff` 中**无任何删除行**）；
 - macOS 打包链路（`.app` / `.dmg`）、首次打开说明、数据完整性复核；
 - Playwright E2E（6 用例）+ 内容校验脚本 + 推送确定性比对脚本 + 桌面版实机取证方案与人工 checklist。
 
@@ -424,7 +424,7 @@ export default defineConfig({
 │  ├─ App.vue                   # 模块路由 + 编辑器状态 + 日历页两栏
 │  ├─ types/index.ts            # 唯一类型来源
 │  ├─ styles/main.css           # 设计 token + 全局重置 + macOS 兼容层
-│  ├─ data/methods.ts           # 65 条内容库（原样搬运，零改动）
+│  ├─ data/methods.ts           # 146 条内容库（原 65 条原样 + classic 81 条）
 │  ├─ db/database.ts            # SQLite / localStorage 双实现
 │  ├─ stores/
 │  │  ├─ todo.ts
@@ -770,14 +770,14 @@ flowchart LR
 | --- | --- | --- | --- | --- | --- |
 | **T-01** | 工程骨架重建与依赖定稿：删除脚手架 `src/**`、按 §4.1 重建空骨架、`package.json` 增补 dayjs / plugin-sql / playwright、`src-tauri/tauri.conf.json` 改写（identifier / productName / bundle / window） | — | 可 `npm run build` 通过的空工程 | FR-NAV-01、FR-QA-01、AC-01、AC-42、ADP-01/03/14/17 | 4 |
 | **T-02** | 设计 token 与全局样式：`main.css` 变量、字体栈、全局重置、**macOS 兼容层**（`-webkit-backdrop-filter`、`input/textarea { user-select: text }`、自定义滚动条） | T-01 | `src/styles/main.css` | BR-15、FR-NAV-02、ADP-10、MR-02 | 3 |
-| **T-03** | 类型定义 + 内容库搬运 + 校验脚本：`types/index.ts`；`methods.ts` **原样搬运**（零改动）；`scripts/check-cases.mjs`（**CFL-07 口径：steps ≥ 2；并输出真实分布 3–7**） | T-01 | `src/data/methods.ts`（1450 行原样）、`scripts/check-cases.mjs` | BR-12、INV-02、AC-26、AC-27、CFL-07、ADP-09 | 4 |
+| **T-03** | 类型定义 + 内容库编写 + 校验脚本：`types/index.ts`；`methods.ts` 按 OP-14 / OP-15 编写（**原 65 条原样搬运不改**，新增条目追加在末尾）；`scripts/check-cases.mjs`（**CFL-07 口径：steps ≥ 2；并输出真实分布 3–7**） | T-01 | `src/data/methods.ts`（146 条 = 原 65 条 + classic 81 条）、`scripts/check-cases.mjs` | BR-12、INV-02、AC-26、AC-27、CFL-07、ADP-09 | 4 |
 | **T-04** | 数据层双实现：`src/db/database.ts`（SQLite + localStorage 语义逐条对齐，见 §5.2 的 4 个易错点） | T-01、T-03 | 数据层模块 | FR-DB-01 ~ FR-DB-05、FR-DB-07/08、INV-07、BR-13、AC-35 | 8 |
 | **T-05** | Rust 迁移与插件注册：`lib.rs` 的 v1 / v2 迁移（`AUTOINCREMENT` 保留）+ `tauri_plugin_sql` 注册 + `capabilities/default.json` 加 sql 权限；**实测 app data 目录是否自动创建**，不自动则显式 `create_dir_all` | T-01 | `src-tauri/src/lib.rs`、`capabilities/default.json` | BR-07、BR-08、FR-DB-06、FR-DB-09、AC-34、AC-37、ADP-03、ADP-08 | 6 |
 | **T-06** | 确定性推送算法移植：`stores/dailyMethod.ts`（FNV-1a + mulberry32 + Fisher-Yates，逐字等价附录 A）+ `scripts/check-permutation.mjs`（7 个抽样日期比对） | T-03、T-04 | store + 校验脚本 | BR-05、BR-06、INV-03、AC-21 ~ AC-24、KPI-06 | 6 |
 | **T-07** | 应用外壳与导航：`App.vue`（模块路由 + 编辑器状态）、`SideNav.vue`（注册表驱动、未知 id 回退默认图标、**不出现番茄钟**）、底部「数据本地存储」静态标识 | T-01、T-02 | 外壳组件 | FR-NAV-01 ~ FR-NAV-07、AC-06、AC-44 | 6 |
 | **T-08** | 日历模块：42 格月历（周日起）、四态样式、圆点 + `+`（> 3 条）、翻月（不重置选中日，OP-12）、今天按钮、图例、跨月跟随 | T-07 | `CalendarView.vue` | FR-CAL-01 ~ FR-CAL-09、AC-06 ~ AC-09、BR-19 | 8 |
 | **T-09** | 当日待办面板：头部（`M月D日 周X` + 今天徽章）、统计与完成率（分母为总条数）、三页签筛选、两种空态、排序、日期切换重置筛选 | T-04、T-07 | `TodoListView.vue` | FR-DAY-01 ~ FR-DAY-08、AC-10、AC-11、AC-14、BR-02、BR-04 | 8 |
-| **T-10** | 每日工作法模块：主卡片七区块单栏平铺、`.mc-inner` 内部滚动 + 底部渐隐（阈值 8、切换后 260ms 重算）、状态徽章三选一、往期回顾 7 天、方法库 65 条 + 分类筛选 + 预览态、顶栏日期步进 | T-03、T-04、T-06 | `DailyMethodView.vue` | FR-DM-01 ~ FR-DM-16、AC-20、AC-25、AC-28、AC-29、BR-12、CFL-07 | 14 |
+| **T-10** | 每日工作法模块：主卡片七区块单栏平铺、`.mc-inner` 内部滚动 + 底部渐隐（阈值 8、切换后 260ms 重算）、状态徽章三选一、往期回顾 7 天、方法库 146 条 + 分类筛选 + 预览态、顶栏日期步进 | T-03、T-04、T-06 | `DailyMethodView.vue` | FR-DM-01 ~ FR-DM-16、AC-20、AC-25、AC-28、AC-29、BR-12、CFL-07 | 14 |
 | **T-11** | 全部待办模块：跨日期分组（组标题 `YYYY年M月D日 周X` + ` · 今天`）、组内 `已完成/总数`、三页签筛选、**与当日面板筛选状态独立** | T-09 | `TodosAllView.vue` | FR-ALL-01 ~ FR-ALL-07、AC-31 ~ AC-33、BR-21 | 6 |
 | **T-12** | 待办条目与右键菜单：行内仅四元素、优先级循环、备注、优先级标签色、`⋯` 淡入、菜单按日期分支（**不出现自操作项**）、五种关闭条件、贴边翻转（pad 8）、键盘导航、Teleport 挂载到 body 防裁切 | T-07、T-09 | `TodoItem.vue`、`TodoContextMenu.vue` | FR-ITEM-01 ~ FR-ITEM-06、FR-MENU-01 ~ FR-MENU-10、AC-12、AC-15 ~ AC-19、BR-11、BR-20、ADP-18 | 12 |
 | **T-13** | 待办编辑器：400px 居中卡片 + 遮罩模糊、四字段、标题空禁用保存、回车提交、编辑态回填、底部按钮文案随模式切换、保存后联动月数据 | T-07、T-09 | `TodoEditor.vue` | FR-EDT-01 ~ FR-EDT-09、AC-13、BR-09、BR-10、BR-16 | 8 |
@@ -799,7 +799,7 @@ flowchart LR
 
 | 脚本 | 断言内容 | 对应 AC |
 | --- | --- | --- |
-| `scripts/check-cases.mjs` | 总数 65；分类 17/17/12/7/12；`case.type` 仅 practice/story，分布 18/47；**`steps.length >= 2`（CFL-07 口径），并打印真实分布 3–7 与 4 条超限条目 id**；案例正文 126–240 字；id 唯一；必填字段齐全 | AC-26、AC-27 |
+| `scripts/check-cases.mjs` | 总数 146；分类 17/17/12/7/12/81；`case.type` 仅 practice/story，分布 36/110；**`steps.length >= 2`（CFL-07 口径），并打印真实分布 3–7 与 8 条超限条目 id**；案例正文 126–240 字；id 唯一；必填字段齐全 | AC-26、AC-27 |
 | `scripts/check-permutation.mjs` | 附录 A 参考实现对 7 个抽样日期：排列序列与首条一致；重复计算 3 次一致 | AC-24、KPI-06 |
 | `scripts/verify-fix.mjs` | 回归校验（排序 / 完成率 / 菜单分支 / 迁移 SQL 无破坏性语句） | AC-37、BR-02、BR-11 |
 | `scripts/check-sync.mjs` | 本地 stub 上跑防抖合并、启动/登录后拉取、LWW（双向 + 同毫秒 + 6 小时偏移）、墓碑终结、401 重登、未配置零请求；另出 v3 迁移的 SQLite 结构证据 | AC-57、AC-60~AC-64，TC-065~TC-077 |
@@ -814,7 +814,7 @@ flowchart LR
 | --- | --- | --- |
 | 1 · 应用加载 | 日历渲染（42 格、星期头、今天高亮）+ 导航结构 | AC-06、AC-09、AC-10 |
 | 2 · 完整链路 | 创建 → 日历圆点联动 → 优先级循环 → 完成 → 编辑 → 删除（删除走菜单） | AC-07、AC-08、AC-13、AC-14、AC-10 |
-| 3 · 每日工作法 | 推送卡片 + 换一条 + 方法库预览 + **几何断言**（步骤块 y < 适用场景 y < 案例 y，三者左边缘 x 相等）+ 往期 7 天 + 65 条计数 | AC-20、AC-25、AC-26、AC-28、AC-29、AC-30 |
+| 3 · 每日工作法 | 推送卡片 + 换一条 + 方法库预览 + **几何断言**（步骤块 y < 适用场景 y < 案例 y，三者左边缘 x 相等）+ 往期 7 天 + 146 条计数 | AC-20、AC-25、AC-26、AC-28、AC-29、AC-30 |
 | 4 · 全部待办 | 跨日期分组 + 今天组标题 + 组内统计 + 三种筛选 + 与当日面板筛选独立 | AC-11、AC-31、AC-32、AC-33 |
 | 5 · 右键菜单 | 菜单按日期分支、复制到今日、移动到今日/明日、编辑、删除、点击外部关闭、键盘导航 | AC-15、AC-16、AC-17、AC-18、AC-19（①②③⑤）、AC-12 |
 | 6 · 巡览 | 14 张截图 + 1 段连续视频 | AC-05、AC-40（对照） |
@@ -939,6 +939,11 @@ localStorage 侧收敛到 `readLiveTodos() = readAllLocalTodos().filter(t => !t.
   └─ 触摸 5 秒防抖（窗口内多次变更合并）→ 推送本窗口改动的条目
        ├─ 成功 → 记录上次同步时间与结果
        └─ 失败 → 1s/2s/4s/8s/16s 指数退避；耗尽后状态「同步失败，可手动重试」；本地数据不回滚
+
+每 2 天（定时同步，FR-SYNC-17，详见 §12.9）
+  └─ 定时器到点 → 拉取一次 + 推送本地待推集合 → 成功则锚点推进到当下并重新排期
+       ├─ 失败 → 1s/2s/4s/8s/16s 退避；耗尽后回到正常周期；不阻塞界面
+       └─ 未登录 / 未配置 → 定时器根本不挂，零请求
 ```
 
 退出前**不 flush** 未到期的防抖（OPEN-02 默认），未推送的改动留在本地库；**启动只 pull、不扫描待推队列，
@@ -1024,14 +1029,84 @@ LWW 双向 + 同毫秒收敛 + 6 小时偏移 → TC-070~072；墓碑终结与�
 
 | 文件 | 作用 |
 | --- | --- |
-| `src/sync/{engine,merge,api,oauth,config,clock,timers,sessionStore,events,types}.ts` | 同步核心（框架无关，可在 Node 直接跑） |
+| `src/sync/{engine,merge,api,oauth,config,clock,timers,sessionStore,stateStore,autoSync,events,types}.ts` | 同步核心（框架无关，可在 Node 直接跑） |
 | `src/stores/sync.ts`、`src/components/layout/SyncPanel.vue` | C-16 状态区与登录/重试动作 |
-| `src-tauri/migrations/0003_sync_columns.sql`、`src-tauri/src/lib.rs` | v3 迁移 + 配置读取 / 钥匙串 / OAuth 回环命令 |
-| `scripts/mock-supabase.mjs`、`scripts/check-sync.mjs`、`scripts/check-deleted-filter.mjs` | 本地 stub 与五组路径回归、软删除静态断言 |
+| `src-tauri/migrations/0003_sync_columns.sql`、`src-tauri/src/lib.rs` | v3 迁移 + 配置读取 / 状态文件 / 钥匙串 / OAuth 回环命令 |
+| `scripts/mock-supabase.mjs`、`scripts/check-sync.mjs`、`scripts/check-deleted-filter.mjs` | 本地 stub 与九组路径回归、软删除静态断言 |
 | `e2e-sync/`、`playwright.sync.config.ts` | 同步 E2E（与主套件隔离） |
 | `supabase/schema.sql`、`sync.config.example.json` | 云表 + RLS 策略、配置样板 |
 
-### 12.9 本节的已知局限（NOT-VERIFIED）
+### 12.9 定时同步：每 2 天一轮（PRD FR-SYNC-17）
+
+**新增需求**：在既有「变更驱动 + 5 秒防抖 + 启动/登录拉取」之上，加一条**周期性**同步：
+登录后每 **2 天**自动跑一轮完整同步（拉一次云端 + 推一次本地待推条目）。
+
+#### 12.9.1 模块切分
+
+| 模块 | 职责 | 边界 |
+| --- | --- | --- |
+| `src/sync/autoSync.ts` | **只管什么时候跑**：排期、到期判定、失败退避、锚点推进 | 不碰网络，不碰存储 |
+| `src/sync/stateStore.ts` | 锚点的**持久化抽象**（`load` / `save` / `clear`）+ 到期判定 | 不含业务规则 |
+| `src/sync/engine.ts` | 拥有 `AutoSync` 实例；把「一轮同步」落成 `pull` + `flush` | 复用既有拉取/推送路径，不另写一套 |
+| `src-tauri/src/lib.rs` | `sync_state_read` / `sync_state_write` / `sync_state_clear` 三个命令 | 只读写一个 JSON 文件 |
+
+**为什么不让 `autoSync.ts` 直接发请求**：排期逻辑一旦与网络耦合，就无法在本地 stub 上
+用假时钟「推进 2 天」观察一轮真实同步。拆开后，检查脚本注入假时钟与假定时器
+（`setClock` / `setTimers`，与防抖、LWW 共用同一套注入点）就能真跑，而不是读代码推断。
+
+#### 12.9.2 锚点语义
+
+锚点 = **上一次定时同步成功的时刻**（或首次建立周期的时刻），落盘在
+`sync.state.json`（与 `sync.config.json` 同目录，**只有时间戳，无凭据**）。
+
+> **为什么不落 SQLite**：`todos` / `daily_picks` 两表固定、不新增第三张表（BR-07），
+> 迁移只增不改（BR-08）。加表会同时踩两条红线，因此用独立状态文件。
+
+> **为什么锚点必须落盘**：若锚点只存内存，「每天开一次应用」会把每轮都重置成
+> 「从现在起 2 天」——定时同步永远不会发生，用户提的需求等于没实现。
+
+三种情形（`prepareAutoSync`）：
+
+| 锚点状态 | 判定 | 动作 |
+| --- | --- | --- |
+| 为空（首次） | 不算到期 | 锚点定在当下并落盘，排期到「当下 + 2 天」 |
+| 已过期（`now ≥ 锚点 + 周期`） | 到期 | **本次启动补做一轮**（拉 + 推），成功后锚点推进到当下 |
+| 未过期 | 未到期 | 按锚点排期到「锚点 + 2 天」，节拍跨重启延续 |
+
+#### 12.9.3 拉取与排期合并成一步
+
+启动（FR-SYNC-05）与登录（FR-SYNC-06）都走 `enterSession(reason)`：
+
+```
+enterSession(reason)
+  ├─ 锚点过期 ─→ 只跑补做那一轮（含拉取）      → 本次启动恰好拉一次云端
+  └─ 未过期   ─→ pull(reason) + 排期          → 本次启动恰好拉一次云端
+```
+
+> **为什么不先无条件拉一次再补做**：那会让同一次启动打**两遍**云端。
+> 合并成一步后，两种分支下启动都恰好拉一次（OPEN-03 允许重叠，但没必要制造重叠）。
+
+#### 12.9.4 零请求红线
+
+定时器**只在已登录且已配置时**才挂上：
+
+| 情形 | 行为 | 依据 |
+| --- | --- | --- |
+| 未配置 key | 引擎在 `start()` 首行短路，**连定时器都不挂** | FR-SYNC-10 |
+| 已配置未登录 | `start()` 读到无会话即返回，不排期 | FR-SYNC-10 |
+| 登出 | `autoSync.cancel()` 立刻停掉定时器 | FR-SYNC-10 |
+| 销毁引擎 | `dispose()` 里一并 `cancel()` | FR-SYNC-10 |
+
+检查脚本路径 ⑨ 的 ④⑤ 两段就是这条红线的机械证据：未登录 / 登出后把假时钟推进 4 天，
+`stub.state.requests.length` 必须仍是 0。
+
+#### 12.9.5 失败退避与 UI
+
+一轮失败按 **1s → 2s → 4s → 8s → 16s** 退避重试，阶梯耗尽后回到正常周期。
+失败**不阻塞 UI、不弹阻断式错误**（FR-SYNC-11），只更新状态区。
+状态区新增一行「每 2 天自动同步 · 下次 11月3日 09:00」（未登录时显示「登录后开始」）。
+
+### 12.10 本节的已知局限（NOT-VERIFIED）
 
 - 真实 Supabase 读写、真实 GitHub OAuth 往返（含 GitHub 侧应用配置）、云侧 RLS 越权不可见：**无 anon key，未验证**；
 - 桌面端钥匙串写入与回环监听的真实行为：代码已接入，但自动化只覆盖到「注入实现」层，
@@ -1062,10 +1137,10 @@ CLT 内含           → /usr/bin/swift (Swift 5.10)、/Library/Developer/Comman
 ```
 文件：1,450 行 / 78,817 字节 / UTF-8 无 BOM / LF
 求值：Node v22.21.1 --experimental-strip-types 直接 import
-总数 65；分类 thinking 17 / work 17 / report 12 / communication 7 / efficiency 12
+总数 146；分类 thinking 17 / work 17 / report 12 / communication 7 / efficiency 12 / classic 81
 case：practice 18 / story 47 / 缺失 0
 案例正文长度：min 126 / avg 162.4 / max 240
-id 唯一：65/65
+id 唯一：146/146
 steps 分布：3 → 6 条、4 → 55 条、5 → 3 条、7 → 1 条（观测区间 3–7）
 steps > 4 的 4 条：gtd(5) / smart-goal(5) / rice-scoring(5) / 5w2h(7)
 单条 step 文本最长 31 字符（5w2h 的 7 条均为短句）

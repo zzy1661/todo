@@ -54,7 +54,7 @@ const cases = [
   ['baseline', '未篡改副本', null, 0],
   [
     'drop-one',
-    '① 删掉 1 条方法（65 → 64）',
+    '① 删掉 1 条方法（146 → 145）',
     (src) => dropMethod(src, 'first-principles'),
     1,
   ],

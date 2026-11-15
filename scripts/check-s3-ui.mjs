@@ -7,7 +7,7 @@
  *
  * 覆盖：主卡片七区块与几何（AC-28）、`.mc-inner` 内部滚动 + `.mc-fade` 渐隐（AC-29）、
  * 状态徽章三态（AC-51 / AC-20 / AC-23）、换一条不重复且落库、往期 7 天（AC-25）、
- * 方法库 65 条与分类筛选（AC-26）、日期步进、预览不污染日历小卡片。
+ * 方法库 146 条与分类筛选（AC-26）、日期步进、预览不污染日历小卡片。
  *
  * 用法：
  *   npm run dev            # 另开一个终端
@@ -17,6 +17,9 @@ import { mkdirSync } from 'node:fs';
 import { chromium } from 'playwright';
 import dayjs from 'dayjs';
 import { METHODS, METHOD_MAP, CATEGORY_META, CATEGORY_COUNTS } from '../src/data/methods.ts';
+
+/** 方法名从内容库动态取：内容库改写方法名时，本脚本不必跟着改断言 */
+const methodName = (id) => METHOD_MAP[id]?.name ?? `missing:${id}`;
 
 const BASE = process.env.BASE_URL ?? 'http://localhost:1420';
 const OUT = 'docs/evidence/s3';
@@ -286,18 +289,18 @@ await page.screenshot({ path: `${OUT}/02-manual-refresh.png` });
 
 /* ---------------------------------------------------------------- 6. 方法库 */
 
-console.log('\n[6] 方法库 65 条与分类筛选（FR-DM-05 / FR-DM-06 / AC-26）');
+console.log('\n[6] 方法库 146 条与分类筛选（FR-DM-05 / FR-DM-06 / AC-26）');
 
 check('方法库标题', (await text(page.locator('.library-head .side-title'))) === '方法库');
-check('标题右侧固定显示「65 条」', (await text(page.locator('.library-count'))) === '65 条');
+check('标题右侧固定显示「146 条」', (await text(page.locator('.library-count'))) === '146 条');
 const cfTexts = (await page.locator('.cf-btn').allInnerTexts()).map((s) => s.trim());
 check(
   '筛选按钮文案与顺序',
-  cfTexts.join('|') === `全部|思维方法 ${CATEGORY_COUNTS.thinking}|工作方法 ${CATEGORY_COUNTS.work}|汇报方法 ${CATEGORY_COUNTS.report}|沟通方法 ${CATEGORY_COUNTS.communication}|效率方法 ${CATEGORY_COUNTS.efficiency}`,
+  cfTexts.join('|') === `全部|思维方法 ${CATEGORY_COUNTS.thinking}|工作方法 ${CATEGORY_COUNTS.work}|汇报方法 ${CATEGORY_COUNTS.report}|沟通方法 ${CATEGORY_COUNTS.communication}|效率方法 ${CATEGORY_COUNTS.efficiency}|中国古典智慧 ${CATEGORY_COUNTS.classic}`,
   cfTexts.join('|')
 );
-check('分类计数合计 65', Object.values(CATEGORY_COUNTS).reduce((a, b) => a + b, 0) === 65);
-check('默认「全部」筛选 65 条', (await page.locator('.lib-item').count()) === 65, `实际 ${await page.locator('.lib-item').count()}`);
+check('分类计数合计 146', Object.values(CATEGORY_COUNTS).reduce((a, b) => a + b, 0) === 146);
+check('默认「全部」筛选 146 条', (await page.locator('.lib-item').count()) === 146, `实际 ${await page.locator('.lib-item').count()}`);
 
 for (const [key, count] of Object.entries(CATEGORY_COUNTS)) {
   await page.click(`.cf-btn[data-filter="${key}"]`);
@@ -318,8 +321,8 @@ console.log('\n[7] 方法库预览（FR-DM-06 / FR-DM-08 / AC-20 / AC-51）');
 
 const pickBeforePreview = await pickOf(today);
 await page.click('.lib-item[data-method-id="5w2h"]');
-await page.waitForFunction(() => document.querySelector('.mc-name')?.textContent?.trim() === '5W2H 分析法');
-check('点方法库条目切到该方法', (await text(page.locator('.mc-name'))) === '5W2H 分析法');
+await page.waitForFunction((n) => document.querySelector('.mc-name')?.textContent?.trim() === n, methodName('5w2h'));
+check('点方法库条目切到该方法', (await text(page.locator('.mc-name'))) === methodName('5w2h'));
 check('徽章为「方法库预览」', (await text(page.locator('.mc-preview'))) === '方法库预览', await text(page.locator('.mc-preview')));
 check('三态互斥：同一时刻只有一枚徽章', (await page.locator('.mc-preview').count()) === 1);
 check('列表该项高亮', (await page.locator('.lib-item.active').getAttribute('data-method-id')) === '5w2h');
@@ -363,7 +366,7 @@ await page.screenshot({ path: `${OUT}/05-5w2h-bottom.png` });
 console.log('\n[9] 第二溢出夹具 rice-scoring（AC-29）');
 
 await page.click('.lib-item[data-method-id="rice-scoring"]');
-await page.waitForFunction(() => document.querySelector('.mc-name')?.textContent?.trim() === 'RICE 评分');
+await page.waitForFunction((n) => document.querySelector('.mc-name')?.textContent?.trim() === n, methodName('rice-scoring'));
 await page.waitForTimeout(600);
 const metricsRice = await page.locator('.mc-inner').evaluate((el) => ({
   scrollHeight: el.scrollHeight,
@@ -388,7 +391,7 @@ const miniNameAfter = await text(page.locator('.mini-name'));
 const pickNow = await pickOf(today);
 check('切换模块后小卡片内容 = 当日推送（跟随「换一条」）', miniNameAfter === nameOf(pickNow.method_id), `${miniNameAfter} vs ${nameOf(pickNow.method_id)}`);
 check('小卡片确实跟着换一条变了（不是首次那条）', miniNameAfter !== miniNameInitial, `${miniNameAfter} vs ${miniNameInitial}`);
-check('预览态不影响日历小卡片内容', miniNameAfter !== '5W2H 分析法' && miniNameAfter !== 'RICE 评分', miniNameAfter);
+check('预览态不影响日历小卡片内容', miniNameAfter !== methodName('5w2h') && miniNameAfter !== methodName('rice-scoring'), miniNameAfter);
 check('小卡片标题为「今日工作法」', (await text(page.locator('.mini-title'))) === '今日工作法');
 
 // 切回模块：预览态与筛选状态都应保留（BR-21）
