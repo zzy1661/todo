@@ -177,14 +177,21 @@ check(
   JSON.stringify(win.bundle?.windows?.nsis?.languages),
 );
 check('Windows wix.language 含 zh-CN', JSON.stringify(win.bundle?.windows?.wix?.language).includes('zh-CN'));
-// 2026-11-02：downloadBootstrapper → offlineInstaller。
-// 起因是实机反馈「Windows 上装完双击 exe 没反应」——引导式安装在受限网络下
-// 拉不到完整 WebView2 Runtime（~130MB），装不上 → 应用启动即退。
-// 离线安装器把 WebView2 直接打进安装包，装的时候不需要联网。
-// 断言写成「必须是离线安装模式」而不是钉死某个字面量，意图更清楚。
+// 2026-11-02：downloadBootstrapper → embedBootstrapper。
+// 起因是实机反馈「Windows 上装完双击 exe 没反应」。
+//
+// 为什么是 embedBootstrapper 而不是 offlineInstaller：
+// - offlineInstaller 把完整 WebView2 运行时打进安装包（Tauri 官方注记 +127MB/个，
+//   NSIS 与 MSI 各一份 → 实测 artifact 从 5.2MB 涨到 418MB），代价太大；
+// - embedBootstrapper 只把 ~1.8MB 的引导程序嵌进去，安装时不必**先联网下载**
+//   引导程序（少一个失败点），本体仍由引导程序联网拉取；
+// - 真正解决「用户看不到任何提示」的是**启动期的可诊断层**（预检弹窗 + panic 弹窗
+//   + 启动日志，见 src-tauri/src/startup.rs），缺 WebView2 时会明确告知并给下载地址。
+//
+// 断言写成「引导程序必须内嵌」而不是钉死字面量，意图更清楚。
 check(
-  'Windows webviewInstallMode = offlineInstaller（离线装 WebView2，不依赖网络）',
-  win.bundle?.windows?.webviewInstallMode?.type === 'offlineInstaller',
+  'Windows webviewInstallMode = embedBootstrapper（引导程序内嵌，包体不膨胀）',
+  win.bundle?.windows?.webviewInstallMode?.type === 'embedBootstrapper',
   JSON.stringify(win.bundle?.windows?.webviewInstallMode),
 );
 check('Windows 合并结果不含 dmg / app 目标', !JSON.stringify(win.bundle?.targets).match(/dmg/i));

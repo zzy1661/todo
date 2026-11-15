@@ -1682,7 +1682,7 @@ CI 证明的是「真实 Windows 上能出包」。为了回答「本机能不�
 
 | # | 修复 | 落点 | 说明 |
 | --- | --- | --- | --- |
-| 1 | **WebView2 改为离线安装** | `tauri.windows.conf.json` | `downloadBootstrapper` → `offlineInstaller { silent: true }`：NSIS 包内**内置完整 WebView2 安装器**，安装时**不需要联网**。代价是安装包从 ~5.2MB 涨到 ~130MB——**宁可大，也不要装不上** |
+| 1 | **WebView2 引导程序内嵌** | `tauri.windows.conf.json` | `downloadBootstrapper` → `embedBootstrapper { silent: true }`：把 ~1.8MB 的引导程序嵌进安装包，安装时**不必先联网下载引导程序**（少一个失败点），本体仍由引导程序拉取。**实测体积代价可接受**：artifact 基本不变（+~1.8MB/个） |
 | 2 | **启动失败可见**（新增 `src-tauri/src/startup.rs`） | `startup.rs` + `lib.rs` | ① **panic hook**：panic/abort 先写 `startup.log` 再弹原生消息框；② **WebView2 预检**：建窗口**之前**先探运行时，缺失就弹窗说明「本应用依赖 WebView2，请到微软官网下载」并附下载地址，然后退出；③ **启动日志**：每次启动记录启动标记与 WebView2 版本 |
 | 3 | **`build()` 的 `expect` 改为显式兜底** | `lib.rs` | 原来是 `.expect("error while running tauri application")`——在无控制台的 Windows 上等于静默退出。改为接住 `Err` 后调 `startup::fatal()`，弹窗说清原因并告诉用户日志在哪 |
 | 4 | **`/usr/bin/open` 跨平台化** | `lib.rs` | 拆成 `open_in_browser()` 的三个平台实现：macOS `open`、Windows `cmd /C start "" <url>`（首个空参数是窗口标题占位，不传的话 URL 会被当标题、浏览器拉不起来）、其余 Unix `xdg-open` |
@@ -1700,8 +1700,13 @@ CI 证明的是「真实 Windows 上能出包」。为了回答「本机能不�
 
 #### 13.23.4 遗留与诚实边界
 
-- **本次修复解决的是「可诊断」与「装得上」，不等于「已验证能用」**：WebView2 离线安装让安装环节不再依赖网络；
-  启动预检与 panic 弹窗让失败**可被看见**；但**在真实 Windows 机器上双击是否有反应，仍需实机复跑确认**。
+- **本次修复解决的是「可诊断」，不等于「已验证能用」**：启动预检与 panic 弹窗让任何失败**可被看见**
+  （并明确告知是否缺 WebView2、附下载地址）；但**在真实 Windows 机器上双击是否有反应，仍需实机复跑确认**。
+- **曾评估过 `offlineInstaller`（把完整 WebView2 运行时打包进去，装时完全离线）**：Tauri 官方注记为
+  **+127MB/个**，而 NSIS 与 MSI 各带一份 → **实测 artifact 从 5.2MB 涨到 418MB**（CI run `43750531711` 实测）。
+  考虑到需求方**能装完**（说明下载网络是通的）、且真正的价值在于「让失败可见」，
+  最终改用 `embedBootstrapper`（+~1.8MB/个）——**若实机复跑确认确实是 WebView2 缺失且网络受限，
+  再切回 `offlineInstaller` 只需改一行配置**。
 - **SmartScreen 提示依然存在**：CI 产物未签名，Windows 11 首次运行会拦一下。
   本项目本期**不做代码签名**（无证书），故在 README 里写明处理方式（「更多信息」→「仍要运行」），
   不把它写成「已解决」。

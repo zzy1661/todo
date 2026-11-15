@@ -170,7 +170,7 @@ localStorage 降级实现（`todo_local_db` / `todo_local_daily_db`），上层 
 | --- | --- |
 | `src-tauri/tauri.conf.json` | 平台中立基线：`identifier` / `productName` / 窗口 / SQL 预加载 / 图标集合；**不含**任何一端的产物形态 |
 | `src-tauri/tauri.macos.conf.json` | macOS overlay：`targets: ["app","dmg"]`、`minimumSystemVersion: "12.0"`、`hardenedRuntime: false`、DMG 布局 |
-| `src-tauri/tauri.windows.conf.json` | Windows overlay：`targets: ["nsis","msi"]`、`nsis.installMode: currentUser`（装到用户目录，允许中文安装路径）、`nsis.languages: ["SimpChinese","English"]`、`wix.language: ["zh-CN"]`、**WebView2 离线安装**（`offlineInstaller`） |
+| `src-tauri/tauri.windows.conf.json` | Windows overlay：`targets: ["nsis","msi"]`、`nsis.installMode: currentUser`（装到用户目录，允许中文安装路径）、`nsis.languages: ["SimpChinese","English"]`、`wix.language: ["zh-CN"]`、**WebView2 引导程序内嵌**（`embedBootstrapper`，+~1.8MB） |
 
 Tauri 会按构建平台**自动合并**对应的 overlay，不需要手动 `--config`。
 
@@ -181,7 +181,7 @@ Windows 的 release 构建是 `windows_subsystem = "windows"`，**没有控制�
 
 | 症状 | 原因 | 处理 |
 | --- | --- | --- |
-| 双击后**完全没有窗口**，也没有任何弹窗 | ① **SmartScreen 拦截**：CI 产物**未做代码签名**，Windows 11 会弹「Windows 已保护你的电脑」，点「更多信息」→「仍要运行」；② **缺 WebView2 Runtime**：界面靠它渲染，缺了就启动即退 | 装 WebView2：<https://developer.microsoft.com/microsoft-edge/webview2/>（**v0.1.1 起的安装包已内置离线安装器，装的时候不需要联网**） |
+| 双击后**完全没有窗口**，也没有任何弹窗 | ① **SmartScreen 拦截**：CI 产物**未做代码签名**，Windows 11 会弹「Windows 已保护你的电脑」，点「更多信息」→「仍要运行」；② **缺 WebView2 Runtime**：界面靠它渲染，缺了就启动即退 | 装 WebView2：<https://developer.microsoft.com/microsoft-edge/webview2/>（安装包已内嵌引导程序，装的时候会自动补装；也可手动装） |
 | 弹出一个**错误对话框**（红色叹号） | 应用启动失败，但**现在会告诉你原因** | 按对话框里的提示处理；完整信息在日志里 |
 | 仍然打不开 | 需要看日志 | 打开 `%APPDATA%\com.poisson.todo\startup.log`（每次启动都会追加，包括「WebView2 就绪 / 缺失」） |
 
