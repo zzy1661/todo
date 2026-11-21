@@ -24,14 +24,14 @@
 
 | 资产名（Release 里就是这个名字） | 平台 | 说明 |
 | --- | --- | --- |
-| `ScheduleTodo-0.2.0-macos-arm64.dmg` | macOS（Apple Silicon，最低 12.0） | 双击挂载，把「日程待办」拖进 Applications |
-| `ScheduleTodo-0.2.0-macos-arm64.app.zip` | macOS | `.app` 的 zip 副本，不想挂载 dmg 时直接解压用 |
-| `ScheduleTodo-0.2.0-windows-x64-setup.exe` | Windows x64 | NSIS 安装包（`installMode: currentUser`，不需管理员权限） |
-| `ScheduleTodo-0.2.0-windows-x64.msi` | Windows x64 | MSI 包（WiX `zh-CN`） |
+| `ScheduleTodo-0.2.1-macos-arm64.dmg` | macOS（Apple Silicon，最低 12.0） | 双击挂载，把「日程待办」拖进 Applications |
+| `ScheduleTodo-0.2.1-macos-arm64.app.zip` | macOS | `.app` 的 zip 副本，不想挂载 dmg 时直接解压用 |
+| `ScheduleTodo-0.2.1-windows-x64-setup.exe` | Windows x64 | NSIS 安装包（`installMode: currentUser`，不需管理员权限） |
+| `ScheduleTodo-0.2.1-windows-x64.msi` | Windows x64 | MSI 包（WiX `zh-CN`） |
 
 **资产名是 ASCII 的**：应用本身仍叫「日程待办」，但发布资产统一改名为 `ScheduleTodo-<版本>-<平台>`，
 避免中文文件名在 Release 资产 URL 里被百分号编码后、第三方下载器出现乱码。
-本机 `npm run tauri build` 出的仍是 `日程待办_0.2.0_aarch64.dmg`（见「一、1」），**只有 CI 发布出去的资产被改名**。
+本机 `npm run tauri build` 出的仍是 `日程待办_0.2.1_aarch64.dmg`（见「一、1」），**只有 CI 发布出去的资产被改名**。
 
 **首次打开仍需放行**（资产本身没做签名/公证，属预期）：
 
@@ -50,7 +50,7 @@
 
 ### 1. 安装
 
-1. 打开 `日程待办_0.2.0_aarch64.dmg`；
+1. 打开 `日程待办_0.2.1_aarch64.dmg`；
 2. 把「日程待办」拖到左侧的 **Applications**（即 `/Applications`）；
 3. 在「启动台」或「应用程序」里点开「日程待办」。
 
@@ -60,7 +60,7 @@
 **产物怎么来**（仓库里**不含**安装包，`src-tauri/target/` 被 `.gitignore` 排除）：
 
 - 本机构建：`npm ci` → `npm run tauri build`，产物落在
-  `src-tauri/target/release/bundle/macos/日程待办.app` 与 `.../bundle/dmg/日程待办_0.2.0_aarch64.dmg`；
+  `src-tauri/target/release/bundle/macos/日程待办.app` 与 `.../bundle/dmg/日程待办_0.2.1_aarch64.dmg`；
 - CI 产物：`.github/workflows/build.yml` 的 `build` job（push `master` / `release/**` 或手动
   `workflow_dispatch`）跑完后，下载 artifact `todo-macos`，内容与上者同构；
 - **正式分发**：打 `v*` tag 后同样跑一遍，产物改 ASCII 名后挂成 **Release 资产**，
@@ -158,11 +158,12 @@ localStorage 降级实现（`todo_local_db` / `todo_local_daily_db`），上层 
 > Windows 步骤真的执行了 `npx tauri build` 并上传产物），产物 artifact **`todo-windows`（5.36 MB）**
 > 可在仓库 Actions 页下载。本机只验证了配置合法性与前端跨平台性。
 >
-> **Windows 上同步入口仍不可用（边界未变）**：会话存储用的是 macOS 的 `/usr/bin/security` 钥匙串，
-> Windows 上命令不存在 → 登录必然失败、状态区停在「未登录」；本地功能不受影响。
-> （浏览器拉起已于 2026-11-02 改为三平台各自实现——Windows 走 `cmd /C start`——
-> 但**没有会话存储，OAuth 往返就不完整**，所以「Windows 上可用同步」这条仍然不成立。
-> Windows 依然只交付**可构建能力**，不是「可用的同步端」。
+> **Windows 上同步已可用（v0.2.1 起）**：会话存储在 Windows 上走**凭据管理器**
+> （Credential Manager，凭 DPAPI 加密，与 macOS 钥匙串同一等级别），浏览器拉起走 `cmd /C start`。
+> OAuth 往返的三步（回环监听 / 系统浏览器 / 换取 token）在两台上都能走通。
+> **仍未验证**：Windows 侧的真实登录流程**未经实机验证**（本机无 Windows 环境）——
+> 代码按 Credential Manager 的标准用法实现，CI 证明它能编译，但「点了登录真的能存进去」要靠实机复跑确认。
+> **Linux 等其余平台**仍无系统密钥串实现，同步不可用。
 
 ### 1. 平台配置的组织方式
 
@@ -536,7 +537,7 @@ v1 / v2 **逐字未动**；v3 只对 `todos` 做 `ADD COLUMN` + 回填 + 建索�
 | 系统菜单栏 | 框架默认英文（Q-01），见「一、3」 |
 | Windows 产物 | **已在 GitHub Actions 跑通**：`windows-latest` job 2026-11-01 实跑成功（真执行 `npx tauri build` + 上传产物），artifact **`todo-windows`（5.36 MB）** 可在 Actions 下载；**但产物未在本机、也未在任何 Windows 机器上运行过**（本机无交叉编译） |
 | Release 发布 | tag 触发 + `permissions: contents: write` + `softprops/action-gh-release` 已配好；**当前尚未打 tag，Releases 页为空**。发布资产名统一为 ASCII（`ScheduleTodo-<版本>-<平台>`），**应用名仍是「日程待办」** |
-| Windows 上的同步 | **不可用**：会话存储（`/usr/bin/security` 钥匙串）与浏览器拉起（`/usr/bin/open`）都是 macOS 实现，Windows 上登录必失败、状态区停在「未登录」；本地功能不受影响。Windows 只交付**可构建能力** |
+| Windows 上的同步 | **v0.2.1 起可用**：会话存储走**凭据管理器**（DPAPI 加密）、浏览器拉起走 `cmd /C start`，OAuth 往返两台都能走通。**但未经实机验证**——本机无 Windows 环境，CI 只证明能编译，真实登录流程需实机复跑确认 |
 | 桌面人工 checklist | M-01 ~ M-14 的执行情况见 `docs/verification/mac-desktop.md`；**桌面像素级项由人类实机人工验收确认（无自动化截图）**，受 TCC 权限限制而仍缺自动取证的项保留原判定与复现命令 |
 | 同步（可选） | 逻辑已交付并用本地 stub 验证；**真实 Supabase 读写 / GitHub OAuth 往返 / 云侧 RLS 隔离已于 2026-11-01 实测通过**（RLS 用等价判据，**未用第二个账号实测「A token 读 B 行」**；已登录状态区的像素截图仍未取），见「五、同步（可选）」 |
 | 待推改动不会自动补推 | 退出应用时未到 5 秒防抖窗口的改动、以及未登录期间产生的改动，**只留在本地库**：启动只做拉取、不扫描待推队列，因此不会补推——**只有该行下次被编辑时才会重新排队上云**（OPEN-02 默认口径） |

@@ -1790,8 +1790,8 @@ CI 证明的是「真实 Windows 上能出包」。为了回答「本机能不�
 
 #### 13.24.5 遗留（明确不改，只记录）
 
-- **Windows 上同步入口仍不可用**：会话存储需要 Windows 凭据管理器（DPAPI）才能实现，
-  属**新增能力**而非本次缺陷修复的范围；README 已写明该边界。
+- **Windows 上同步入口**（v1.24.5 当时）：会话存储需要 Windows 凭据管理器（DPAPI）才能实现，
+  属**新增能力**而非本次缺陷修复的范围；**已在 §13.26 补齐**。
 - **SQLite 位于漫游目录（Windows 的 `%APPDATA%`）**：域漫游环境下文件可能被同步到多台机器，
   引发 SQLite 锁冲突。这是 Tauri 的默认目录选择，改它属于架构变更（PRD 的数据目录契约），
   本轮**只记录不改**。
@@ -1853,6 +1853,74 @@ sha256 `a0d822d843060b5f4121d31219fd8ec5…` —— 是有效的 NSIS 安装包�
   但**本机无 Windows 机器**，修复的有效性需需求方实机复跑确认
   （若仍不行，看 `%APPDATA%\com.poisson.todo\startup.log`——新版本会写明是 WebView2 还是别的原因）。
 - **CI 产物未签名**：Windows SmartScreen 拦截仍在，本期无证书不做签名，README 已写明放行方式。
+
+### 13.26 Windows 侧补齐系统级会话存储（v0.2.1 / PRD v1.12）
+
+> 触发：需求方在 Windows 上安装后看到「缺少 Supabase 配置」提示，追问如何配置；
+> 核查时发现：**配了 key 也登录不了**——登录流程最后一步「存会话」只有 macOS 实现。
+> 需求方判断「该补」，本节记录该实现。
+
+#### 13.26.1 缺口定位
+
+登录流程（`src/sync/engine.ts::login`）的最后一步是存会话：
+
+```
+await this.options.oauth.listen();      // ① 回环监听 —— 绑端口 0，跨平台 ✓
+await this.options.oauth.open(url);      // ② 系统浏览器 —— v1.11 已改三平台分派 ✓
+const query = await this.options.oauth.wait(timeout);
+const raw = await this.options.api.exchangeCode(callback.code, verifier);  // ③ 换 token ✓
+await this.options.sessionStore.save(this.session);   // ④ 存会话 —— ✗ 只有 macOS 实现
+```
+
+前三步都跨平台可用，**缺的只有第 ④ 步**。所以这不是「同步在 Windows 上不可行」，
+而是「同步在 Windows 上差最后一环」。
+
+#### 13.26.2 实现
+
+`keychain_save` / `keychain_load` / `keychain_clear` 三个函数按平台分派：
+
+| 平台 | 实现 | 保护强度 |
+| --- | --- | --- |
+| macOS | 系统钥匙串（`/usr/bin/security`，既有） | 钥匙串加密 |
+| **Windows** | **凭据管理器**（`CredWriteW` / `CredReadW` / `CredDeleteW` / `CredFree`） | **DPAPI 加密**，其它用户 / 其它进程取不到明文 |
+| Linux / BSD | 明确返回「暂不支持」 | —— |
+
+几个刻意的取舍：
+
+- **持久化用 `CRED_PERSIST_LOCAL_MACHINE`**（= 2）：跟着**当前 Windows 用户**走，
+  **不随域漫游配置同步到别的机器**——否则会在多台机器间复制同一份凭据。
+- **超限明确报错、不静默截断**：凭据 blob 上限是 `CRED_MAX_CREDENTIAL_BLOB_SIZE`（2560 字节）。
+  截断会得到一段坏 JSON，表现为「读不到会话」这种极难查的问题；所以写入前就明确报错。
+- **Linux 仍返回「暂不支持」**，**不静默落到明文文件**——那会破坏「会话不得明文落盘」的约束。
+- **`CredFree` 而不是 `free`**：凭据内存由 Win32 分配，必须用 `CredFree` 释放。
+
+#### 13.26.3 单测（可在 macOS 上真跑的部分）
+
+凭据 blob 的上限校验抽成**与平台无关的纯函数** `check_session_blob_size()`，
+这样最容易出错的那部分逻辑能在任何平台被测到：
+
+| 用例 | 断言 |
+| --- | --- |
+| `normal_session_fits` | 真实会话（一小段 JSON）放得下 |
+| `oversized_session_is_rejected_with_explicit_error` | 超 2560 字节 → 错误信息说清「会话过大」与上限值 |
+| `exactly_at_limit_is_accepted` | **正好等于上限要放过**（上限是「含」的） |
+| `limit_matches_windows_credential_manager_constant` | 上限常量 = 2560 = 5 × 256（与 SDK 一致） |
+
+`cargo test`：**8 passed**（原有 4 条 + 新增 4 条）。
+
+#### 13.26.4 验证与诚实边界
+
+| 项 | 结果 |
+| --- | --- |
+| `cargo xwin check --target x86_64-pc-windows-msvc` | **exit 0**——`CredWriteW` / `CredReadW` / `CredDeleteW` / `CredFree` / `FormatMessageW` 全部在 Windows 目标下编译通过 |
+| `cargo test`（macOS） | **8 passed** |
+| 自证脚本（8 个）+ `npm run build` | 全 PASS |
+| 平台可移植性守护 | PASS（新增的 Windows 分支被 `#[cfg(target_os = "windows")]` 正确保护） |
+| **Windows 真实登录流程** | **NOT-VERIFIED** —— 本机无 Windows 环境。代码按 Credential Manager 标准用法实现、CI 证明能编译，但**「点了登录真的能存进去」必须实机复跑确认** |
+
+> 这条边界与 §13.23.4 同源：**编译通过 ≠ 运行时正确**。上一轮的教训（`/usr/bin/open`）正说明
+> 交叉编译只能证明「API 存在且签名对」，证明不了「调用序列对」。
+> 实机复跑时请重点看：状态区能否从「未登录」变成「已登录」，以及重启后会话是否仍在。
 
 ---
 

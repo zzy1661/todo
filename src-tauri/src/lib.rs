@@ -248,25 +248,196 @@ fn keychain_clear() -> Result<(), String> {
 /// `load` 返回「未登录」，`save` 返回一句人话，`clear` 直接成功。
 /// 这样 Windows 用户点「登录」时看到的是「当前平台暂不支持安全会话存储」，
 /// 而不是「调用 security 失败: No such file or directory」。
-#[cfg(not(target_os = "macos"))]
+// ---------------------------------------------------------------- Windows 凭据管理器
+
+/// Windows：用**凭据管理器**（Credential Manager）存会话——Windows 版的「钥匙串」。
+///
+/// 与 macOS 钥匙串一一对应：条目名用 `TARGET`，类型用通用凭据，持久化到本机
+/// （`CRED_PERSIST_LOCAL_MACHINE`：跟着当前 Windows 用户走，不随漫游配置同步到别的机器）。
+/// 凭据内容由 **DPAPI** 加密存放，其它用户 / 其它进程拿不到明文——与 macOS 钥匙串同等级别。
+#[cfg(target_os = "windows")]
+fn keychain_save(blob: &str) -> Result<(), String> {
+    use std::os::windows::ffi::OsStrExt;
+    use windows_sys::Win32::Security::Credentials::{
+        CredWriteW, CREDENTIALW, CRED_PERSIST_LOCAL_MACHINE, CRED_TYPE_GENERIC,
+    };
+
+    // 上限校验与平台无关，走共享的纯函数（可在本机单测）。
+    check_session_blob_size(blob)?;
+
+    let target: Vec<u16> = std::ffi::OsStr::new(KEYCHAIN_SERVICE)
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect();
+    let user: Vec<u16> = std::ffi::OsStr::new(KEYCHAIN_ACCOUNT)
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect();
+
+    let mut blob_bytes = blob.as_bytes().to_vec();
+    let mut credential: CREDENTIALW = unsafe { std::mem::zeroed() };
+    credential.Type = CRED_TYPE_GENERIC;
+    credential.TargetName = target.as_ptr() as *mut u16;
+    credential.CredentialBlobSize = blob_bytes.len() as u32;
+    credential.CredentialBlob = blob_bytes.as_mut_ptr();
+    credential.Persist = CRED_PERSIST_LOCAL_MACHINE;
+    credential.UserName = user.as_ptr() as *mut u16;
+
+    // SAFETY：`credential` 的各字段在调用期间均有效（target / user / blob_bytes 都在栈上活着，
+    // 且 `blob_bytes` 不会被移动，因为它的指针被存进了 credential）。
+    let ok = unsafe { CredWriteW(&credential, 0) };
+    if ok == 0 {
+        return Err(format!(
+            "写入 Windows 凭据管理器失败: {}",
+            last_error_message()
+        ));
+    }
+    Ok(())
+}
+
+/// Windows：读凭据管理器里的会话；不存在返回 None（视为未登录）。
+#[cfg(target_os = "windows")]
+fn keychain_load() -> Result<Option<String>, String> {
+    use std::os::windows::ffi::OsStrExt;
+    use windows_sys::Win32::Foundation::ERROR_NOT_FOUND;
+    use windows_sys::Win32::Security::Credentials::{
+        CredFree, CredReadW, CRED_TYPE_GENERIC,
+    };
+
+    let target: Vec<u16> = std::ffi::OsStr::new(KEYCHAIN_SERVICE)
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect();
+
+    let mut raw: *mut windows_sys::Win32::Security::Credentials::CREDENTIALW = std::ptr::null_mut();
+    // SAFETY：`raw` 是合法的输出参数；`target` 在调用期间有效。
+    let ok = unsafe { CredReadW(target.as_ptr(), CRED_TYPE_GENERIC, 0, &mut raw) };
+    if ok == 0 {
+        let err = last_error_code();
+        if err == ERROR_NOT_FOUND {
+            return Ok(None);
+        }
+        return Err(format!("读取 Windows 凭据管理器失败: {}", last_error_message()));
+    }
+    if raw.is_null() {
+        return Ok(None);
+    }
+
+    // SAFETY：`raw` 是 CredReadW 成功返回的凭据，字段按文档有效。
+    let (blob_ptr, blob_size) = unsafe {
+        (
+            (*raw).CredentialBlob,
+            (*raw).CredentialBlobSize as usize,
+        )
+    };
+    let value = if blob_ptr.is_null() || blob_size == 0 {
+        String::new()
+    } else {
+        // SAFETY：blob 指向 CredReadW 分配的 blob_size 字节有效内存。
+        let bytes = unsafe { std::slice::from_raw_parts(blob_ptr, blob_size) };
+        String::from_utf8_lossy(bytes).to_string()
+    };
+    // SAFETY：释放 CredReadW 分配的内存（必须用 CredFree，不能用 free）。
+    unsafe { CredFree(raw.cast()) };
+
+    Ok(if value.trim().is_empty() {
+        None
+    } else {
+        Some(value)
+    })
+}
+
+/// Windows：清除凭据管理器里的会话（退出登录 / 令牌失效）。
+#[cfg(target_os = "windows")]
+fn keychain_clear() -> Result<(), String> {
+    use std::os::windows::ffi::OsStrExt;
+    use windows_sys::Win32::Foundation::ERROR_NOT_FOUND;
+    use windows_sys::Win32::Security::Credentials::{CredDeleteW, CRED_TYPE_GENERIC};
+
+    let target: Vec<u16> = std::ffi::OsStr::new(KEYCHAIN_SERVICE)
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect();
+
+    // SAFETY：`target` 在调用期间有效。
+    let ok = unsafe { CredDeleteW(target.as_ptr(), CRED_TYPE_GENERIC, 0) };
+    if ok == 0 {
+        let err = last_error_code();
+        // 条目不存在时不算错误（与 macOS 的 security 行为一致）。
+        if err == ERROR_NOT_FOUND {
+            return Ok(());
+        }
+        return Err(format!(
+            "删除 Windows 凭据管理器条目失败: {}",
+            last_error_message()
+        ));
+    }
+    Ok(())
+}
+
+/// Windows：取最近的 Win32 错误码。
+#[cfg(target_os = "windows")]
+fn last_error_code() -> u32 {
+    // SAFETY：`GetLastError` 无参数无副作用。
+    unsafe { windows_sys::Win32::Foundation::GetLastError() }
+}
+
+/// Windows：把最近的 Win32 错误码转成人话。
+#[cfg(target_os = "windows")]
+fn last_error_message() -> String {
+    let code = last_error_code();
+    // 用 `FormatMessageW` 把系统消息取出来；失败就退回错误码本身。
+    let mut buffer = [0u16; 512];
+    use windows_sys::Win32::System::Diagnostics::Debug::{
+        FormatMessageW, FORMAT_MESSAGE_FROM_SYSTEM, FORMAT_MESSAGE_IGNORE_INSERTS,
+    };
+    // SAFETY：`buffer` 是合法的输出缓冲；长度已按参数传入。
+    let len = unsafe {
+        FormatMessageW(
+            FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+            std::ptr::null(),
+            code,
+            0,
+            buffer.as_mut_ptr(),
+            buffer.len() as u32,
+            std::ptr::null_mut(),
+        )
+    };
+    if len == 0 {
+        return format!("错误码 {code}");
+    }
+    let text = String::from_utf16_lossy(&buffer[..len as usize]);
+    let text = text.trim();
+    if text.is_empty() {
+        format!("错误码 {code}")
+    } else {
+        format!("{text}（错误码 {code}）")
+    }
+}
+
+/// 其它平台（Linux / BSD）：仍无系统级密钥串实现。
+///
+/// Windows 与 macOS 都已实现，这里只剩 Linux 等平台——保持「明确说不支持」，
+/// 而不是悄悄落到明文文件里（那会破坏「会话不得明文落盘」的约束）。
+#[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
 fn keychain_save(_blob: &str) -> Result<(), String> {
     Err(UNSUPPORTED_KEYCHAIN.to_string())
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
 fn keychain_load() -> Result<Option<String>, String> {
     Ok(None)
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
 fn keychain_clear() -> Result<(), String> {
     Ok(())
 }
 
-/// 非 macOS 平台上的会话存储提示。
-#[cfg(not(target_os = "macos"))]
+/// 尚未实现系统密钥串的平台上的会话存储提示。
+#[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
 const UNSUPPORTED_KEYCHAIN: &str =
-    "当前平台暂不支持安全会话存储（仅 macOS 实现了系统钥匙串）；本地功能不受影响。";
+    "当前平台暂不支持安全会话存储（macOS 用系统钥匙串、Windows 用凭据管理器）；本地功能不受影响。";
 
 /// 回环监听的结果：主线程生成的 channel 接收端
 static OAUTH_RX: OnceLock<Mutex<Option<mpsc::Receiver<String>>>> = OnceLock::new();
@@ -546,6 +717,60 @@ pub fn run() {
                 startup::log_path().display()
             ),
         );
+    }
+}
+
+/// 会话 blob 的体积上限：与 Windows 凭据管理器 `CRED_MAX_CREDENTIAL_BLOB_SIZE` 一致。
+///
+/// 为什么要有上限：凭据 blob 超限时 `CredWriteW` 会**直接失败**，
+/// 而静默截断会得到一段坏 JSON，表现为「读不到会话」这种极难查的问题。
+/// 这里在写入前就明确报错。
+const SESSION_BLOB_MAX_BYTES: usize = 5 * 512;
+
+/// 校验会话 blob 是否放得进系统凭据存储。
+///
+/// 纯函数，**不依赖平台**，所以在 macOS 上也能跑单测——
+/// 这正是「跨平台代码里最容易出错的那部分」应该有的形状。
+fn check_session_blob_size(blob: &str) -> Result<(), String> {
+    if blob.len() > SESSION_BLOB_MAX_BYTES {
+        return Err(format!(
+            "会话过大（{} 字节，上限 {SESSION_BLOB_MAX_BYTES}）",
+            blob.len()
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod session_blob_tests {
+    use super::{check_session_blob_size, SESSION_BLOB_MAX_BYTES};
+
+    #[test]
+    fn normal_session_fits() {
+        // 真实会话就是一小段 JSON，远低于上限
+        let blob = r#"{"userId":"u-1","accessToken":"tok","refreshToken":"rt"}"#;
+        assert!(check_session_blob_size(blob).is_ok());
+    }
+
+    #[test]
+    fn oversized_session_is_rejected_with_explicit_error() {
+        let blob = "x".repeat(SESSION_BLOB_MAX_BYTES + 1);
+        let err = check_session_blob_size(&blob).unwrap_err();
+        assert!(err.contains("会话过大"), "错误信息要说清原因：{err}");
+        assert!(err.contains(&SESSION_BLOB_MAX_BYTES.to_string()));
+    }
+
+    #[test]
+    fn exactly_at_limit_is_accepted() {
+        // 边界：正好等于上限要放过（上限是「含」的）
+        let blob = "x".repeat(SESSION_BLOB_MAX_BYTES);
+        assert!(check_session_blob_size(&blob).is_ok());
+    }
+
+    #[test]
+    fn limit_matches_windows_credential_manager_constant() {
+        // CRED_MAX_CREDENTIAL_BLOB_SIZE = 5 * CRED_MAX_USERNAME_LENGTH(256)
+        assert_eq!(SESSION_BLOB_MAX_BYTES, 2560);
     }
 }
 
