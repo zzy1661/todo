@@ -1797,6 +1797,63 @@ CI 证明的是「真实 Windows 上能出包」。为了回答「本机能不�
   本轮**只记录不改**。
 - **CI 产物未签名**：Windows SmartScreen 拦截仍在，本期无证书不做签名。
 
+### 13.25 v0.2.0 发版记录
+
+> 触发：需求方问「github 已经提交了吗，打包产物在 release 中可以下载了吗」。
+> 核查发现：代码早已 push，但 **Release 里只有 2026-11-01 的 v0.1.0 旧包**——
+> 新产物只在 Actions artifact 里，而 **artifact 匿名下载返回 404**（必须登录 GitHub）。
+> 原因：workflow 的「发布 Release 资产」步骤条件是 `startsWith(github.ref, 'refs/tags/v')`，
+> **只有推 `v*` tag 才会发布**；README 也写着「tag 由维护者打，流水线不创建 tag」。
+
+#### 13.25.1 发版动作与依据
+
+| 项 | 内容 |
+| --- | --- |
+| 版本号决策 | 需求方拍板 **v0.2.0**（内容库 65 → 146 条、新增分类、Windows 启动诊断、WebView2 修复、自动同步——已达 minor 升级） |
+| 版本号落点 | `src-tauri/tauri.conf.json`（CI 用它命名资产）、`package.json`、`src-tauri/Cargo.toml` 三处对齐为 `0.2.0` |
+| 资产名一致性 | CI 用 `node -p "require('./src-tauri/tauri.conf.json').version"` 取版本号命名资产 → tag `v0.2.0` 与资产名 `ScheduleTodo-0.2.0-*` **严格对应**（tag 与 version 不一致会让资产名与 tag 对不上） |
+| 历史记录不动 | 测试报告里的 `0.1.0`（当时构建的字节数 / md5 / 文件名）**一律保留**——那是当时的事实，改写等于篡改证据；只更新 README 与设计文档里的**当前口径** |
+| tag | annotated tag `v0.2.0`，指向 `d10e8e3` |
+
+#### 13.25.2 发版 CI 与 Release 资产
+
+CI run `44895637049`（由 tag 推送触发，`event = push`）：
+
+| Job | 结果 |
+| --- | --- |
+| macOS (arm64 · .app + .dmg) | **success** |
+| Windows (NSIS + MSI) | **success** |
+
+Release `v0.2.0`（published 2026-11-21T10:49:41Z）：
+
+| 资产 | 大小 | 匿名下载 |
+| --- | --- | --- |
+| `ScheduleTodo-0.2.0-macos-arm64.dmg` | 3.16 MB | **HTTP 206** ✓ |
+| `ScheduleTodo-0.2.0-macos-arm64.app.zip` | 2.94 MB | **HTTP 206** ✓ |
+| `ScheduleTodo-0.2.0-windows-x64-setup.exe` | 3.91 MB | **HTTP 206** ✓ |
+| `ScheduleTodo-0.2.0-windows-x64.msi` | 4.87 MB | **HTTP 206** ✓ |
+
+**对比 v0.1.0 的同类资产**（2.23 / 3.08 / 3.10 / 2.88 MB）：Windows 两项明显变大，
+差值正是 **`embedBootstrapper` 内嵌的引导程序**（+~1.8MB/个）——与 §13.23.4 的记录一致。
+
+完整性抽查：`windows-x64-setup.exe` 全量下载后 `file` 判定为
+`PE32 executable (GUI) Intel 80386, Nullsoft Installer self-extracting archive`，
+sha256 `a0d822d843060b5f4121d31219fd8ec5…` —— 是有效的 NSIS 安装包。
+
+#### 13.25.3 两条取件路径的差别（**给使用者的实际指引**）
+
+| 路径 | 需要登录 | 有效期 | 适用 |
+| --- | --- | --- | --- |
+| **Release 资产** | **否**（匿名可下，已实测 HTTP 206） | 长期 | 分发给他人 |
+| Actions artifact | **是**（匿名下载 404） | 14 天 | 内部临时取用 |
+
+#### 13.25.4 仍未解决的事项
+
+- **Windows 实机复验仍 `NOT-VERIFIED`**：v0.2.0 修的正是「装完双击没反应」，
+  但**本机无 Windows 机器**，修复的有效性需需求方实机复跑确认
+  （若仍不行，看 `%APPDATA%\com.poisson.todo\startup.log`——新版本会写明是 WebView2 还是别的原因）。
+- **CI 产物未签名**：Windows SmartScreen 拦截仍在，本期无证书不做签名，README 已写明放行方式。
+
 ---
 
 ## 14. AC-01 ~ AC-70 统一判定台账（70 行）
