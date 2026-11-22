@@ -81,6 +81,17 @@ jobs:
       - name: Unit self-checks (content / sync / data / platform)
         run: npm run check:unit
 
+      # 自检的完整输出（每个脚本的 stdout/stderr）传成 artifact：
+      # 失败时**不必本地复现**也能看到到底是哪个脚本、报了什么。
+      - name: Upload unit-check log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-checks-log-${{ matrix.os }}
+          path: verify/unit-checks.log
+          if-no-files-found: ignore
+          retention-days: 14
+
       # 平台可移植性：平台专有调用（/usr/bin/、osascript、cmd /C…）必须被
       # #[cfg(...)] 保护，否则另一端的运行时会静默失败——这类问题编译期查不出来
       # （2026-11-02 的 Windows「双击没反应」就是这么漏过去的）。
