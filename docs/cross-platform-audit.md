@@ -95,6 +95,16 @@ v0.2.3 的教训正卡在这里：`cmd /C start` 是 Windows 专有的、被正�
 | F5 | 代码签名 | ⚠️ 遗留：CI 产物未签名 → Windows SmartScreen 拦截；本期无证书不做签名 | — |
 | F6 | CI 的 Windows 步骤真出包 | ✅ 真跑 `npx tauri build` + `if-no-files-found: error` | CI 本身 |
 
+## 已确认的跨平台机制（源码级，供以后查阅）
+
+| 机制 | 结论 | 依据 |
+| --- | --- | --- |
+| **打开 URL** | Windows 走 `ShellExecuteExW`、macOS 走 `NSWorkspace`、Linux 走 `xdg-open` | `tauri-plugin-opener` → `open` crate 5.4.5 `that_detached()` |
+| **Rust 侧调用插件要不要 capability** | **不要**——ACL 只拦前端 JS 的 invoke 路径 | Tauri 2.12.5 的 `resolve_access` 只出现在 `webview/mod.rs`；opener 的 Rust API 直接调 `crate::open::open`，不经过 `run_plugin_api` |
+| **WebCrypto 在 Tauri 自定义协议下可用吗** | 可用——Windows 上是 `http://tauri.localhost`，Chromium 把 `*.localhost` 视为 secure context | `tauri/src/protocol/asset.rs`；`crypto.randomUUID` 另有 `getRandomValues` 降级（不依赖 secure context） |
+| **`fs::rename` 在 Windows 上会失败吗** | 不会——Rust 的实现带 `MOVEFILE_REPLACE_EXISTING`，是「覆盖」而非「失败」 | Rust `std::fs` 的 Windows 实现 |
+| **前端有 XSS 面吗** | 没有——全部走 Vue 插值（自动转义），无 `v-html` / `innerHTML` / `eval` | `grep` 全量扫描 |
+
 ## 遗留边界（明确不改，只记录）
 
 1. **WebView2 最低版本未声明**——不声明即不检查；装的是最新版，暂不构成风险。
