@@ -42,12 +42,15 @@ const methodsPath = (dir) => path.join(dir, 'src/data/methods.ts');
 
 /** 删掉一条方法：从 `  {\n    id: '<id>',` 到方法自身收尾的 `\n  },\n` */
 function dropMethod(source, id) {
-  const start = source.indexOf(`    id: '${id}',`);
+  const start = source.indexOf(`id: '${id}',`);
   if (start < 0) throw new Error(`未找到方法 ${id}`);
-  const blockStart = source.lastIndexOf('  {\n', start);
-  const blockEnd = source.indexOf('\n  },\n', start);
+  const blockStart = source.lastIndexOf('\n  {', start);
+  const blockEnd = source.indexOf('\n  },', start);
   if (blockStart < 0 || blockEnd < 0) throw new Error(`无法定位方法 ${id} 的边界`);
-  return source.slice(0, blockStart) + source.slice(blockEnd + '\n  },\n'.length);
+  let blockTail = blockEnd + '\n  },'.length;
+  if (source.slice(blockTail, blockTail + 2) === '\r\n') blockTail += 2;
+  else if (source[blockTail] === '\n') blockTail += 1;
+  return source.slice(0, blockStart) + source.slice(blockTail);
 }
 
 const cases = [
