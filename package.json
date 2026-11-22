@@ -1,7 +1,7 @@
 {
   "name": "todo",
   "private": true,
-  "version": "0.2.5",
+  "version": "0.2.6",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,6 +11,7 @@
     "check:sync": "node scripts/check-sync.mjs",
     "check:deleted": "node scripts/check-deleted-filter.mjs",
     "check:no-secrets": "node scripts/check-no-secrets.mjs",
+    "check:unit": "node scripts/check-cases.mjs && node scripts/check-permutation.mjs && node scripts/check-cases-negative.mjs && node scripts/check-sync.mjs && node scripts/check-sync-extra.mjs && node scripts/check-data-layer.mjs && node scripts/check-db-parity.mjs && node scripts/check-deleted-filter.mjs && node scripts/check-bundle-config.mjs && node scripts/check-platform-portability.mjs",
     "check:platform": "node scripts/check-platform-portability.mjs",
     "test:sync": "playwright test -c playwright.sync.config.ts"
   },

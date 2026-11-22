@@ -1343,13 +1343,172 @@ section('v3 迁移结构证据（TC-076 / AC-64，只给 todos 加列）');
   endSection();
 }
 
+/* ---------------------------------------------- ⑫ 双端回路：A 写 → 云端 → B 收到 */
+
+// section('⑫ 双端回路：两个独立本机 + 同一个云端')
+//
+// **为什么要有这一组**：之前所有验证都是**单端**的——
+//   - 编译通过（cargo xwin check / CI 出包）
+//   - 脚本断言通过（十组路径，但都在测单端行为）
+//   - E2E 6 passed（跑在浏览器里，**根本没有同步引擎**）
+// 它们能证明「代码按我写的样子跑」，**证明不了「两个设备之间数据真的能对上」**。
+//
+// 2026-11-22 的实机反馈「Windows 登录了，但没有同步到数据」正是这个缺口：
+// 推送链路的三个承诺在注释里写了、代码里一件都没实现，而**任何已有断言都抓不到它**。
+//
+// 这一组测的是**回路**：客户端 A 写数据 → 同步 → 客户端 B 拉到同一批数据。
+// 任何一环断了就红。
+{
+  section('⑫ 双端回路：A 写 → 云端 → B 收到');
+
+  /** 造一个独立的「本机」：内存数组当本地库（两台设备互不可见） */
+  const makeLocal = (rows) => ({
+    async loadByUuids(uuids) {
+      return rows.filter((row) => uuids.includes(row.uuid));
+    },
+    async loadAll() {
+      return [...rows];
+    },
+    async applyRemote(remote) {
+      let inserted = 0;
+      let updated = 0;
+      for (const row of remote) {
+        const index = rows.findIndex((x) => x.uuid === row.uuid);
+        if (index >= 0) {
+          rows[index] = { ...rows[index], ...row };
+          updated += 1;
+        } else {
+          rows.push({ ...row });
+          inserted += 1;
+        }
+      }
+      return { inserted, updated, skipped: 0 };
+    },
+  });
+
+  const makeRow = (uuid, title) => ({
+    id: 1,
+    uuid,
+    title,
+    date: '2026-11-22',
+    priority: 1,
+    note: '',
+    done: false,
+    created_at: '2026-11-22 10:00:00',
+    updated_at: '2026-11-22 10:00:00',
+    updated_at_ms: 1,
+    deleted: 0,
+  });
+
+  const makeEngine = (stub, rows, onStatus = () => {}) =>
+    new SyncEngine({
+      config: { ...config(stub.url), autoSyncDays: 2 },
+      api: new SupabaseRestApi({ baseUrl: stub.url, anonKey: ANON_KEY }),
+      sessionStore: createMemorySessionStore(),
+      stateStore: createMemoryStateStore(),
+      local: makeLocal(rows),
+      oauth: createOAuthLauncher(),
+      clock,
+      timers,
+      onStatus,
+      debounceMs: 0,
+    });
+
+  // ── 场景 1：A 登录后新增 → B 登录后应拉到
+  {
+    const stub = await createMockSupabase();
+    const rowsA = [];
+    const rowsB = [];
+    const statusA = { value: null };
+    const engineA = makeEngine(stub, rowsA, (s) => {
+      statusA.value = s;
+    });
+    const engineB = makeEngine(stub, rowsB);
+
+    await engineA.login();
+    assert(
+      statusA.value?.phase === 'signed-in',
+      `场景 1：A 必须真的登录成功（实际 ${statusA.value?.phase}：${statusA.value?.detail ?? ''}）`,
+    );
+
+    const uuid = nextUuid();
+    rowsA.push(makeRow(uuid, '场景一的待办'));
+    engineA.markLocalChange(uuid);
+    await engineA.flush();
+
+    await engineB.login();
+    assert(
+      rowsB.some((row) => row.uuid === uuid),
+      `场景 1：B 端必须收到 A 的待办（实际 B 有 ${rowsB.length} 条：${rowsB.map((r) => r.title).join(',') || '空'}）`,
+    );
+
+    engineA.dispose();
+    engineB.dispose();
+    await stub.close();
+  }
+
+  // ── 场景 2：A 登录**前**就有的待办 → 登录后应上云 → B 应收到
+  {
+    const stub = await createMockSupabase();
+    const rowsA = [];
+    const rowsB = [];
+    const engineA = makeEngine(stub, rowsA);
+    const engineB = makeEngine(stub, rowsB);
+
+    const uuid = nextUuid();
+    rowsA.push(makeRow(uuid, '场景二的待办'));
+    engineA.markLocalChange(uuid); // 未登录 → 只入队，不发请求
+
+    await engineA.login(); // 登录后必须补推
+
+    await engineB.login();
+    assert(
+      rowsB.some((row) => row.uuid === uuid),
+      `场景 2：B 端必须收到 A 登录前就有的待办（实际 B 有 ${rowsB.length} 条：${rowsB.map((r) => r.title).join(',') || '空'}）`,
+    );
+
+    engineA.dispose();
+    engineB.dispose();
+    await stub.close();
+  }
+
+  // ── 场景 3：B 新增 → A 应拉到（反向回路）
+  {
+    const stub = await createMockSupabase();
+    const rowsA = [];
+    const rowsB = [];
+    const engineA = makeEngine(stub, rowsA);
+    const engineB = makeEngine(stub, rowsB);
+
+    await engineA.login();
+    await engineB.login();
+
+    const uuid = nextUuid();
+    rowsB.push(makeRow(uuid, '场景三的待办'));
+    engineB.markLocalChange(uuid);
+    await engineB.flush();
+
+    await engineA.enterSession('自检');
+    assert(
+      rowsA.some((row) => row.uuid === uuid),
+      `场景 3：A 端必须收到 B 的待办（实际 A 有 ${rowsA.length} 条）`,
+    );
+
+    engineA.dispose();
+    engineB.dispose();
+    await stub.close();
+  }
+
+  endSection();
+}
+
 console.log('');
 if (failures.length > 0) {
   console.error(`✗ 同步自检失败 ${failures.length} / ${checks} 项：`);
   for (const failure of failures) console.error(`  - ${failure}`);
   process.exit(1);
 }
-console.log(`✓ 同步自检 PASS：${checks} 项断言，十一组路径 + v3 迁移结构证据全部通过`);
+console.log(`✓ 同步自检 PASS：${checks} 项断言，十二组路径 + v3 迁移结构证据全部通过`);
 console.log('  NOT-VERIFIED：真实 Supabase 读写、真实 GitHub OAuth 往返、云侧 RLS 越权不可见');
 
 /* ------------------------------------------------------------------ 辅助 */

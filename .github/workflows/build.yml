@@ -73,6 +73,14 @@ jobs:
       - name: Secret guard (no hardcoded Supabase keys)
         run: npm run check:no-secrets
 
+      # 自检脚本组（内容库 / 推送确定性 / 同步层 / 数据层 / 平台中立）。
+      # **这些以前只在本地跑，CI 从不执行** —— 于是「本地全绿、CI 也全绿」并不代表
+      # 功能正确：2026-11-22 实机反馈的「登录了但没有同步到数据」就是这么漏过去的
+      # （推送链路的三个承诺在注释里写了、代码里没实现，而任何断言都没覆盖它）。
+      # 现在它们进 CI，改坏了会当场被拦。
+      - name: Unit self-checks (content / sync / data / platform)
+        run: npm run check:unit
+
       # 平台可移植性：平台专有调用（/usr/bin/、osascript、cmd /C…）必须被
       # #[cfg(...)] 保护，否则另一端的运行时会静默失败——这类问题编译期查不出来
       # （2026-11-02 的 Windows「双击没反应」就是这么漏过去的）。
