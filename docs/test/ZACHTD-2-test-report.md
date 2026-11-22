@@ -1922,6 +1922,47 @@ await this.options.sessionStore.save(this.session);   // ④ 存会话 —— �
 > 交叉编译只能证明「API 存在且签名对」，证明不了「调用序列对」。
 > 实机复跑时请重点看：状态区能否从「未登录」变成「已登录」，以及重启后会话是否仍在。
 
+### 13.27 Windows 配置文件的 BOM 兼容（v0.2.2）
+
+> 触发：需求方问「Windows 上怎么配 supabaseUrl」，核查配置链路时发现一个**会让配置「写了却不生效」**的坑。
+
+#### 13.27.1 问题
+
+Windows 记事本（及部分编辑器）默认把文件存成 **UTF-8 with BOM**（文件头 `EF BB BF`）。
+而 `sync_config_read` 原来直接把文件内容交给前端 `JSON.parse`：
+
+```
+Rust: fs::read_to_string(&path) → Ok(text) => Ok(Some(text))     ← BOM 原样带出
+前端: JSON.parse(raw)                                                ← 遇到 BOM 抛 SyntaxError
+```
+
+`JSON.parse` 不认 BOM，会抛 `SyntaxError: Unexpected token ﻿`。
+**表现是「配置文件明明写了，状态区还是显示未配置」**——而且没有任何提示指向真因，
+用户只能怀疑自己写错了格式。这正是「配置类问题最难自查」的一类。
+
+#### 13.27.2 修复
+
+- Rust 侧读出后剥掉 BOM（`strip_bom()`，纯函数，`trim_start_matches('\u{feff}')`）；
+- 剥除逻辑**抽成纯函数**并补单测（带 BOM / 不带 BOM / 多个 BOM 三种情形），
+  这样在 macOS 上也能测到 Windows 上才会触发的路径；
+- 顺带把**凭据 blob 的体积上限统一为两平台共用**（2560 字节，取 Windows
+  `CRED_MAX_CREDENTIAL_BLOB_SIZE`）——原先上限只在 Windows 分支使用，
+  在 macOS 上成了死代码（`dead_code` 告警），而且会让「能写进 macOS 却写不进
+  Windows」的会话在两端表现不同。统一后 macOS 也在写入前校验，
+  且用的是更保守的那个值（macOS 钥匙串本身允许 4096）。
+
+#### 13.27.3 验证
+
+| 项 | 结果 |
+| --- | --- |
+| `cargo test` | **9 passed**（新增 BOM 用例；原有 4 条 + 上轮 4 条 + 本轮 1 条） |
+| `cargo xwin check --target x86_64-pc-windows-msvc` | **exit 0** |
+| 自证脚本 8 个 + `npm run build` | 全 PASS |
+| `dead_code` 告警 | **消除**（上限常量与检查函数两平台共用） |
+
+**边界**：本条修的是「配置读不出来」这条路径；**配置本身仍不会随安装包分发**
+（真实 key 只存在于各机应用数据目录，仓库里只有 `sync.config.example.json` 模板）。
+
 ---
 
 ## 14. AC-01 ~ AC-70 统一判定台账（70 行）

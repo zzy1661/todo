@@ -150,7 +150,11 @@ fn sync_config_read(app: tauri::AppHandle) -> Result<Option<String>, String> {
         .map_err(|e| format!("无法解析应用数据目录: {e}"))?;
     let path = dir.join(SYNC_CONFIG_FILE);
     match fs::read_to_string(&path) {
-        Ok(text) => Ok(Some(text)),
+        // **去掉 UTF-8 BOM**：Windows 记事本（及部分编辑器）默认存 UTF-8 with BOM，
+        // 而前端 `JSON.parse` 遇到 BOM 会直接抛 `Unexpected token ﻿`——
+        // 表现是「配置明明写了却仍显示未配置」，极难自查。BOM 在这里没有任何语义，
+        // 直接剥掉即可。
+        Ok(text) => Ok(Some(strip_bom(&text).to_string())),
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(None),
         Err(err) => Err(format!("读取 {} 失败: {err}", path.display())),
     }
@@ -169,6 +173,8 @@ fn sync_session_save(blob: String) -> Result<(), String> {
 /// macOS：写入登录钥匙串。
 #[cfg(target_os = "macos")]
 fn keychain_save(blob: &str) -> Result<(), String> {
+    // 上限校验与平台无关，走共享的纯函数（可在本机单测）。
+    check_session_blob_size(blob)?;
     let output = ProcessCommand::new("/usr/bin/security")
         .args([
             "add-generic-password",
@@ -720,12 +726,24 @@ pub fn run() {
     }
 }
 
-/// 会话 blob 的体积上限：与 Windows 凭据管理器 `CRED_MAX_CREDENTIAL_BLOB_SIZE` 一致。
+/// 会话 blob 的体积上限。
 ///
-/// 为什么要有上限：凭据 blob 超限时 `CredWriteW` 会**直接失败**，
-/// 而静默截断会得到一段坏 JSON，表现为「读不到会话」这种极难查的问题。
-/// 这里在写入前就明确报错。
+/// 取 **Windows 凭据管理器的 `CRED_MAX_CREDENTIAL_BLOB_SIZE`**（2560 字节）。
+/// 两平台共用同一个更保守的上限：macOS 钥匙串的密码项上限更宽（4096），
+/// 但用统一值好过让「能写进 macOS 却写不进 Windows」的会话在两端表现不同。
+///
+/// 为什么要有上限：超限时系统 API 会**直接失败**，而静默截断会得到一段坏 JSON，
+/// 表现为「读不到会话」这种极难查的问题。所以写入前就明确报错。
 const SESSION_BLOB_MAX_BYTES: usize = 5 * 512;
+
+/// 剥掉 UTF-8 BOM（U+FEFF）。
+///
+/// Windows 记事本等编辑器默认存 **UTF-8 with BOM**，而 JSON 解析器不认这个前缀——
+/// `JSON.parse` 会抛 `Unexpected token ﻿`。BOM 在配置文件里没有任何语义，
+/// 剥掉即可。纯函数，便于单测。
+fn strip_bom(text: &str) -> &str {
+    text.trim_start_matches('\u{feff}')
+}
 
 /// 校验会话 blob 是否放得进系统凭据存储。
 ///
@@ -765,6 +783,18 @@ mod session_blob_tests {
         // 边界：正好等于上限要放过（上限是「含」的）
         let blob = "x".repeat(SESSION_BLOB_MAX_BYTES);
         assert!(check_session_blob_size(&blob).is_ok());
+    }
+
+    #[test]
+    fn bom_is_stripped_from_config_text() {
+        // Windows 记事本默认存 UTF-8 with BOM；带 BOM 的 JSON 必须能被解析
+        use super::strip_bom;
+        let with_bom = "\u{feff}{\"enabled\":true}";
+        assert_eq!(strip_bom(with_bom), "{\"enabled\":true}");
+        // 不带 BOM 时原样返回
+        assert_eq!(strip_bom("{\"enabled\":true}"), "{\"enabled\":true}");
+        // 多个 BOM 也要剥干净（个别编辑器会写多个）
+        assert_eq!(strip_bom("\u{feff}\u{feff}x"), "x");
     }
 
     #[test]
