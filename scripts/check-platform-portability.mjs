@@ -262,9 +262,92 @@ for (const file of files) {
   });
 }
 
+/* ------------------------------------------- scripts/ 的外部命令依赖（另一类地雷） */
+
+/**
+ * 守护「自检脚本依赖的外部命令必须在两端都可用（或有退路）」。
+ *
+ * 这类问题**本地永远看不到**：
+ * - macOS 自带 `/usr/bin/sqlite3`，**windows-latest 的 runner 镜像里没有 sqlite3.exe**
+ *   （镜像的 Database Systems 一节只有 PostgreSQL 与 MongoDB）；
+ * - `npm` 在 Windows 上是 **`npm.cmd`**，而 `spawn` 默认 `shell: false`，
+ *   CreateProcess 只会尝试 `npm.exe` → ENOENT。
+ *
+ * 两者都是「macOS 正常、Windows 静默失败」。
+ *
+ * 2026-11-23 的教训：Windows job 从 v0.2.6 起就卡在自检链的**第一个**失败脚本上，
+ * 后面的 7 个脚本在 Windows 上**一次都没跑过** —— 其中就有依赖 sqlite3 的那个。
+ * 静态规则在这里比「等 CI 报出来」便宜得多。
+ */
+const SCRIPT_DIR = 'scripts';
+const scriptFiles = [];
+try {
+  for (const entry of readdirSync(SCRIPT_DIR)) {
+    if (entry.endsWith('.mjs')) scriptFiles.push(join(SCRIPT_DIR, entry));
+  }
+} catch {
+  /* 目录不存在则跳过 */
+}
+
+const SCRIPT_RULES = [
+  {
+    id: 'S1',
+    // 命令名写成字面量 'npm'（而不是变量）→ 违规
+    pattern: /(?:spawn|spawnSync|execFileSync|execSync)\(\s*'npm'/,
+    message: (file) =>
+      `${file} 直接 spawn/exec 了 'npm'：Windows 上 npm 是 npm.cmd，` +
+      `CreateProcess 只会尝试 npm.exe → ENOENT。必须先按平台选出可执行文件名` +
+      `（process.platform === 'win32' ? 'npm.cmd' : 'npm'）再传进去`,
+  },
+  {
+    id: 'S1b',
+    // 用了 npmCmd 这个变量，就必须真的写了 .cmd 分支，否则只是换了个写法
+    pattern: /\bnpmCmd\b/,
+    require: (text) => text.includes("'npm.cmd'"),
+    message: (file) =>
+      `${file} 用了 npmCmd 变量，却没出现 'npm.cmd' —— Windows 上仍会 ENOENT`,
+  },
+  {
+    id: 'S2',
+    pattern: /(?:spawn|spawnSync|execFileSync|execSync)\(\s*'sqlite3'/,
+    // 只有统一后端模块里可以直接调 sqlite3（那里有 Python 退路）
+    allow: (file) => file === join(SCRIPT_DIR, 'sqlite-backend.mjs'),
+    message: (file) =>
+      `${file} 直接调用了 'sqlite3' 命令：windows-latest 的 runner 镜像没有 sqlite3.exe → ENOENT。` +
+      `必须走 scripts/sqlite-backend.mjs（有 Python 标准库退路，且两个后端有等价断言）`,
+  },
+];
+
+for (const rule of SCRIPT_RULES) {
+  for (const file of scriptFiles) {
+    const lines = readFileSync(file, 'utf8').split('\n');
+    const text = lines.join('\n');
+    if (!rule.pattern.test(text)) continue;
+    if (rule.allow?.(file, text)) continue;
+    // `require` 返回 true = **要求已满足**（例如确实写了 'npm.cmd' 分支）→ 不算违规
+    if (rule.require?.(text)) continue;
+    // 命中行里要**排除注释**——文档里引用 `execFileSync('sqlite3', ...)` 讲清楚
+    // 「为什么不能这么写」是必要的，不能因为提了一句就判违规。
+    const hitLines = lines
+      .map((line, index) => ({ line, index }))
+      .filter(({ line }) => {
+        const t = line.trim();
+        return (
+          !t.startsWith('//') && !t.startsWith('*') && !t.startsWith('/*') && rule.pattern.test(line)
+        );
+      })
+      .map(({ index }) => index + 1);
+    if (hitLines.length === 0) continue;
+    errors.push(`[${rule.id}] ${rule.message(file)}（第 ${hitLines.join('、')} 行）`);
+  }
+}
+
 console.log('平台可移植性校验（scripts/check-platform-portability.mjs）');
 console.log(`  扫描文件数    ${files.length}（src/ + src-tauri/src/）`);
-console.log(`  守护规则      ${PLATFORM_TOKENS.length} 条（平台专有调用必须被 #[cfg(...)] 保护）`);
+console.log(
+  `  守护规则      ${PLATFORM_TOKENS.length} 条（平台专有调用必须被 #[cfg(...)] 保护）` +
+    ` + ${SCRIPT_RULES.length} 条（scripts/ 的外部命令依赖）`
+);
 console.log(`  违规          ${errors.length}`);
 
 if (errors.length > 0) {

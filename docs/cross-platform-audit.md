@@ -47,7 +47,7 @@ v0.2.3 的教训正卡在这里：`cmd /C start` 是 Windows 专有的、被正�
 | B1 | 应用数据目录一致性 | ✅ Rust 侧用 `app_config_dir()`，日志侧用 `dirs::config_dir()`（与 Tauri 内部同一函数） | `check-bundle-config.mjs` 的字面量扫描 |
 | B2 | UTF-8 BOM | ✅ 配置读取剥除 BOM（Windows 记事本默认带 BOM，会让 `JSON.parse` 抛错） | `strip_bom()` + 单测 |
 | B3 | 路径分隔符 / 中文路径 | ✅ 无问题 | — |
-| B4 | 换行符 CRLF/LF | ✅ 无影响（JSON） | — |
+| B4 | 换行符 CRLF/LF | ✅ **已修（v0.3.0）**：仓库原本没锁换行符，而 `actions/checkout` 在 Windows 上把 `core.autocrlf` 设成 true → checkout 出来全是 CRLF；任何「按 `\n` 找边界」的代码与脚本在 Windows 上失配而 macOS 完全正常 | `.gitattributes`（`* text=auto eol=lf`）+ 脚本改成换行符无关 |
 | B5 | 文件锁 / 原子写 | ✅ 落盘失败有 try/catch；`fs::rename` 在 Windows 带 `MOVEFILE_REPLACE_EXISTING`，会覆盖而非失败 | — |
 | B6 | 目录权限 / 自动创建 | ✅ `create_dir_all` 兜底 | — |
 
@@ -58,8 +58,9 @@ v0.2.3 的教训正卡在这里：`cmd /C start` 是 Windows 专有的、被正�
 | C1 | macOS 专有命令（`security` 钥匙串） | ✅ 平台分派；**开浏览器已改用官方 opener 插件**，不再自己分派 | `check-platform-portability.mjs` |
 | C2 | ~~`cmd /C start` 的 URL 转义~~ | ✅ **已作废**：Windows 上 `start` 会把 URL 当**文件路径**去找（报「找不到文件」）。改用 opener 插件走 `ShellExecuteW` | — |
 | C3 | ~~Windows 上 spawn 闪黑色控制台窗口~~ | ✅ **已作废**：不再自己 spawn，opener 内部处理 | — |
-| C4 | 外部命令的 PATH 依赖 | ✅ 无问题 | — |
-| C5 | 平台专有调用缺少守护 | ✅ 已加守护脚本（13 条规则） | `npm run check:platform` |
+| C4 | 外部命令的 PATH 依赖 | ✅ **已修（v0.3.0）**：① `sqlite3` 命令行**只在 macOS 有**，windows-latest 镜像里没有 → 改走统一后端（有 Python 标准库退路）；② `npm` 在 Windows 上是 `npm.cmd`，`spawn` 不带 shell 时只找 `npm.exe` → ENOENT | `scripts/sqlite-backend.mjs`；守护规则 S1/S1b/S2 |
+| C5 | 平台专有调用缺少守护 | ✅ 已加守护脚本（13 条产品代码规则 + 3 条 scripts/ 外部命令规则） | `npm run check:platform` |
+| C6 | **验证脚本自身的跨平台风险** | ⚠️ **这是最容易漏的一层**：自检脚本在 Windows 上失败，会让 Windows job **在第一个失败脚本处中断**，后面的脚本**一次都跑不到**——于是「Windows 上没报错」不等于「Windows 上没问题」，而只等于「第一个失败点被修掉了」 | CI 自检**逐个脚本独立成 step**（10 个 step），失败点一眼可见；本机另做 CRLF / 缺命令的**全量仿真** |
 
 ## 四、UI 与交互
 
@@ -121,15 +122,39 @@ v0.2.3 的教训正卡在这里：`cmd /C start` 是 Windows 专有的、被正�
 npm run check:platform
 ```
 
-扫 `src/` 与 `src-tauri/src/`，判定**平台专有调用必须落在带平台限定的 `#[cfg(...)]` 分支内**。
+**第一部分：产品代码**（扫 `src/` 与 `src-tauri/src/`）
+判定**平台专有调用必须落在带平台限定的 `#[cfg(...)]` 分支内**。
 13 条规则覆盖：macOS 的 `/usr/bin/`、`osascript`、`security`；Linux 的 `xdg-open`；
 Windows 的 `powershell`、`cmd.exe`、`cmd` 进程、`cmd /C` 参数、
 `CredWriteW`/`CredReadW`/`CredDeleteW`/`CredFree`、`MessageBoxW`、`FormatMessageW`、
 `GetLastError`、`CommandExt`。
 
+**第二部分：scripts/ 的外部命令依赖**（扫 `scripts/*.mjs`）
+这类问题在产品代码里没有，但**同样只在另一端炸**：
+
+| 规则 | 内容 | 对应的真实故障 |
+| --- | --- | --- |
+| S1 | 不得直接 `spawn/exec` 字面量 `'npm'` | Windows 上 npm 是 `npm.cmd` → ENOENT |
+| S1b | 用了 `npmCmd` 就必须真的写 `.cmd` 分支 | 换了个写法，坑还在 |
+| S2 | 除 `scripts/sqlite-backend.mjs` 外不得直接调 `'sqlite3'` | windows-latest 镜像没有 sqlite3.exe → ENOENT |
+
 **脚本本身是用「故意注入回归」验证的**：每个缺陷都是靠注入一个真实回归逼出来的，
-共修过 5 轮（cfg 嵌套括号解析、越过 item 边界、链式调用缩进、局部 const 误判、
-顶层与嵌套 item 未区分、只覆盖字符串 token 漏掉 API 名）。当前 **7 个注入点全部判红，
-且还原后无误报**。
+产品代码部分共修过 5 轮（cfg 嵌套括号解析、越过 item 边界、链式调用缩进、局部 const 误判、
+顶层与嵌套 item 未区分、只覆盖字符串 token 漏掉 API 名），当前 **7 个注入点全部判红，
+且还原后无误报**；scripts/ 部分 3 条规则（S1 / S1b / S2）同样逐条注入验证过。
 
 > 改这个脚本时，请一并重跑注入回归矩阵——否则很容易把守护改成一个**永远绿**的摆设。
+
+## 验证脚本的跨平台验证（比守护脚本更靠后的一层）
+
+守护脚本只能证明「写法合规」，证明不了「在另一个平台上真能跑」。所以还要做**仿真**：
+
+| 仿真 | 怎么造 | 证明什么 |
+| --- | --- | --- |
+| **CRLF checkout** | 把仓库整份复制一份，所有文本文件转成 CRLF，在副本上跑全部 10 个自检 | Windows 上 `core.autocrlf=true` 的真实效果 |
+| **缺 sqlite3 CLI** | 在 PATH 前面放一个退非零的 `sqlite3` 桩 | Windows runner 镜像的真实条件 |
+| **缺 node:sqlite** | 把 `import('node:sqlite')` 换成导入一个不存在的模块 | Node 官方说明 `node:sqlite` 不支持 Windows |
+
+三种仿真可以叠加。**每一个都必须实际跑一遍，不能靠推断**——
+v0.2.7 那次「修 `node:sqlite`」就是**推断**出来的（当时日志要登录才能看），
+结果真正的第一个失败点在三个脚本之前。

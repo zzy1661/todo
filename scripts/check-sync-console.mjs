@@ -25,7 +25,18 @@ const reachable = async () => {
 
 let server = null;
 if (!(await reachable())) {
-  server = spawn('npm', ['run', 'dev'], { stdio: 'ignore', detached: false });
+  /**
+   * npm 在 Windows 上是 `npm.cmd`（一个批处理包装器），不是 `npm`。
+   *
+   * `spawn` 默认 `shell: false`，Windows 下 CreateProcess **只会尝试 `npm.exe`**，
+   * 找不到就抛 ENOENT —— 于是这个脚本在 Windows 上永远起不来 dev server，
+   * 60 秒后报「dev server 60 秒内未就绪」，而真实原因是**命令名错了**。
+   *
+   * 不用 `shell: true`：那会把参数拼进 cmd.exe，Windows 下的命令注入风险不值当；
+   * 直接按平台选可执行文件名更干净。
+   */
+  const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+  server = spawn(npmCmd, ['run', 'dev'], { stdio: 'ignore', detached: false });
   const deadline = Date.now() + 60_000;
   while (!(await reachable())) {
     if (Date.now() > deadline) {

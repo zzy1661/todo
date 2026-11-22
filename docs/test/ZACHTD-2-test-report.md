@@ -2325,6 +2325,194 @@ macOS 上行为**完全不变**（仍然完整跑完双后端对拍）。
 | `npm run build` / 主 E2E / 同步 E2E | exit 0 / 6 passed / 4 passed |
 | Windows CI | 由本次 CI run 实跑确认（见 §13.32.1 的对照） |
 
+### 13.33 拆 step 之后一次定位：CRLF 让 Windows 拿到 CRLF 文件（v0.3.0）
+
+> §13.32 修完 `node:sqlite` 后，Windows 的 `Unit self-checks` **又**失败（v0.2.8）。
+> 因为 GitHub 的 step 日志与 artifact 都需登录才能看，**拿不到真实错误**。
+> 于是改成 §13.32 说的「让失败自解释」——**把自检拆成 10 个独立 CI step**。
+
+#### 13.33.1 一次定位
+
+下一个 run（v0.2.9）里，job steps **直接显示**：
+
+```
+✗ FAIL  Self-check · check-cases-negative
+```
+
+不用翻日志，一次就定位到脚本。
+
+#### 13.33.2 根因：`actions/checkout` 在 Windows 上把仓库变成 CRLF
+
+GitHub Actions 的 `actions/checkout` 在 **Windows 上会把 `core.autocrlf` 设为 true**，
+于是 checkout 出来的文本文件**全是 CRLF**。
+
+而 `scripts/check-cases-negative.mjs` 用**硬编码换行符**定位方法块边界：
+
+```js
+const blockStart = source.lastIndexOf('  {
+', start);      // CRLF 下匹配不到
+const blockEnd   = source.indexOf('
+  },
+', start);       // CRLF 下匹配不到
+```
+
+→ 抛「无法定位方法 xxx 的边界」→ 脚本失败。
+**macOS 上仓库是 LF，所以本地与 macOS CI 永远看不到这个差异。**
+
+#### 13.33.3 修复：双保险
+
+| 层 | 做法 | 作用 |
+| --- | --- | --- |
+| **根** | 新增 `.gitattributes`：`* text=auto eol=lf`（二进制显式排除） | 从根源消除整类 CRLF 差异——Windows 上 checkout 也是 LF |
+| **代码** | `dropMethod()` 改成换行符无关（`lastIndexOf('  {')` + 正则 `/\r?\n  \},\r?\n/`） | 防御：万一文件来自别处或 `.gitattributes` 未生效，也不炸 |
+
+`git add --renormalize .` 已执行；核验**仓库内文本文件全部是 LF** ✓
+并实测：把 `methods.ts` 全部转成 CRLF 后，`dropMethod` 仍能正确定位块边界 ✓
+
+#### 13.33.4 这条教训的普适性
+
+**换行符是「本地永远看不到、只有 CI 的另一端能暴露」的典型**。它和
+「命令是平台专有的」「API 在某平台不存在」属于同一类，但更隐蔽——因为
+**CRLF 不改变语义**，只改变字节。
+
+因此本项目此后的跨平台纪律增加一条：
+> **任何按行 / 按边界解析文本的代码与脚本，都必须对换行符不敏感**；
+> 并且用 `.gitattributes` 把仓库锁死在 LF。
+
+#### 13.33.5 验证
+
+| 项 | 结果 |
+| --- | --- |
+| `npm run check:unit` | PASS（10/10） |
+| 十个脚本逐个直跑 | 全 PASS |
+| CRLF 模拟（把 methods.ts 全转 CRLF 后跑 dropMethod） | ✓ 仍能定位边界 |
+| 仓库文本文件换行符核验 | ✓ 全部 LF |
+| `npm run build` / 主 E2E / 同步 E2E | exit 0 / 6 passed / 4 passed |
+| Windows CI | 由本次 run 实跑确认（§13.33.1 的 step 结果） |
+
+### 13.34 拆 step 之后才看清：Windows 上有 7 个自检脚本一次都没跑过（v0.3.0）
+
+> §13.33 修完 CRLF 后，**没有立刻发版**，而是回头把 CI 的历史翻了一遍。
+> 这一翻，发现了一个此前一直没被意识到的事实。
+
+#### 13.34.1 「Windows 上没报错」是个假象
+
+`scripts/run-unit-checks.mjs` 之前的 `check:unit` 是 **一串 `&&`**：
+
+```json
+"check:unit": "node scripts/check-cases.mjs && node scripts/check-permutation.mjs && node scripts/check-cases-negative.mjs && node scripts/check-sync.mjs && ... && node scripts/check-platform-portability.mjs"
+```
+
+`&&` 的语义是**第一个失败就中断**。于是：
+
+| 版本 | Windows job 实际跑到哪 | 后面几个脚本的状态 |
+| --- | --- | --- |
+| v0.2.6 | `check-cases`（第 1 个）✓ → `check-permutation` ✓ → `check-cases-negative` ✗ | **第 4–10 个一次都没跑过** |
+| v0.2.7 | 同上（修了 `node:sqlite`，但那**不是**第一个失败点） | 同上 |
+| v0.2.8 | 同上 | 同上 |
+| v0.2.9 | 同上（拆成 10 个独立 step，才第一次看清是第 3 个） | 同上 |
+
+**也就是说：v0.2.7 那次「修 `node:sqlite`」是推断，不是实测。**
+当时 GitHub 的 step 日志与 artifact 都需登录才能取（403/404），
+check-runs API 也没有注解——**只能看到「哪个 step 失败」，看不到「报了什么」**，
+于是按代码读出来的「Windows 不支持 `node:sqlite`」去修，而**真正的第一个失败点是 CRLF**。
+
+结论（写进纪律）：**在没有日志的前提下，不要把「推断出的原因」当成「已确认的原因」**。
+可用的替代手段有两个：① 把长链拆成多个 step，让失败点自解释；② **在本机造等价环境实测**。
+
+#### 13.34.2 顺着这条线查下去，又挖出两个只在 Windows 炸的坑
+
+既然「后面的脚本从没跑过」，就不能只修第一个。两个继续查：
+
+| # | 坑 | macOS | Windows | 后果 |
+| --- | --- | --- | --- | --- |
+| 1 | `check-sync.mjs` 用 `execFileSync('sqlite3', ...)` 跑迁移证据 | 自带 `/usr/bin/sqlite3` ✓ | **镜像里没有 sqlite3.exe**（Database Systems 一节只有 PostgreSQL 与 MongoDB；Git for Windows 内部链接 libsqlite3 但**不提供 CLI**） | `ENOENT` → 脚本失败 |
+| 2 | `check-sync-console.mjs` 用 `spawn('npm', ...)` | ✓ | npm 是 **`npm.cmd`**；`spawn` 默认 `shell: false`，CreateProcess **只会尝试 `npm.exe`** | `ENOENT` → dev server 起不来 |
+
+两个都属于「**macOS 正常、Windows 静默失败**」，且**本地永远看不到**。
+
+#### 13.34.3 修法：给 SQLite 一个有等价保证的退路
+
+不是「Windows 上跳过」——跳过等于在 Windows 上放弃这组证据。
+做法是**两个后端都实现，并要求它们逐字节等价**：
+
+```
+scripts/sqlite-backend.mjs   统一后端：sqlite3 命令行 → Python 标准库 sqlite3 → 明确跳过
+scripts/sqlite-run.py        Python 退路的执行器（run / query 两种模式）
+```
+
+关键设计是**把「执行」与「取结果」分开**：
+
+- `run()` —— 只执行（DDL / DML），**可以含多条语句**（v3 迁移文件就是多条 + `--` 注释）；
+- `query()` —— 取结果，**只接受单条 SELECT / PRAGMA**。
+
+分开之后，`sqlite3` 命令行与 Python 的 `executescript` / `execute`
+**都不需要写 SQL 分词器**——也就不会有「把字符串里的分号当语句边界」这类坑。
+
+输出格式必须与 `sqlite3` CLI 的默认 list 模式逐字节一致（`|` 分隔、无表头、NULL 输出空串），
+所以能直接比对——这就是新增的**第 ⑬ 组断言**：
+
+```
+── ⑬ SQLite 后端等价：命令行与 Python 必须给出相同结果
+   · 对拍后端：sqlite3 命令行 vs python3 标准库 sqlite3
+   ✓ ⑬ SQLite 后端等价：命令行与 Python 必须给出相同结果 PASS（5 项断言）
+```
+
+比的都是**确定性输出**（表结构、条数、缺失计数、表清单）。
+uuid 由 `randomblob()` 生成，两边必然不同——那是**正常**的，不该拿来比。
+
+#### 13.34.4 把这次的坑固化成守护规则
+
+`check-platform-portability.mjs` 新增**第二部分：scripts/ 的外部命令依赖**，
+3 条规则，每条都用「故意注入回归」验证过会亮：
+
+| 规则 | 内容 | 注入回归 |
+| --- | --- | --- |
+| S1 | 不得直接 `spawn/exec` 字面量 `'npm'` | 改回 `spawn('npm', ...)` → 判红 ✓ |
+| S1b | 用了 `npmCmd` 就必须真的写 `'npm.cmd'` 分支 | 删掉 `.cmd` 分支 → 判红 ✓ |
+| S2 | 除 `sqlite-backend.mjs` 外不得直接调 `'sqlite3'` | 脚本里加一行 `execFileSync('sqlite3', ...)` → 判红 ✓ |
+
+写规则时踩了两个自己的坑，都靠「注入回归」逼出来：
+① 正则会命中**注释里引用的示例代码** → 加了「跳过注释行」；
+② `require` 判据的逻辑写反了（`require` 返回 true 意为「要求已满足」，应跳过而非报错）→ 修成 `if (rule.require?.(text)) continue;`。
+
+#### 13.34.5 换成「仿真」而不是「等 CI 报」
+
+既然本机没有 Windows，就**造出等价环境**再跑。三种仿真，可叠加：
+
+| 仿真 | 怎么造 | 结果 |
+| --- | --- | --- |
+| **CRLF checkout** | 整份复制仓库，所有文本文件转 CRLF，在副本上跑 10 个自检 | 第一次跑**抓到真问题**：④「案例正文截到 100 字」的篡改正则在 CRLF 下匹配不到 → 「篡改没有生效」直接抛错。修掉后 **10/10 PASS** |
+| **缺 sqlite3 CLI** | PATH 前面放一个退非零的 `sqlite3` 桩 | `check-sync` 自动切到 Python 后端，**迁移证据 20 项断言仍全过** ✓ |
+| **缺 node:sqlite** | 把 `import('node:sqlite')` 换成导入不存在的模块 | `check-db-parity` **明确跳过并退出 0** ✓ |
+
+CRLF 仿真抓到的那个问题，`.gitattributes` 本身**挡不住**（它只保证 checkout 是 LF，
+脚本内部自己解析文本时仍可能硬编码 `\n`）——所以两者都要有。
+
+#### 13.34.6 验证
+
+| 项 | 结果 |
+| --- | --- |
+| `npm run check:unit` | PASS（10/10） |
+| `npm run build` / 主 E2E / 同步 E2E / `cargo test` | exit 0 / 6 passed / 4 passed / 4 passed |
+| 双后端等价（第 ⑬ 组） | PASS（5 项断言，逐字节一致） |
+| CRLF 全量仿真（10 个自检） | 10/10 PASS |
+| CRLF + 缺 sqlite3 叠加 | PASS（迁移证据 20 项断言仍全过） |
+| 缺 node:sqlite 仿真 | 明确跳过，退出码 0 |
+| 守护规则注入回归（S1 / S1b / S2） | 3/3 判红，还原后无误报 |
+| Windows CI | 由本次 run 实跑确认（§13.34.7） |
+
+#### 13.34.7 这一轮的跨平台纪律（补进清单）
+
+1. **验证链本身会掩盖后面的问题**——`&&` 串联的自检链在第一个失败处中断，
+   「Windows 上没报错」只等于「第一个失败点被修掉了」。**自检要逐个成 step**。
+2. **在没有日志时不要相信推断**——GitHub 未认证时拿不到 step 日志，
+   此时要么拆 step 让失败点自解释，要么在本机造等价环境实测。
+3. **Windows 的 runner 镜像不是「Windows」**——它是一个**特定的镜像**：
+   有 Ruby、有 Python，**没有 sqlite3.exe**；npm 还是 `npm.cmd`。
+   依赖外部命令前，先确认那个镜像里到底有什么。
+4. **验证脚本自己也是产品**——它有平台依赖，也值得同样的守护与仿真。
+
 ---
 
 ## 14. AC-01 ~ AC-70 统一判定台账（70 行）

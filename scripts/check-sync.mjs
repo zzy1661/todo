@@ -13,18 +13,23 @@
  *   ⑧ 云端表缺失（PGRST205）：提示建表、不空转重试
  *   ⑨ 每 2 天自动同步：假时钟推进 2 天 → 真跑一轮拉取（FR-SYNC-17）
  * 以及：v3 迁移在真实 SQLite 上的结构证据（AC-64 / TC-076）
+ *  以及：⑬ SQLite 执行后端的跨平台等价（命令行 vs Python 标准库）
  *
  * **不覆盖**：真实 Supabase / 真实 GitHub OAuth / 真实 RLS —— 一律 NOT-VERIFIED。
  *
  * 用法：node scripts/check-sync.mjs
  */
 
-import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createMockSupabase } from './mock-supabase.mjs';
+import {
+  detectCliBackend,
+  detectPythonBackend,
+  detectSqliteBackend,
+} from './sqlite-backend.mjs';
 
 /* ------------------------------------------------------------ 浏览器环境替身 */
 
@@ -1084,7 +1089,7 @@ section('⑨ 每 2 天自动同步：假时钟推进 2 天 → 真跑一轮拉�
 /* ================================================================ 迁移证据 */
 
 section('v3 迁移结构证据（TC-076 / AC-64，只给 todos 加列）');
-{
+migrationEvidence: {
   const dbPath = path.join(os.tmpdir(), `todo_v3_check_${process.pid}_${Date.now()}.db`);
   const libSource = fs.readFileSync('src-tauri/src/lib.rs', 'utf8');
   const legacySql = [...libSource.matchAll(/sql:\s*"([\s\S]*?)",\s*kind:/g)].map((m) => m[1]);
@@ -1094,11 +1099,30 @@ section('v3 迁移结构证据（TC-076 / AC-64，只给 todos 加列）');
     assert(!/\bALTER\b/i.test(statement), 'v1 / v2 不得出现 ALTER（v3 才允许 ADD COLUMN）');
   }
 
-  const sqlite = (sql) =>
-    execFileSync('sqlite3', [dbPath], { encoding: 'utf8', input: sql }).trim();
-  sqlite('PRAGMA journal_mode = MEMORY;');
-  for (const statement of legacySql) sqlite(statement);
-  sqlite(
+  /**
+   * SQLite 执行后端：**命令行优先，其次 Python 标准库**。
+   *
+   * 为什么不能直接 `execFileSync('sqlite3', ...)`：macOS 自带 sqlite3，但
+   * **windows-latest 的 runner 镜像里没有 sqlite3.exe**（镜像清单的 Database Systems
+   * 一节只有 PostgreSQL 与 MongoDB）→ Windows 上抛 ENOENT → 整个脚本失败。
+   * 两个后端都不可用时**明确跳过**，措辞上区分「跳过（不具备技术条件）」与「通过」。
+   */
+  const backend = detectSqliteBackend();
+  if (!backend) {
+    console.log('⊘ 跳过 v3 迁移结构证据：本平台既没有 sqlite3 命令行，也没有可用的 Python。');
+    console.log('  这不是「迁移证据通过」，而是「本平台不具备跑这个证据的技术条件」。');
+    break migrationEvidence;
+  }
+  console.log(`   · SQLite 后端：${backend.label}`);
+
+  /** 只执行（DDL / DML），可含多条语句 */
+  const runSql = (sql) => backend.run(dbPath, sql);
+  /** 取结果（单条 SELECT / PRAGMA） */
+  const querySql = (sql) => backend.query(dbPath, sql);
+
+  runSql('PRAGMA journal_mode = MEMORY;');
+  for (const statement of legacySql) runSql(statement);
+  runSql(
     "INSERT INTO todos (title, date, priority) VALUES ('迁移前甲', '2026-11-01', 1), ('迁移前乙', '2026-11-02', 2);"
   );
 
@@ -1113,16 +1137,16 @@ section('v3 迁移结构证据（TC-076 / AC-64，只给 todos 加列）');
     !/ALTER\s+TABLE\s+daily_picks/i.test(v3Statements),
     'v3 不得改动 daily_picks（D-19）'
   );
-  sqlite(v3);
+  runSql(v3);
 
-  const todoColumns = sqlite('PRAGMA table_info(todos);').split('\n');
+  const todoColumns = querySql('PRAGMA table_info(todos);').split('\n');
   for (const required of ['uuid', 'updated_at_ms', 'deleted']) {
     assert(
       todoColumns.some((line) => line.split('|')[1] === required),
       `todos 应有 ${required} 列，实际 ${todoColumns.join(' / ')}`
     );
   }
-  const pickColumns = sqlite('PRAGMA table_info(daily_picks);').split('\n');
+  const pickColumns = querySql('PRAGMA table_info(daily_picks);').split('\n');
   for (const forbidden of ['uuid', 'updated_at_ms', 'deleted']) {
     assert(
       !pickColumns.some((line) => line.split('|')[1] === forbidden),
@@ -1131,41 +1155,110 @@ section('v3 迁移结构证据（TC-076 / AC-64，只给 todos 加列）');
   }
 
   eq(
-    sqlite('SELECT count(*) FROM todos WHERE uuid IS NULL OR uuid = "";'),
+    querySql('SELECT count(*) FROM todos WHERE uuid IS NULL OR uuid = "";'),
     '0',
     '历史行 uuid 必须回填且非空'
   );
   eq(
-    sqlite('SELECT count(DISTINCT uuid) FROM todos;'),
-    sqlite('SELECT count(*) FROM todos;'),
+    querySql('SELECT count(DISTINCT uuid) FROM todos;'),
+    querySql('SELECT count(*) FROM todos;'),
     'uuid 必须唯一'
   );
-  eq(sqlite('SELECT sum(deleted) FROM todos;'), '0', 'deleted 默认必须为 0');
+  eq(querySql('SELECT sum(deleted) FROM todos;'), '0', 'deleted 默认必须为 0');
   assert(
-    Number(sqlite('SELECT min(updated_at_ms) FROM todos;')) > 0,
+    Number(querySql('SELECT min(updated_at_ms) FROM todos;')) > 0,
     'updated_at_ms 必须回填为正数毫秒'
   );
-  const uuidBefore = sqlite('SELECT group_concat(uuid) FROM todos ORDER BY id;');
+  const uuidBefore = querySql('SELECT group_concat(uuid) FROM todos ORDER BY id;');
 
   // 幂等：重复执行回填语句不得重新生成 uuid
-  sqlite(
+  runSql(
     `UPDATE todos SET uuid = lower(hex(randomblob(4))) || '-' || substr(lower(hex(randomblob(2))), 1, 4) || '-4' ||
        substr(lower(hex(randomblob(2))), 2, 3) || '-' || substr('89ab', abs(random()) % 4 + 1, 1) ||
        substr(lower(hex(randomblob(2))), 2, 3) || '-' || lower(hex(randomblob(6)))
      WHERE uuid IS NULL;`
   );
-  eq(sqlite('SELECT group_concat(uuid) FROM todos ORDER BY id;'), uuidBefore, '二次执行回填不得改变已有 uuid（幂等）');
+  eq(querySql('SELECT group_concat(uuid) FROM todos ORDER BY id;'), uuidBefore, '二次执行回填不得改变已有 uuid（幂等）');
 
   // 软删除：行仍在库
-  sqlite('UPDATE todos SET deleted = 1 WHERE id = 1;');
-  eq(sqlite('SELECT count(*) FROM todos;'), '2', '软删除后行数不变（不是物理删除）');
-  eq(sqlite('SELECT deleted FROM todos WHERE id = 1;'), '1', '软删除标记应落库');
+  runSql('UPDATE todos SET deleted = 1 WHERE id = 1;');
+  eq(querySql('SELECT count(*) FROM todos;'), '2', '软删除后行数不变（不是物理删除）');
+  eq(querySql('SELECT deleted FROM todos WHERE id = 1;'), '1', '软删除标记应落库');
 
   console.log(`   · PRAGMA table_info(todos) → ${todoColumns.join(' ; ')}`);
   console.log(`   · 回填 uuid → ${uuidBefore}`);
-  console.log(`   · 软删除后 deleted → ${sqlite('SELECT group_concat(id || ":" || deleted) FROM todos;')}`);
+  console.log(`   · 软删除后 deleted → ${querySql('SELECT group_concat(id || ":" || deleted) FROM todos;')}`);
   fs.rmSync(dbPath, { force: true });
   endSection();
+}
+
+/* ================================================ ⑬ SQLite 执行后端等价（跨平台） */
+
+/**
+ * ⑬：SQLite 执行后端的**跨平台等价**。
+ *
+ * 背景：Windows 上没有 sqlite3 命令行，退路是 Python 标准库自带的 sqlite3。
+ * 两条路如果行为不一致，就会出现「macOS 上迁移证据通过、Windows 上同一批 SQL
+ * 结果不同」——而这**只有 CI 的另一端能暴露**。
+ *
+ * 所以：**两个后端都在时，同一套迁移在两个临时库上各跑一遍，逐字节比结果**。
+ * - macOS：命令行 vs Python 对拍（证明「退路 ≡ 正路」）；
+ * - Windows：只有 Python，仍然完整跑一遍迁移证据（证明「退路自己是对的」）。
+ *
+ * 只有一个后端时**明确跳过对拍**（不判失败）：本平台不具备对拍的技术条件，
+ * 措辞上要与「通过」区分开。
+ */
+section('⑬ SQLite 后端等价：命令行与 Python 必须给出相同结果');
+{
+  const cli = detectCliBackend();
+  const python = detectPythonBackend();
+
+  if (!cli || !python) {
+    const missing = !cli ? ' sqlite3 命令行' : '可用的 Python';
+    const used = detectSqliteBackend();
+    console.log(`   ⊘ 跳过后端对拍：本平台没有${missing}，无法同时跑两个后端。`);
+    console.log('     这不是「等价已验证」，而是「本平台不具备对拍的技术条件」。');
+    console.log(`     · 本平台实际使用的后端：${used ? used.label : '无（迁移证据也会一并跳过）'}`);
+  } else {
+    const stamp = `${process.pid}_${Date.now()}`;
+    const dbCli = path.join(os.tmpdir(), `todo_backend_cli_${stamp}.db`);
+    const dbPy = path.join(os.tmpdir(), `todo_backend_py_${stamp}.db`);
+
+    const libSource = fs.readFileSync('src-tauri/src/lib.rs', 'utf8');
+    const legacySql = [...libSource.matchAll(/sql:\s*"([\s\S]*?)",\s*kind:/g)].map((m) => m[1]);
+    const v3 = fs.readFileSync('src-tauri/migrations/0003_sync_columns.sql', 'utf8');
+
+    for (const backend of [cli, python]) {
+      const db = backend.kind === 'cli' ? dbCli : dbPy;
+      backend.run(db, 'PRAGMA journal_mode = MEMORY;');
+      for (const statement of legacySql) backend.run(db, statement);
+      backend.run(db, v3);
+      backend.run(
+        db,
+        "INSERT INTO todos (title, date, priority) VALUES ('等价甲', '2026-11-01', 1);"
+      );
+    }
+
+    // 比的都是**确定性输出**：表结构、条数、缺失计数、表清单。
+    // uuid 由 randomblob() 生成，两边必然不同 —— 那是**正常**的，不该拿来比。
+    const probes = [
+      'PRAGMA table_info(todos);',
+      'PRAGMA table_info(daily_picks);',
+      'SELECT count(*) FROM todos;',
+      'SELECT count(*) FROM todos WHERE uuid IS NULL;',
+      "SELECT group_concat(name) FROM sqlite_master WHERE type='table' ORDER BY name;",
+    ];
+    for (const probe of probes) {
+      const outCli = cli.query(dbCli, probe);
+      const outPy = python.query(dbPy, probe);
+      eq(outPy, outCli, `两个后端对「${probe}」的输出必须逐字节一致`);
+    }
+
+    console.log(`   · 对拍后端：${cli.label} vs ${python.label}`);
+    fs.rmSync(dbCli, { force: true });
+    fs.rmSync(dbPy, { force: true });
+    endSection();
+  }
 }
 
 /* ==================================================================== 收尾 */
