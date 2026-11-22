@@ -20,7 +20,7 @@
  * 用法：node scripts/check-bundle-config.mjs
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 
 const failures = [];
@@ -239,17 +239,55 @@ check(
 
 /* ------------------------------------------------- 6. workflow 自检 */
 
+/**
+ * workflow 自检需要把 YAML 解析成 JSON，原实现借 **ruby 的 psych**（macOS 自带 ruby）。
+ *
+ * **为什么要探测而不是直接调**：windows-latest 的 runner 镜像**带 ruby**（Ruby 3.3.10），
+ * 但这不是「Windows 自带 ruby」——镜像里有 ruby 不代表**每个**环境都有，
+ * 更不代表路径里能找到（`spawn` 在 Windows 上只会尝试 `ruby.exe`）。
+ * 一旦找不到，`execFileSync` 抛 ENOENT → **整个自检脚本失败** → Windows job 在此中断。
+ *
+ * **而且这里本来就是「可跳过」的**：workflow 文件**与平台无关**（同一个
+ * `.github/workflows/build.yml` 被两个 job 共用），workflow 的合规性由 macOS 上
+ * 那一遍完整覆盖即可。Windows 上跳过**不丢证据**，但不能让它把 CI 打断。
+ *
+ * 措辞上要区分「跳过（不具备技术条件）」与「通过」。
+ */
 const WORKFLOW = '.github/workflows/build.yml';
-const yaml = execFileSync('ruby', [
-  '-ryaml',
-  '-rjson',
-  '-e',
-  `puts YAML.load_file('${WORKFLOW}').to_json`,
-]).toString();
-const workflow = JSON.parse(yaml);
 
-check('workflow YAML 可被解析（ruby psych）', typeof workflow === 'object' && workflow !== null);
-check('workflow 定义 build job', Boolean(workflow.jobs?.build));
+function loadWorkflowYaml() {
+  // 探测：ruby 能不能跑（真的跑一次，而不是只看 PATH 里有没有）
+  const probe = spawnSync('ruby', ['-e', 'exit 0'], { encoding: 'utf8' });
+  if (probe.error || probe.status !== 0) {
+    return { ok: false, reason: '本平台找不到可用的 ruby（YAML 解析器）' };
+  }
+  try {
+    const yaml = execFileSync('ruby', [
+      '-ryaml',
+      '-rjson',
+      '-e',
+      `puts YAML.load_file('${WORKFLOW}').to_json`,
+    ]).toString();
+    return { ok: true, workflow: JSON.parse(yaml) };
+  } catch (error) {
+    // ruby 在、但解析失败 —— 这是**真问题**（workflow 写坏了），必须判失败
+    return { ok: false, fatal: true, reason: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+const loaded = loadWorkflowYaml();
+
+if (!loaded.ok && loaded.fatal) {
+  check(`workflow YAML 可被解析（ruby psych）`, false, loaded.reason);
+} else if (!loaded.ok) {
+  console.log(`⊘ 跳过 workflow 自检：${loaded.reason}。`);
+  console.log('  这不是「workflow 合规」，而是「本平台不具备解析 YAML 的技术条件」——');
+  console.log('  workflow 文件与平台无关，其合规性由 macOS 上那一遍完整覆盖。');
+} else {
+  const workflow = loaded.workflow;
+
+  check('workflow YAML 可被解析（ruby psych）', typeof workflow === 'object' && workflow !== null);
+  check('workflow 定义 build job', Boolean(workflow.jobs?.build));
 
 const matrixOs = (workflow.jobs.build.strategy?.matrix?.include ?? []).map((entry) => entry.os);
 check('matrix 含 macos-latest', matrixOs.includes('macos-latest'), matrixOs.join(','));
@@ -354,6 +392,7 @@ check(
   '存在把产物改名为 ASCII 的步骤',
   steps.some((s) => /mv\b/.test(s.run ?? '') && /ScheduleTodo-/.test(s.run ?? '')),
 );
+} // ← workflow 自检（ruby 可用时才做）
 
 /* ------------------------------------------------- 7. 结果 */
 

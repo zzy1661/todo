@@ -316,6 +316,18 @@ const SCRIPT_RULES = [
       `${file} 直接调用了 'sqlite3' 命令：windows-latest 的 runner 镜像没有 sqlite3.exe → ENOENT。` +
       `必须走 scripts/sqlite-backend.mjs（有 Python 标准库退路，且两个后端有等价断言）`,
   },
+  {
+    id: 'S3',
+    // 外部命令可能**只存在于部分环境**（windows-latest 的镜像有 ruby，
+    // 但 ruby 不是「Windows 自带」，镜像里有不代表每个环境 PATH 里都能找到）。
+    // 不探测就 execFileSync，一旦找不到就抛 ENOENT → 整个自检中断 → CI 在此停住。
+    pattern: /execFileSync\(\s*'ruby'/,
+    require: (text) => /spawnSync\(\s*'ruby'/.test(text),
+    message: (file) =>
+      `${file} 直接用了 ruby 却没有先探测：外部命令可能只存在于部分环境，` +
+      `找不到时 execFileSync 抛 ENOENT 会让整个自检中断。应先用 spawnSync 探测，` +
+      `缺失时明确跳过（措辞上要与「通过」区分）。`,
+  },
 ];
 
 for (const rule of SCRIPT_RULES) {
