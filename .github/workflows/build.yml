@@ -78,8 +78,28 @@ jobs:
       # 功能正确：2026-11-22 实机反馈的「登录了但没有同步到数据」就是这么漏过去的
       # （推送链路的三个承诺在注释里写了、代码里没实现，而任何断言都没覆盖它）。
       # 现在它们进 CI，改坏了会当场被拦。
-      - name: Unit self-checks (content / sync / data / platform)
-        run: npm run check:unit
+      # 自检**逐个脚本独立成 step**：失败时 job steps 直接显示是哪一个，
+      # 不必去翻日志（GitHub 的 step 日志需要登录才能看）。
+      - name: Self-check · check-cases
+        run: node scripts/check-cases.mjs
+      - name: Self-check · check-permutation
+        run: node scripts/check-permutation.mjs
+      - name: Self-check · check-cases-negative
+        run: node scripts/check-cases-negative.mjs
+      - name: Self-check · check-sync
+        run: node scripts/check-sync.mjs
+      - name: Self-check · check-sync-extra
+        run: node scripts/check-sync-extra.mjs
+      - name: Self-check · check-data-layer
+        run: node scripts/check-data-layer.mjs
+      - name: Self-check · check-db-parity
+        run: node scripts/check-db-parity.mjs
+      - name: Self-check · check-deleted-filter
+        run: node scripts/check-deleted-filter.mjs
+      - name: Self-check · check-bundle-config
+        run: node scripts/check-bundle-config.mjs
+      - name: Self-check · check-platform-portability
+        run: node scripts/check-platform-portability.mjs
 
       # 自检的完整输出（每个脚本的 stdout/stderr）传成 artifact：
       # 失败时**不必本地复现**也能看到到底是哪个脚本、报了什么。

@@ -122,8 +122,8 @@ macOS overlay 的 `bundle.targets: ["app", "dmg"]`（基础 conf **不写** targ
 | Windows | `bundle.targets: ["nsis"]` → `setup.exe` |
 | macOS | `bundle.targets: ["app", "dmg"]` |
 | 产物 1 | `src-tauri/target/release/bundle/macos/日程待办.app` |
-| 产物 2 | `src-tauri/target/release/bundle/dmg/日程待办_0.2.8_aarch64.dmg` |
-| 命名说明 | Tauri 2 的 dmg 命名规则为 `{productName}_{version}_{arch}`；`productName` 为中文「日程待办」（OP-03），`version` 取 `0.2.8`，`arch` 由宿主架构推导为 `aarch64` |
+| 产物 2 | `src-tauri/target/release/bundle/dmg/日程待办_0.2.9_aarch64.dmg` |
+| 命名说明 | Tauri 2 的 dmg 命名规则为 `{productName}_{version}_{arch}`；`productName` 为中文「日程待办」（OP-03），`version` 取 `0.2.9`，`arch` 由宿主架构推导为 `aarch64` |
 | 验证 | `ls -d src-tauri/target/release/bundle/macos/*.app` 与 `ls src-tauri/target/release/bundle/dmg/*.dmg` 均有输出；再 `open` 启动 |
 | 映射 | AC-39 / AC-40，T-15 |
 
@@ -334,7 +334,7 @@ export default defineConfig({
 | --- | --- | --- |
 | 本机自己构建的 `.app` | 正常双击启动，**不会**被拦截 | 无需操作 |
 | 从本机 `.dmg` 复制出 `.app` 后打开 | 可能提示「无法打开，因为无法验证开发者」 | ① 在 Finder 中**右键该 `.app` → 打开** → 确认「打开」；② 或命令行：`xattr -dr com.apple.quarantine "/Applications/日程待办.app"` |
-| 从网络 / IM 下载的 `.dmg` | 同上，且 `.dmg` 本身也可能被拦 | 先 `xattr -dr com.apple.quarantine "/path/to/日程待办_0.2.8_aarch64.dmg"`，再挂载复制 |
+| 从网络 / IM 下载的 `.dmg` | 同上，且 `.dmg` 本身也可能被拦 | 先 `xattr -dr com.apple.quarantine "/path/to/日程待办_0.2.9_aarch64.dmg"`，再挂载复制 |
 | `/Applications` 无写权限的机器 | `ditto` 覆盖失败 | 改用 `~/Applications`，或用 `sudo ditto`（会要求管理员口令） |
 | 评估命令 | `spctl --assess --type execute "/Applications/日程待办.app"` | **预期输出 `rejected`** —— 这是未签名应用的正常结果，不是缺陷。交付说明必须写明这一点，避免被误判为交付失败 |
 | 彻底移除隔离属性 | `xattr -dr com.apple.quarantine "/Applications/日程待办.app"` | 一次性处置 |
@@ -379,9 +379,9 @@ export default defineConfig({
 
 | 项 | 内容 |
 | --- | --- |
-| Windows | `productName` 为中文但 Windows 路径少有中文；Windows 侧已用 `ScheduleTodo-0.2.8-windows-x64-setup.exe` |
+| Windows | `productName` 为中文但 Windows 路径少有中文；Windows 侧已用 `ScheduleTodo-0.2.9-windows-x64-setup.exe` |
 | macOS | `.app` / `.dmg` 文件名**都含中文**，且 macOS 路径常含空格（`/Applications/日程待办.app`） |
-| 落地值 | **所有**涉及产物的命令一律：① 用变量持有路径；② 变量值加双引号；③ 变量名用 ASCII。例如：<br>`APP="/Applications/日程待办.app"`<br>`DMG="src-tauri/target/release/bundle/dmg/日程待办_0.2.8_aarch64.dmg"`<br>`ls -ld "$APP"; hdiutil attach "$DMG"` |
+| 落地值 | **所有**涉及产物的命令一律：① 用变量持有路径；② 变量值加双引号；③ 变量名用 ASCII。例如：<br>`APP="/Applications/日程待办.app"`<br>`DMG="src-tauri/target/release/bundle/dmg/日程待办_0.2.9_aarch64.dmg"`<br>`ls -ld "$APP"; hdiutil attach "$DMG"` |
 | 已知风险 | macOS 的 HFS+/APFS 文件系统对 Unicode 采用 NFD 规范化，中文不受影响（中文无分解形式），因此「日程待办」文件名在 Finder / 终端 / `ditto` 之间**不会**出现大小写或编码不一致问题——与 macOS 上「é」类重音字符的经典坑不同，此处无风险 |
 | 验证 | 全部验证命令用变量形式跑一遍，退出码 0 |
 | 映射 | AC-39 / AC-40 / AC-43，T-15 / T-19 |
@@ -662,7 +662,7 @@ const isTauriEnv = () => typeof window !== 'undefined' && '__TAURI_INTERNALS__' 
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "日程待办",              // OP-03
-  "version": "0.2.8",
+  "version": "0.2.9",
   "identifier": "com.poisson.todo",      // OP-03 —— 同时决定数据目录（ADP-03）
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -852,7 +852,7 @@ page.locator('.day-cell:not(.out-month)')
 | --- | --- |
 | 数据库文件 | `~/Library/Application Support/com.poisson.todo/todo.db` |
 | `.app` 产物 | `src-tauri/target/release/bundle/macos/日程待办.app` |
-| `.dmg` 产物 | `src-tauri/target/release/bundle/dmg/日程待办_0.2.8_aarch64.dmg` |
+| `.dmg` 产物 | `src-tauri/target/release/bundle/dmg/日程待办_0.2.9_aarch64.dmg` |
 | `bundle.targets` | **基础 conf 不写**；macOS overlay `["app","dmg"]`、Windows overlay `["nsis","msi"]` |
 | `bundle.macOS.minimumSystemVersion` | `"12.0"` |
 | `bundle.macOS.hardenedRuntime` | `false`（本期不签名） |
