@@ -229,6 +229,7 @@ Windows job 真的执行 `npx tauri build`，不是占位。
 ```bash
 node scripts/check-bundle-config.mjs   # 三份 conf 合并 + schema + 平台中立 + 数据路径中立 + workflow 结构断言
 npm run check:platform                  # 平台可移植性：平台专有调用必须被 #[cfg(...)] 保护
+                                         # 完整清单见 docs/cross-platform-audit.md
 ```
 
 ---
