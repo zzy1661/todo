@@ -621,52 +621,30 @@ fn sync_oauth_wait(timeout_ms: u64) -> Result<Option<String>, String> {
 
 /// 用系统默认浏览器打开授权页（只允许 http/https，避免被当成命令执行）
 ///
-/// 各平台用各自的开户方式：macOS 是 `open`、Windows 是 `cmd /C start`、
-/// 其余 Unix 是 `xdg-open`。**不能只写 macOS 那一套**——`/usr/bin/open`
-/// 在 Windows 上不存在，命令会直接失败（表现为「点了没反应」）。
+/// **用官方 `tauri-plugin-opener` 打开，不再自己分派平台命令。**
+///
+/// 为什么不能自己分派：Windows 上没有「打开 URL」的命令——`cmd /C start` 会把
+/// URL 当成**文件路径**去找，直接报「找不到文件 'https://...'」（实机反馈）。
+/// opener 插件内部走 `ShellExecuteW`（Windows）/ `NSWorkspace`（macOS）/
+/// `xdg-open`（Linux），是系统**唯一正确**的打开 URL 的方式，
+/// 而且顺带省掉了三平台分派与随之而来的转义问题。
 #[tauri::command]
-fn sync_open_url(url: String) -> Result<(), String> {
-    if !(url.starts_with("https://") || url.starts_with("http://")) {
+fn sync_open_url(app: tauri::AppHandle, url: String) -> Result<(), String> {
+    if !is_allowed_open_url(&url) {
         return Err("只允许打开 http(s) 链接".to_string());
     }
-    open_in_browser(&url).map_err(|e| format!("打开浏览器失败: {e}"))?;
-    Ok(())
+    use tauri_plugin_opener::OpenerExt;
+    app.opener()
+        .open_url(url, None::<&str>)
+        .map_err(|e| format!("打开浏览器失败: {e}"))
 }
 
-/// 用系统默认浏览器打开一个 URL。
-#[cfg(target_os = "macos")]
-fn open_in_browser(url: &str) -> std::io::Result<()> {
-    ProcessCommand::new("/usr/bin/open").arg(url).spawn().map(|_| ())
-}
-
-/// Windows：没有 `open`，用 `cmd /C start`。
+/// 允许打开的 URL：只认 `http://` 与 `https://`。
 ///
-/// 两个细节都不可省：
-/// 1. `start` 的第一个参数被当作**窗口标题**，要传一个空串占位，
-///    否则 URL 会被当成标题、浏览器不会被拉起；
-/// 2. URL 本身要**加引号**——`cmd` 里 `&` `|` `^` 是命令分隔符，
-///    URL 带这些字符（或空格）时不加引号会被拆成多条命令。
-#[cfg(target_os = "windows")]
-fn open_in_browser(url: &str) -> std::io::Result<()> {
-    use std::os::windows::process::CommandExt;
-
-    /// `CREATE_NO_WINDOW`：不创建新控制台窗口。
-    ///
-    /// 不加这个标志，`cmd /C start` 会在桌面上**闪一个黑色控制台窗口**——
-    /// 用户看到的是「点一下登录，屏幕黑一下又弹出来」，在正式产品里很扎眼。
-    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-
-    ProcessCommand::new("cmd")
-        .args(["/C", "start", "", &format!("\"{url}\"")])
-        .creation_flags(CREATE_NO_WINDOW)
-        .spawn()
-        .map(|_| ())
-}
-
-/// 其余 Unix（Linux / BSD）。
-#[cfg(all(unix, not(target_os = "macos")))]
-fn open_in_browser(url: &str) -> std::io::Result<()> {
-    ProcessCommand::new("xdg-open").arg(url).spawn().map(|_| ())
+/// 纯函数，便于单测。**不能放宽**：这个命令会把 URL 交给系统去打开，
+/// 放行 `file://` 之类等于让外部输入去碰本地文件系统。
+fn is_allowed_open_url(url: &str) -> bool {
+    url.starts_with("https://") || url.starts_with("http://")
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -700,6 +678,7 @@ pub fn run() {
                 .add_migrations("sqlite:todo.db", migrations())
                 .build(),
         )
+        .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             sync_config_read,
             sync_state_read,
@@ -810,6 +789,35 @@ mod session_blob_tests {
     fn limit_matches_windows_credential_manager_constant() {
         // CRED_MAX_CREDENTIAL_BLOB_SIZE = 5 * CRED_MAX_USERNAME_LENGTH(256)
         assert_eq!(SESSION_BLOB_MAX_BYTES, 2560);
+    }
+}
+
+#[cfg(test)]
+mod open_url_tests {
+    use super::is_allowed_open_url;
+
+    #[test]
+    fn http_and_https_are_allowed() {
+        assert!(is_allowed_open_url("https://example.com/auth?code=1"));
+        assert!(is_allowed_open_url("http://127.0.0.1:51734/?code=abc&state=xyz"));
+    }
+
+    #[test]
+    fn non_http_schemes_are_rejected() {
+        // 这几种若放行，等于让外部输入去碰本地文件系统或执行任意程序
+        for url in [
+            "file:///etc/passwd",
+            "javascript:alert(1)",
+            "data:text/html,<script>1</script>",
+            "ms-settings:developers",
+            "",
+            "   https://example.com",
+        ] {
+            assert!(
+                !is_allowed_open_url(url),
+                "必须拒绝：{url:?}"
+            );
+        }
     }
 }
 

@@ -16,6 +16,21 @@
 
 所以做法是：**穷尽分类 + 每类有断言守护**，而不是「想到一个修一个」。
 
+## ⚠️ 守护脚本能查什么、不能查什么
+
+`check-platform-portability.mjs` 只能判定**「这条调用是不是平台专有的、且被 `#[cfg]` 保护了」**。
+
+它**判定不了**「这条调用在该平台上**行为**是否正确」——后者只能靠实机或选对系统 API。
+v0.2.3 的教训正卡在这里：`cmd /C start` 是 Windows 专有的、被正确地 `#[cfg]` 保护了，
+守护脚本全绿，但实机上它**把 URL 当文件路径找**，报「找不到文件 'https://...'」。
+
+所以新增跨平台调用时的判断是：
+
+1. **先查有没有更标准的系统 API**（Windows 的 `ShellExecuteW`、macOS 的 `NSWorkspace`）——
+   优先用**官方插件**（如 `tauri-plugin-opener`）而不是自己拼命令；
+2. 自己拼命令时，必须问「这条命令在该平台上的**语义**对吗」，而不只是「它在不在」；
+3. 涉及行为的部分，只能靠实机验证——**但可以先把不依赖平台的部分抽成纯函数做单测**。
+
 ## 一、运行时依赖
 
 | # | 检查项 | 结论 | 守护 |
@@ -40,9 +55,9 @@
 
 | # | 检查项 | 结论 | 守护 |
 | --- | --- | --- | --- |
-| C1 | macOS 专有命令（`/usr/bin/open`、`osascript`、`security`） | ✅ 三平台分派 | `check-platform-portability.mjs` |
-| C2 | `cmd /C start` 的 URL 转义 | ✅ 已加引号（`&` `|` `^` 是 cmd 的命令分隔符） | 守护脚本 |
-| C3 | **Windows 上 spawn 闪黑色控制台窗口** | ✅ 已修：`creation_flags(CREATE_NO_WINDOW)` | 守护脚本 |
+| C1 | macOS 专有命令（`security` 钥匙串） | ✅ 平台分派；**开浏览器已改用官方 opener 插件**，不再自己分派 | `check-platform-portability.mjs` |
+| C2 | ~~`cmd /C start` 的 URL 转义~~ | ✅ **已作废**：Windows 上 `start` 会把 URL 当**文件路径**去找（报「找不到文件」）。改用 opener 插件走 `ShellExecuteW` | — |
+| C3 | ~~Windows 上 spawn 闪黑色控制台窗口~~ | ✅ **已作废**：不再自己 spawn，opener 内部处理 | — |
 | C4 | 外部命令的 PATH 依赖 | ✅ 无问题 | — |
 | C5 | 平台专有调用缺少守护 | ✅ 已加守护脚本（13 条规则） | `npm run check:platform` |
 
@@ -61,7 +76,7 @@
 
 | # | 检查项 | 结论 | 守护 |
 | --- | --- | --- | --- |
-| E1 | 系统浏览器拉起 | ✅ 三平台分派 | 守护脚本 |
+| E1 | 系统浏览器拉起 | ✅ 官方 `tauri-plugin-opener`（Windows `ShellExecuteW` / macOS `NSWorkspace` / Linux `xdg-open`） | — |
 | E2 | 会话存储 | ✅ 见 A3 | 守护脚本 |
 | E3 | **请求超时** | ✅ 已修：`fetch` 默认永不超时 → 挂住则 UI 永久停在「同步中」且走不到重试；现为 30s + `AbortController` | 自检第⑩组路径 |
 | E4 | 网络错误 vs HTTP 错误的分类 | ✅ 已加 `SyncNetworkError`：网络故障值得退避重试，HTTP 明确拒绝不值得 | `check-sync.mjs` |

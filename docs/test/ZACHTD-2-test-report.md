@@ -2087,6 +2087,64 @@ Rust: fs::read_to_string(&path) → Ok(text) => Ok(Some(text))     ← BOM 原�
 3. **F5 CI 产物未签名**——本期无证书不做签名；Windows SmartScreen 拦截仍在，README 写明放行方式。
 4. **SQLite 位于 `%APPDATA%` 漫游目录**——域漫游环境下文件可能被同步到多机，引发 SQLite 锁冲突。改它属**架构变更**（PRD 的数据目录契约），只记录不改。
 
+### 13.29 「找不到文件 'https://...'」：命令存在 ≠ 行为正确（v0.2.4）
+
+> 触发：需求方在 Windows 上实机反馈——点「用浏览器打开授权页」报
+> **「找不到文件 'https://bbas...'」**。
+
+#### 13.29.1 根因
+
+`cmd /C start "" "<url>"` 在 Windows 上**会把 URL 当成文件路径去找**：
+`start` 的语义是「启动一个程序或打开一个文件」，对 `https://` 这种协议，
+它去文件系统里找一个叫 `https://bbas...` 的东西，于是报「找不到文件」。
+
+这暴露了 v0.2.3 审计的一个**盲点**：
+
+| 审计维度 | v0.2.3 查了 | 结论 |
+| --- | --- | --- |
+| 「这条调用是不是平台专有的」 | ✅ | 是 Windows 专有 → 加 `#[cfg]` 保护 → 判定「已修」 |
+| 「这条调用在该平台上**行为**对不对」 | ❌ **没查** | `cmd /C start` 对 URL 的行为是错的 |
+
+也就是说：**「命令是平台专有的」只能由守护脚本自动判定，「命令的行为正确」只能靠实机或选对 API。**
+两者的差距正好是这类问题漏过去的原因。
+
+#### 13.29.2 修复：改用官方 `tauri-plugin-opener`
+
+Windows 上**没有**「打开 URL」的命令——正确做法是调 `ShellExecuteW`。
+官方 `tauri-plugin-opener` 正是干这个的，且三端各自走系统**唯一正确**的路径：
+
+| 平台 | opener 内部走 |
+| --- | --- |
+| Windows | `ShellExecuteW` |
+| macOS | `NSWorkspace` |
+| Linux | `xdg-open` |
+
+连带好处：**自己那套三平台分派整个删掉了**——
+`/usr/bin/open`、`cmd /C start`、`xdg-open` 三个平台专有调用、以及
+「`cmd` 里 `&` `|` 是命令分隔符所以要加引号」「spawn 要加 `CREATE_NO_WINDOW` 才不闪黑窗」
+这两个补丁，**一次性都不需要了**。少了一层自己的抽象，就少一层跨平台陷阱。
+
+URL 白名单校验抽成纯函数 `is_allowed_open_url()` 并补单测：
+`http`/`https` 放行；`file://`、`javascript:`、`data:`、`ms-settings:`、空串、前导空格
+全部拒绝（放行 `file://` 等于让外部输入去碰本地文件系统）。
+
+#### 13.29.3 验证
+
+| 项 | 结果 |
+| --- | --- |
+| `cargo test` | **11 passed**（新增 2 条 URL 白名单用例） |
+| `cargo xwin check --target x86_64-pc-windows-msvc` | **exit 0** |
+| 自证脚本 8 个 + `npm run build` | 全 PASS |
+| 主 E2E / 同步 E2E | 6 passed / 4 passed |
+| 平台可移植性守护 | PASS（`open_in_browser` 删掉后，相关规则自然不再命中） |
+
+#### 13.29.4 诚实边界
+
+- **Windows 上「点开浏览器真的弹出授权页」仍需实机确认**——本机没有 Windows。
+  但这次的把握比之前高：opener 走的是 `ShellExecuteW`，那是 Windows 打开 URL 的**标准 API**，
+  不像 `cmd /C start` 那样依赖 shell 的文件关联语义。
+- 上面那条「命令的行为正确只能靠实机」的教训已经写进审计清单的方法论部分。
+
 ---
 
 ## 14. AC-01 ~ AC-70 统一判定台账（70 行）

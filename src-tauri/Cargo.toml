@@ -1,6 +1,6 @@
 [package]
 name = "todo"
-version = "0.2.3"
+version = "0.2.4"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2024"
@@ -21,6 +21,10 @@ tauri-build = { version = "2", features = [] }
 serde_json = "1.0.154"
 tauri = { version = "2", features = [] }
 tauri-plugin-sql = { version = "2.6.0", features = ["sqlite"] }
+# 打开系统浏览器：用官方 opener 插件（内部走 ShellExecuteW / NSWorkspace / xdg-open）。
+# 自己用 `cmd /C start` 打开 URL 是错的——start 会把 URL 当**文件路径**去找，
+# 在 Windows 上直接报「找不到文件 'https://...'」。
+tauri-plugin-opener = "2" 
 # 启动日志目录：用平台约定的数据目录根 + identifier 拼出，
 # 与 Tauri 的 app_data_dir() 同一套规则（Windows=Roaming、macOS=Application Support）。
 # 这样源码里不会出现任何一端的数据目录字面量（BR 数据路径中立）。
