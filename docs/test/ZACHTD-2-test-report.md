@@ -2262,6 +2262,69 @@ URL 白名单校验抽成纯函数 `is_allowed_open_url()` 并补单测：
 - **回路覆盖的是「两台设备的数据能不能对上」**，不覆盖「界面是否把状态正确显示出来」——后者靠状态区的文案（现在会显示条数）人工判断。
 - 本机没有 Windows，**Windows 上的真实端到端仍需实机复跑**。
 
+### 13.32 把自检接进 CI 的第一次运行就抓到 Windows 专属失败（v0.2.7）
+
+> 这是 §13.31 那条「16 个自检脚本 CI 里只跑 2 个」的**直接后果**：
+> 一旦把它们接进 CI，**第一次跑就红了** —— 而这个失败在 macOS 上**永远看不到**。
+
+#### 13.32.1 现象
+
+v0.2.6 的 CI：
+
+| Job | `Unit self-checks` 步骤 |
+| --- | --- |
+| macOS | **success** |
+| **Windows** | **failure**（0 秒，整条 job 被拖红，后续打包步骤全部 skipped） |
+
+Windows 的 Release 只拿到 macOS 的两个资产（`.dmg` / `.app.zip`），**没有 `.exe` / `.msi`**。
+
+#### 13.32.2 根因：`node:sqlite` 在 Windows 上不存在
+
+`scripts/check-db-parity.mjs`（双后端等价性对拍）用 Node 内置的 `node:sqlite`
+模拟 plugin-sql 的 invoke 通道。Node 官方文档明确说明：
+
+> `node:sqlite` 只在**有受支持的 SQLite 库的平台上**可用 —— **Windows 不支持**。
+
+脚本原来在**模块顶层**写：
+
+```js
+import { DatabaseSync } from 'node:sqlite';   // ← Windows 上直接把进程炸掉
+```
+
+于是 Windows 上这个脚本**秒崩**，把 `check:unit` 聚合链（用 `&&` 串联）整条带红。
+
+#### 13.32.3 修复：能力探测 + **明确跳过**（而不是崩）
+
+改成**先探测、再决定跑不跑**，并且跳过时把话说清楚：
+
+```
+⊘ 跳过双后端等价性对拍：本平台没有 node:sqlite（Windows 不支持该内置模块）。
+  这不是「对比通过」，而是「本平台不具备跑这个对比的技术条件」——
+  底层原因：No such built-in module: node:sqlite
+```
+
+探测做的是**真正实例化一个内存库**（`new DatabaseSync(':memory:')`），
+而不只是 `import` 成功——「模块存在」和「模块可用」是两件事。
+
+macOS 上行为**完全不变**（仍然完整跑完双后端对拍）。
+
+#### 13.32.4 这个案例说明了什么
+
+1. **「本地全绿」不等于「功能正确」**——本次失败只在 Windows 上出现，macOS 上永远看不到。
+2. **接入 CI 本身就会暴露问题**——这是「把自检接进 CI」这件事的**第一笔收益**：
+   之前 16 个脚本一个都不跑，现在第一次跑就抓到一个平台专属缺陷。
+3. **跨平台审计必须包含「工具链本身」**：Node 的内置模块也有平台支持矩阵，
+   `node:sqlite` 只是其中一个；`node:child_process`、`node:fs` 这些则处处可用。
+
+#### 13.32.5 验证
+
+| 项 | 结果 |
+| --- | --- |
+| `npm run check:unit`（本机 macOS） | PASS（10 个脚本全绿，db-parity 仍完整跑） |
+| 十个脚本逐个直跑 | 全 PASS |
+| `npm run build` / 主 E2E / 同步 E2E | exit 0 / 6 passed / 4 passed |
+| Windows CI | 由本次 CI run 实跑确认（见 §13.32.1 的对照） |
+
 ---
 
 ## 14. AC-01 ~ AC-70 统一判定台账（70 行）

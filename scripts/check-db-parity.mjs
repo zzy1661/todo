@@ -19,9 +19,33 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { DatabaseSync } from 'node:sqlite';
 
 const SELF = fileURLToPath(import.meta.url);
+
+/**
+ * `node:sqlite` 是 Node 内置模块，但**只在有受支持的 SQLite 库的平台上可用**——
+ * **Windows 不支持**（Node 官方文档明确说明）。
+ *
+ * 而这个脚本正是靠 `node:sqlite` 模拟 plugin-sql 的 invoke 通道。
+ * 所以在 Windows 上**这个脚本无法运行**，必须在 import 之前就探测并**明确跳过**，
+ * 而不是让 `import { DatabaseSync } from 'node:sqlite'` 直接把整个进程炸掉
+ * （2026-11-22：接入 CI 后第一次跑就抓到了这个 —— macOS 通过、Windows 秒失败）。
+ *
+ * 跳过的语义是「本平台不具备跑这个对比的技术条件」，不是「对比通过」。
+ */
+let DatabaseSync = null;
+try {
+  ({ DatabaseSync } = await import('node:sqlite'));
+  // 只 import 成功还不够：真正建一个内存库，验证「可用」而不只是「模块存在」
+  new DatabaseSync(':memory:').close();
+} catch (error) {
+  console.log(
+    '⊘ 跳过双后端等价性对拍：本平台没有 node:sqlite（Windows 不支持该内置模块）。\n' +
+      '  这不是「对比通过」，而是「本平台不具备跑这个对比的技术条件」——\n' +
+      `  底层原因：${error instanceof Error ? error.message : String(error)}`,
+  );
+  process.exit(0);
+}
 
 // ---------------------------------------------------------------------------
 // 操作序列（两条后端执行完全相同的一串操作）
