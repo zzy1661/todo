@@ -24,14 +24,14 @@
 
 | 资产名（Release 里就是这个名字） | 平台 | 说明 |
 | --- | --- | --- |
-| `ScheduleTodo-0.2.2-macos-arm64.dmg` | macOS（Apple Silicon，最低 12.0） | 双击挂载，把「日程待办」拖进 Applications |
-| `ScheduleTodo-0.2.2-macos-arm64.app.zip` | macOS | `.app` 的 zip 副本，不想挂载 dmg 时直接解压用 |
-| `ScheduleTodo-0.2.2-windows-x64-setup.exe` | Windows x64 | NSIS 安装包（`installMode: currentUser`，不需管理员权限） |
-| `ScheduleTodo-0.2.2-windows-x64.msi` | Windows x64 | MSI 包（WiX `zh-CN`） |
+| `ScheduleTodo-0.2.3-macos-arm64.dmg` | macOS（Apple Silicon，最低 12.0） | 双击挂载，把「日程待办」拖进 Applications |
+| `ScheduleTodo-0.2.3-macos-arm64.app.zip` | macOS | `.app` 的 zip 副本，不想挂载 dmg 时直接解压用 |
+| `ScheduleTodo-0.2.3-windows-x64-setup.exe` | Windows x64 | NSIS 安装包（`installMode: currentUser`，不需管理员权限） |
+| `ScheduleTodo-0.2.3-windows-x64.msi` | Windows x64 | MSI 包（WiX `zh-CN`） |
 
 **资产名是 ASCII 的**：应用本身仍叫「日程待办」，但发布资产统一改名为 `ScheduleTodo-<版本>-<平台>`，
 避免中文文件名在 Release 资产 URL 里被百分号编码后、第三方下载器出现乱码。
-本机 `npm run tauri build` 出的仍是 `日程待办_0.2.2_aarch64.dmg`（见「一、1」），**只有 CI 发布出去的资产被改名**。
+本机 `npm run tauri build` 出的仍是 `日程待办_0.2.3_aarch64.dmg`（见「一、1」），**只有 CI 发布出去的资产被改名**。
 
 **首次打开仍需放行**（资产本身没做签名/公证，属预期）：
 
@@ -50,7 +50,7 @@
 
 ### 1. 安装
 
-1. 打开 `日程待办_0.2.2_aarch64.dmg`；
+1. 打开 `日程待办_0.2.3_aarch64.dmg`；
 2. 把「日程待办」拖到左侧的 **Applications**（即 `/Applications`）；
 3. 在「启动台」或「应用程序」里点开「日程待办」。
 
@@ -60,7 +60,7 @@
 **产物怎么来**（仓库里**不含**安装包，`src-tauri/target/` 被 `.gitignore` 排除）：
 
 - 本机构建：`npm ci` → `npm run tauri build`，产物落在
-  `src-tauri/target/release/bundle/macos/日程待办.app` 与 `.../bundle/dmg/日程待办_0.2.2_aarch64.dmg`；
+  `src-tauri/target/release/bundle/macos/日程待办.app` 与 `.../bundle/dmg/日程待办_0.2.3_aarch64.dmg`；
 - CI 产物：`.github/workflows/build.yml` 的 `build` job（push `master` / `release/**` 或手动
   `workflow_dispatch`）跑完后，下载 artifact `todo-macos`，内容与上者同构；
 - **正式分发**：打 `v*` tag 后同样跑一遍，产物改 ASCII 名后挂成 **Release 资产**，

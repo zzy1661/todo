@@ -1963,6 +1963,130 @@ Rust: fs::read_to_string(&path) → Ok(text) => Ok(Some(text))     ← BOM 原�
 **边界**：本条修的是「配置读不出来」这条路径；**配置本身仍不会随安装包分发**
 （真实 key 只存在于各机应用数据目录，仓库里只有 `sync.config.example.json` 模板）。
 
+### 13.28 全平台跨平台审计（v0.2.3）：一次性把清单列清
+
+> 触发：需求方连续反馈跨平台问题，评价「怎么还有问题」。
+> 本节的做法与结论：**按类别穷尽审计**（不靠「想到一个修一个」），产出**一张完整清单**，
+> 并把**能修的一次性全修完**。清单本身是这个项目往后判断跨平台风险的**基线**。
+
+#### 13.28.1 审计方法
+
+按六个类别逐项过，每项都用工具核对（不是回忆）：
+
+| 类别 | 检查项 |
+| --- | --- |
+| **A. 运行时依赖** | WebView2 是否存在/版本、SQLite 是否有外部依赖、系统服务（钥匙串/凭据管理器）、平台专属运行时 |
+| **B. 路径与文件系统** | 应用数据目录、配置目录、路径分隔符、编码与 BOM、换行符、文件锁、原子写、权限 |
+| **C. 进程与命令** | 外部命令的平台归属、PATH 依赖、**spawn 是否会闪窗**、进程退出 |
+| **D. UI 与交互** | 键盘绑定（是否硬编码 Cmd）、**输入法 composition**、滚动与渐隐、高 DPI、字体栈、选择器 API |
+| **E. 同步链路** | 会话存储、浏览器拉起、**请求超时**、代理与证书、回环 HTTP 响应、错误分类与重试 |
+| **F. 构建与打包** | 三份 conf 的平台中立、WebView2 安装模式、NSIS/WiX 语言、签名、版本号一致性 |
+
+#### 13.28.2 完整清单（**跨平台问题全表**）
+
+**A 运行时依赖**
+
+| # | 问题 | 状态 |
+| --- | --- | --- |
+| A1 | WebView2 缺失 → 启动即退，用户只看到「没反应」 | ✅ 已修（预检 + 弹窗 + 日志 + `embedBootstrapper`） |
+| A2 | WebView2 **最低版本未声明** | ⚠️ 遗留：未声明即不检查；`embedBootstrapper` 装的是最新版，暂不构成风险 |
+| A3 | 会话存储只有 macOS 钥匙串 → Windows 登录必失败 | ✅ 已修（凭据管理器） |
+| A4 | SQLite 是否依赖外部库 | ✅ 无外部依赖（`libsqlite3-sys` 静态编译） |
+
+**B 路径与文件系统**
+
+| # | 问题 | 状态 |
+| --- | --- | --- |
+| B1 | 启动日志用 `dirs::data_dir()`，与 Tauri 的 `app_config_dir()`（用 `config_dir()`）在 **Linux 上不一致** | ✅ 已修 |
+| B2 | 配置文件的 **UTF-8 BOM** → `JSON.parse` 抛错 → 「写了却不生效」 | ✅ 已修（`strip_bom()` + 单测） |
+| B3 | 路径分隔符 / 中文路径 | ✅ 无问题（Rust `PathBuf`、Rust 侧全 UTF-8） |
+| B4 | 换行符 CRLF/LF | ✅ 无影响（JSON） |
+| B5 | 文件锁（Windows 更严） | ✅ 已处理：落盘失败有 try/catch；原子写用 `fs::rename`（Windows 带 `MOVEFILE_REPLACE_EXISTING`，会覆盖而非失败） |
+| B6 | 目录权限 | ✅ 应用数据目录可写；目录缺失时 `create_dir_all` 兜底 |
+
+**C 进程与命令**
+
+| # | 问题 | 状态 |
+| --- | --- | --- |
+| C1 | `/usr/bin/open`、`osascript` 等 macOS 专有调用在 Windows 上必错 | ✅ 已修（三平台分派） |
+| C2 | `cmd /C start` 的 URL 未加引号 → `&`/`|`/空格被拆成多条命令 | ✅ 已修 |
+| C3 | **Windows 上 spawn 进程会闪一个黑色控制台窗口** | ✅ **本轮已修**（`CREATE_NO_WINDOW`） |
+| C4 | 外部命令依赖 PATH | ✅ 无问题（`cmd`/`osascript`/`xdg-open` 均在 PATH） |
+| C5 | 平台专有调用**没有守护**，靠人工审阅 | ✅ 已修（`check-platform-portability.mjs`，13 条规则） |
+
+**D UI 与交互**
+
+| # | 问题 | 状态 |
+| --- | --- | --- |
+| D1 | 键盘绑定硬编码 `metaKey`（macOS 的 Cmd） | ✅ 无问题：只用 enter/space 语义键 |
+| D2 | **列表项 `@keydown.enter` 未处理输入法 composition** → 中文选词回车会误触发跳转/预览（`TodoEditor` 已处理，两处不一致） | ✅ **本轮已修** |
+| D3 | 滚动与渐隐依赖 `@scroll` | ✅ 两平台都有；`overscroll-behavior: contain` 已设 |
+| D4 | 字体栈 | ✅ 已含 `PingFang SC` / `Microsoft YaHei` / `Segoe UI` |
+| D5 | 高 DPI | ✅ Tauri 用**逻辑像素**，两平台一致 |
+| D6 | 窗口默认 1100×720 在 1366×768 屏上放不下 | ⚠️ 遗留：属默认值的产品决策；最小尺寸 900×600 已验证不溢出 |
+
+**E 同步链路**
+
+| # | 问题 | 状态 |
+| --- | --- | --- |
+| E1 | 系统浏览器拉起 | ✅ 已修（三平台分派） |
+| E2 | 会话存储 | ✅ 已修（macOS 钥匙串 / Windows 凭据管理器 / 其它明确不支持） |
+| E3 | **`fetch` 默认永不超时** → 网络挂住时同步状态永远停在「同步中」，也走不到失败重试 | ✅ **本轮已修**（30s 超时 + `SyncNetworkError` + 自检第⑩组路径） |
+| E4 | 网络错误与 HTTP 错误的分类 | ✅ **本轮已修**（新增 `SyncNetworkError`，引擎统一走退避重试） |
+| E5 | OAuth 回环 HTTP 响应手写 | ✅ 无问题（标准 `HTTP/1.1 200 OK` + `Content-Length`） |
+| E6 | 浏览器授权等待超时 | ✅ 已有（180s） |
+| E7 | 系统代理 / TLS 证书 | ✅ 无问题：用浏览器 `fetch`，自动走系统代理与证书库 |
+
+**F 构建与打包**
+
+| # | 问题 | 状态 |
+| --- | --- | --- |
+| F1 | 三份 conf 的平台中立（一个平台写死另一端的产物形态） | ✅ 由 `check-bundle-config.mjs` 54 条断言守护 |
+| F2 | WebView2 安装模式 | ✅ `embedBootstrapper`（`offlineInstaller` 会让 artifact 涨到 418MB，已实测放弃） |
+| F3 | tag 与 `tauri.conf.json` 版本号不一致 → 资产名对不上 | ✅ 已修（两处同源，v0.2.0 起对齐） |
+| F4 | NSIS / WiX 语言与安装模式 | ✅ `currentUser` + `SimpChinese`/`English`，允许中文安装路径 |
+| F5 | CI 产物未签名 → Windows SmartScreen 拦截 | ⚠️ 遗留：本期无证书不做签名，README 写明放行方式 |
+| F6 | CI 的 Windows 步骤是否真出包 | ✅ 真跑 `npx tauri build` + `if-no-files-found: error` |
+
+#### 13.28.3 本轮新增修复的三项
+
+| # | 修复 | 为什么是真问题 |
+| --- | --- | --- |
+| **C3** | Windows spawn 加 `CREATE_NO_WINDOW` | 不加的话，用户点「登录」时屏幕上**闪一个黑色控制台窗口**——正式产品里很扎眼 |
+| **E3** | 同步 API 加 30s 超时（`AbortController`） | `fetch` **默认永不超时**。网络被防火墙拦、代理挂起、或服务端 accept 了连接却不响应时，请求永远 pending：UI 停在「同步中」，**也永远走不到失败重试**。这条跨平台一致，但 Windows 防火墙/公司代理更容易触发 |
+| **D2** | 列表项补输入法 composition 判定 | 中文输入法选词时**也会派发 Enter**（`isComposing === true`）。用户确认候选词的同时会顺手把这一项也「打开」——往期列表跳日期、方法库切预览。`TodoEditor` 早处理了，这里补齐 |
+
+#### 13.28.4 守护脚本这轮又修了 4 处（都由「故意注入回归」逼出来）
+
+`check-platform-portability.mjs` 从 7 条规则扩到 **13 条**（补入 Windows 专有 Win32 API：`CredWriteW`/`CredReadW`/`CredDeleteW`/`CredFree`/`MessageBoxW`/`FormatMessageW`/`GetLastError`/`CommandExt`）。
+本轮它自己的判定逻辑又暴露 4 个缺陷，逐个修掉：
+
+| 轮次 | 缺陷 | 表现 |
+| --- | --- | --- |
+| 1 | item 头判定含 `const`/`static` | **函数体内的局部 const** 被误当成 item 头 → 误报「不在 cfg 分支内」 |
+| 2 | item 头定位不区分**嵌套 item** | 函数体内定义的辅助 `fn wide` 被当成 item 头，它自己的 cfg 其实是**外层**函数的 → 误报 |
+| 3 | 没有区分**顶层 item 与嵌套 item** | 规则「没有 cfg 就继续往上」在**同级 item 之间不成立** → 漏报（把上一个同级函数的 cfg 当成本函数的保护） |
+| 4 | 规则只覆盖**字符串**形式的 token | Windows 专有的 **Win32 API 函数名**不在规则内 → 漏报 |
+
+最终规则：**item 头只认 `fn`/`impl`/`struct`/`enum`/`trait`/`mod`**；
+嵌套 item（缩进 > 0）没有自己的 cfg 就继承外层、继续往上找；
+**顶层 item（缩进 == 0）没有 cfg 就是「没受保护」**，直接判失败。
+
+**注入回归矩阵（7 个注入点）全部判红，且还原后无误报**：
+
+| 注入的回归 | 结果 |
+| --- | --- |
+| macOS / Windows / Linux 三版 `open_in_browser` 去 cfg | **判红** ✓ |
+| startup 的 macOS / Windows 两版 `show_dialog` 去 cfg | **判红** ✓ |
+| macOS / Windows 两版 `keychain_save` 去 cfg | **判红** ✓ |
+
+#### 13.28.5 剩下的 4 条遗留（**明确不改，只记录**）
+
+1. **A2 WebView2 最低版本未声明**——不声明即不检查；`embedBootstrapper` 装的是最新版，暂不构成风险。
+2. **D6 窗口默认 1100×720 在 1366×768 屏上放不下**——属**默认值的产品决策**（改成更小会牺牲日常体验），且最小尺寸 900×600 已验证不溢出。
+3. **F5 CI 产物未签名**——本期无证书不做签名；Windows SmartScreen 拦截仍在，README 写明放行方式。
+4. **SQLite 位于 `%APPDATA%` 漫游目录**——域漫游环境下文件可能被同步到多机，引发 SQLite 锁冲突。改它属**架构变更**（PRD 的数据目录契约），只记录不改。
+
 ---
 
 ## 14. AC-01 ~ AC-70 统一判定台账（70 行）

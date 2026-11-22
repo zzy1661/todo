@@ -648,8 +648,17 @@ fn open_in_browser(url: &str) -> std::io::Result<()> {
 ///    URL 带这些字符（或空格）时不加引号会被拆成多条命令。
 #[cfg(target_os = "windows")]
 fn open_in_browser(url: &str) -> std::io::Result<()> {
+    use std::os::windows::process::CommandExt;
+
+    /// `CREATE_NO_WINDOW`：不创建新控制台窗口。
+    ///
+    /// 不加这个标志，`cmd /C start` 会在桌面上**闪一个黑色控制台窗口**——
+    /// 用户看到的是「点一下登录，屏幕黑一下又弹出来」，在正式产品里很扎眼。
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
     ProcessCommand::new("cmd")
         .args(["/C", "start", "", &format!("\"{url}\"")])
+        .creation_flags(CREATE_NO_WINDOW)
         .spawn()
         .map(|_| ())
 }

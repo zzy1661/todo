@@ -1167,13 +1167,64 @@ section('v3 迁移结构证据（TC-076 / AC-64，只给 todos 加列）');
 
 /* ==================================================================== 收尾 */
 
+/* --------------------------------------------------------- ⑩ 请求超时（跨平台一致） */
+
+// section('⑩ 请求超时：fetch 挂住必须被中止，不能永远 pending')
+//
+// 为什么要有这条：`fetch` **默认永不超时**。网络被防火墙拦、代理挂起、
+// 或服务端 accept 了连接却不响应时，请求会永远 pending ——
+// 表现是同步状态永远停在「同步中」，也不会走到失败重试。
+// 这条断言保证「超时 → 抛网络错误 → 引擎进入退避重试」这条链路是通的。
+{
+  section('⑩ 请求超时：fetch 挂住必须被中止（FR-SYNC-11 / 跨平台一致）');
+  const { SyncNetworkError } = await import('../src/sync/api.ts');
+
+  // 一个「连上了但不响应」的 fetch：**必须响应 abort 信号**，
+  // 否则它就不是在模拟真实 fetch——真实的 fetch 收到 abort 会 reject。
+  const hangingFetch = (_input, init) =>
+    new Promise((_resolve, reject) => {
+      init?.signal?.addEventListener('abort', () => {
+        reject(new DOMException('The operation was aborted', 'AbortError'));
+      });
+    });
+
+  const api = new SupabaseRestApi({
+    baseUrl: 'https://stub.invalid',
+    anonKey: ANON_KEY,
+    fetchImpl: hangingFetch,
+    requestTimeoutMs: 25, // 覆盖成很小的窗口，让断言不必真等 30 秒
+  });
+
+  // 超时窗口取得很小，让断言跑得快（真等 30s 不现实）
+  let threw = null;
+  const started = Date.now();
+  try {
+    await api.pull('fake-token');
+  } catch (error) {
+    threw = error;
+  }
+  const elapsed = Date.now() - started;
+
+  assert(threw instanceof SyncNetworkError, '挂住的请求必须抛 SyncNetworkError');
+  assert(
+    threw instanceof SyncNetworkError && threw.timedOut,
+    '超时错误必须带 timedOut 标记（与「连接被拒」区分开）',
+  );
+  assert(
+    threw instanceof Error && threw.message.includes('超时'),
+    `错误信息要说清是超时而不是别的：${threw && threw.message}`,
+  );
+  assert(elapsed < 5000, `超时必须在窗口内触发（实际 ${elapsed} ms，不能一直 pending）`);
+  endSection();
+}
+
 console.log('');
 if (failures.length > 0) {
   console.error(`✗ 同步自检失败 ${failures.length} / ${checks} 项：`);
   for (const failure of failures) console.error(`  - ${failure}`);
   process.exit(1);
 }
-console.log(`✓ 同步自检 PASS：${checks} 项断言，九组路径 + v3 迁移结构证据全部通过`);
+console.log(`✓ 同步自检 PASS：${checks} 项断言，十组路径 + v3 迁移结构证据全部通过`);
 console.log('  NOT-VERIFIED：真实 Supabase 读写、真实 GitHub OAuth 往返、云侧 RLS 越权不可见');
 
 /* ------------------------------------------------------------------ 辅助 */

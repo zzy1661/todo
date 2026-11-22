@@ -42,6 +42,15 @@ const PLATFORM_TOKENS = [
   // 所以只认「真的在起 cmd 进程」和「真的在传 /C」这两种写法。
   { pattern: /Command::new\(\s*"cmd"/, platforms: ['windows'], label: 'cmd 进程调用' },
   { pattern: /\.args\(\[\s*"\/C"/, platforms: ['windows'], label: 'cmd /C 参数' },
+  // Windows 专有的 Win32 API：**函数名本身**就是平台专有信号。
+  // （v4 补上这组是因为注入回归发现「去掉 #[cfg(windows)] 后脚本没报」——
+  //   之前的规则只覆盖字符串形式的 token，漏掉了 API 调用这一类。）
+  { pattern: /\bCred(Write|Read|Delete)W\b/, platforms: ['windows'], label: 'Windows 凭据管理器 API' },
+  { pattern: /\bCredFree\b/, platforms: ['windows'], label: 'Windows 凭据管理器 API' },
+  { pattern: /\bMessageBoxW\b/, platforms: ['windows'], label: 'Windows 消息框 API' },
+  { pattern: /\bFormatMessageW\b/, platforms: ['windows'], label: 'Windows 错误消息 API' },
+  { pattern: /\bGetLastError\b/, platforms: ['windows'], label: 'Windows 错误码 API' },
+  { pattern: /\bCommandExt\b/, platforms: ['windows'], label: 'Windows 进程扩展 API' },
 ];
 
 /**
@@ -151,15 +160,61 @@ const errors = [];
  *   比函数头深、比函数体首行浅，于是被当成了 item 头。
  *   用**语法关键字**定位 item 头则对链式调用完全免疫。
  */
-const ITEM_HEAD_RE = /\b(fn|const|static|impl|struct|enum|trait|mod)\b/;
+/**
+ * item 头的关键字。
+ *
+ * **刻意不含 `const` / `static`**：函数体里的**局部 const 声明**
+ * （如 `const CREATE_NO_WINDOW: u32 = ...;`）不是 item 头——把它当成 item 头
+ * 会让脚本向上找错锚点，从而**误判**「明明在 `#[cfg]` 分支里却没保护」。
+ * 这正是本脚本的第三个修正（前两个：cfg 嵌套括号、链式调用缩进）。
+ */
+const ITEM_HEAD_RE = /\b(fn|impl|struct|enum|trait|mod)\b/;
 
+/** 取 item 头部上方连续的 `#[...]` 属性行里，所有带平台限定的 cfg */
+function collectCfgBodies(lines, itemHead) {
+  const bodies = [];
+  for (let j = itemHead - 1; j >= 0; j -= 1) {
+    const p = lines[j].trim();
+    if (p === '') continue;
+    if (p.startsWith('//')) continue;
+    if (!p.startsWith('#[')) break; // 不是属性行 → 收集中断
+    const body = extractCfgBody(p);
+    if (body !== null) bodies.unshift(body);
+  }
+  return bodies;
+}
+
+/** 多个 cfg 是 AND 关系，取交集 */
+function intersectCfg(bodies) {
+  let allowed = null;
+  for (const body of bodies) {
+    const set = platformsOf(body);
+    allowed = allowed === null ? set : new Set([...allowed].filter((x) => set.has(x)));
+  }
+  return allowed ?? new Set();
+}
+
+/**
+ * 判断某一行是否落在平台 cfg 分支内。
+ *
+ * 做法：
+ * 1. 向上找该行所属 **item 的头部**——含 `fn` / `impl` / `struct` / `enum` /
+ *    `trait` / `mod` 关键字、且缩进**小于**目标行的行；
+ * 2. 取该 item 头部上方的 cfg 属性组，算出它允许的平台集合；
+ * 3. **若该 item 没有自己的 cfg**：它是**嵌套 item**（如函数体内定义的辅助 fn），
+ *    保护来自**外层** item —— 继续向上找；
+ * 4. **若该 item 有 cfg 但平台不匹配**：说明它明确限定在别的平台 → 直接判不保护。
+ *
+ * 曾经的三个坑（每轮都用「故意注入回归」逼出来）：
+ * - 「向上找最近的 cfg」会越过 item 边界 → 注入的回归漏报；
+ * - 按**缩进**定位 item 头会被**链式调用**骗到 → `cmd /C` 误报；
+ * - item 头判定若含 `const`/`static` → **函数体内的局部 const**被误当成 item 头 → 误报；
+ * - 且**嵌套 item**（函数体内定义的辅助 fn）必须**继续向上**找外层的 cfg，
+ *   否则会误判「不在 cfg 分支内」。
+ */
 function cfgProtects(lineIndex, lines, token) {
-  // ① 定位 item 头部
-  //
-  // 要求 item 头的缩进**严格小于**目标行：嵌套 item（如函数里定义的辅助 fn）
-  // 继承外层函数的 cfg 保护，所以要跳过它们，继续往上找真正带 cfg 的那一层。
   const lineIndent = indentOf(lines[lineIndex]);
-  let itemHead = -1;
+
   for (let i = lineIndex - 1; i >= 0; i -= 1) {
     const raw = lines[i];
     const t = raw.trim();
@@ -167,33 +222,25 @@ function cfgProtects(lineIndex, lines, token) {
     if (t.startsWith('//')) continue;
     if (t.startsWith('#[')) continue; // 属性行：属于 item 头部的一部分
     if (!ITEM_HEAD_RE.test(t)) continue;
-    if (indentOf(raw) >= lineIndent) continue; // 嵌套 item：继承外层保护，继续往上
-    itemHead = i;
-    break;
-  }
-  if (itemHead === -1) return false;
+    if (indentOf(raw) >= lineIndent) continue; // 同级或更深：不是外层 item
 
-  // ② 收集 item 头部上方的连续属性行里的 cfg
-  const cfgBodies = [];
-  for (let j = itemHead - 1; j >= 0; j -= 1) {
-    const p = lines[j].trim();
-    if (p === '') continue;
-    if (p.startsWith('//')) continue;
-    if (!p.startsWith('#[')) break; // 不是属性行 → 收集中断
-    const body = extractCfgBody(p);
-    if (body !== null) cfgBodies.unshift(body);
+    const cfgBodies = collectCfgBodies(lines, i);
+    if (cfgBodies.length === 0) {
+      // 没有自己的 cfg：
+      // - **缩进 > 0** → 这是**嵌套 item**（函数体内定义的辅助 fn、impl 内的方法），
+      //   保护来自外层 item → 继续往上找；
+      // - **缩进 == 0** → 这是**顶层 item**，和上方的 item **没有继承关系**，
+      //   没有 cfg 就是「没受保护」→ 直接判定失败（不能再往上找，
+      //   否则会误把「上一个同级 item 的 cfg」当成本 item 的保护）。
+      if (indentOf(raw) === 0) return false;
+      continue;
+    }
+    const allowed = intersectCfg(cfgBodies);
+    if (allowed.size === 0) return false;
+    if (allowed.has('*') || allowed.has('unix')) return true;
+    return token.platforms.some((p) => allowed.has(p));
   }
-  if (cfgBodies.length === 0) return false;
-
-  // ③ 多个 cfg 取交集
-  let allowed = null;
-  for (const body of cfgBodies) {
-    const set = platformsOf(body);
-    allowed = allowed === null ? set : new Set([...allowed].filter((x) => set.has(x)));
-  }
-  if (allowed.size === 0) return false;
-  if (allowed.has('*') || allowed.has('unix')) return true;
-  return token.platforms.some((p) => allowed.has(p));
+  return false;
 }
 
 for (const file of files) {

@@ -146,6 +146,39 @@ async function shuffle(): Promise<void> {
   }
 }
 
+/**
+ * 键盘激活时的「输入法组合中」判定。
+ *
+ * **中文输入法选词时也会派发 Enter / Space**（`isComposing === true`）。
+ * 不拦住的话，用户在输入法里确认候选词的同时会**顺手把这一项也「打开」**——
+ * 在往期列表上会跳走日期，在方法库上会切预览。`TodoEditor` 早就处理了这件事，
+ * 这里补齐同一套判定，避免同一个应用里两处行为不一致。
+ */
+
+/** 往期列表：回车激活某一天 */
+function onEnter(event: KeyboardEvent, date: string): void {
+  if (event.isComposing) return;
+  emit('select-date', date);
+}
+
+/** 往期列表：空格激活某一天 */
+function onSpace(event: KeyboardEvent, date: string): void {
+  if (event.isComposing) return;
+  emit('select-date', date);
+}
+
+/** 方法库：回车预览某条 */
+function onEnterMethod(event: KeyboardEvent, methodId: string): void {
+  if (event.isComposing) return;
+  preview(methodId);
+}
+
+/** 方法库：空格预览某条 */
+function onSpaceMethod(event: KeyboardEvent, methodId: string): void {
+  if (event.isComposing) return;
+  preview(methodId);
+}
+
 /** 方法库点击：只切预览，不改变该日落库记录（FR-DM-06 / AC-20） */
 function preview(methodId: string): void {
   // 再点一次当前预览项即退出预览，回到该日推送内容
@@ -207,8 +240,8 @@ function selectFilter(key: MethodCategory | 'all'): void {
               role="button"
               tabindex="0"
               @click="emit('select-date', row.date)"
-              @keydown.enter="emit('select-date', row.date)"
-              @keydown.space.prevent="emit('select-date', row.date)"
+              @keydown.enter="onEnter($event, row.date)"
+              @keydown.space.prevent="onSpace($event, row.date)"
             >
               <span class="history-dot" :style="{ background: row.color }" aria-hidden="true"></span>
               <span class="history-date">{{ row.dayText }}</span>
@@ -247,8 +280,8 @@ function selectFilter(key: MethodCategory | 'all'): void {
               role="button"
               tabindex="0"
               @click="preview(method.id)"
-              @keydown.enter="preview(method.id)"
-              @keydown.space.prevent="preview(method.id)"
+              @keydown.enter="onEnterMethod($event, method.id)"
+              @keydown.space.prevent="onSpaceMethod($event, method.id)"
             >
               <span
                 class="lib-dot"
