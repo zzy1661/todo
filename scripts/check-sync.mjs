@@ -18,11 +18,11 @@
  * 用法：node scripts/check-sync.mjs
  */
 
-import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import { createMockSupabase } from './mock-supabase.mjs';
 
 /* ------------------------------------------------------------ 浏览器环境替身 */
@@ -826,8 +826,16 @@ section('v3 迁移结构证据（TC-076 / AC-64，只给 todos 加列）');
     assert(!/\bALTER\b/i.test(statement), 'v1 / v2 不得出现 ALTER（v3 才允许 ADD COLUMN）');
   }
 
-  const sqlite = (sql) =>
-    execFileSync('sqlite3', [dbPath], { encoding: 'utf8', input: sql }).trim();
+  const sqliteDb = new DatabaseSync(dbPath);
+  const sqlite = (sql) => {
+    const statement = sql.trim();
+    if (/^(SELECT|PRAGMA\s+table_info)/i.test(statement)) {
+      const rows = sqliteDb.prepare(statement).all();
+      return rows.map((row) => Object.values(row).join('|')).join('\n');
+    }
+    sqliteDb.exec(statement);
+    return '';
+  };
   sqlite('PRAGMA journal_mode = MEMORY;');
   for (const statement of legacySql) sqlite(statement);
   sqlite(
@@ -896,6 +904,7 @@ section('v3 迁移结构证据（TC-076 / AC-64，只给 todos 加列）');
   console.log(`   · PRAGMA table_info(todos) → ${todoColumns.join(' ; ')}`);
   console.log(`   · 回填 uuid → ${uuidBefore}`);
   console.log(`   · 软删除后 deleted → ${sqlite('SELECT group_concat(id || ":" || deleted) FROM todos;')}`);
+  sqliteDb.close();
   fs.rmSync(dbPath, { force: true });
   endSection();
 }
@@ -925,4 +934,3 @@ async function stubLogin(stub, store) {
   engine.dispose();
   return session;
 }
-
