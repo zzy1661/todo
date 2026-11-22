@@ -2513,6 +2513,127 @@ CRLF 仿真抓到的那个问题，`.gitattributes` 本身**挡不住**（它只
    依赖外部命令前，先确认那个镜像里到底有什么。
 4. **验证脚本自己也是产品**——它有平台依赖，也值得同样的守护与仿真。
 
+### 13.35 Windows 上第二次失败：Python 的 stdin 不是 UTF-8（v0.3.1）
+
+> §13.34 的改动让 Windows job **第一次越过了 `check-cases-negative`**（CRLF 那关），
+> 然后卡在了下一个：`Self-check · check-sync`。
+> ——**这正是把自检拆成独立 step 的价值**：失败点一目了然，不用猜。
+
+#### 13.35.1 先解决「拿不到日志」这个死结
+
+此前几轮之所以只能靠推断，是因为 GitHub 未认证（`gh` 未登录），
+step 日志与 artifact 都要登录才能取。
+
+但**推 tag 是成功的** —— 说明凭据就在本机：`git config credential.helper = osxkeychain`。
+于是：
+
+```bash
+TOKEN=$(printf 'protocol=https\nhost=github.com\n\n' | git credential fill | sed -n 's/^password=//p')
+curl -sL -H "Authorization: Bearer $TOKEN" \
+  "https://api.github.com/repos/zzy1661/todo/actions/jobs/<job_id>/logs" -o win-job.log
+```
+
+**日志全文 559 行，错误一眼看到**。这条路径以后应该先用，别再靠推断。
+
+#### 13.35.2 真报错
+
+```
+── v3 迁移结构证据（TC-076 / AC-64，只给 todos 加列）
+   · SQLite 后端：python3 标准库 sqlite3
+UnicodeEncodeError: 'utf-8' codec can't encode character '\udc81' in position 53: surrogates not allowed
+  at pythonRun (scripts/sqlite-backend.mjs:77:11)
+  at runSql (scripts/check-sync.mjs:1119:35)
+```
+
+注意：**Python 退路确实生效了**（日志里明确写着「SQLite 后端：python3 标准库 sqlite3」）——
+§13.34 的退路设计是对的。失败的是退路**内部的编码**。
+
+#### 13.35.3 根因：Windows 上 Python 的标准输入用系统 ANSI 代码页解码
+
+| 环节 | macOS | Windows |
+| --- | --- | --- |
+| Node 写 stdin | UTF-8 字节 | UTF-8 字节（一样） |
+| Python `sys.stdin.read()` | 按 **UTF-8** 解 ✓ | 按**系统 ANSI 代码页**（cp936 / cp1252）解 ✗ |
+
+UTF-8 的中文被按 GBK 解出来就是乱码，某些字节序列还会产生**孤立代理字符**（`\udc81` 这类），
+随后 SQLite 往里写时要把字符串编码成 UTF-8 → `UnicodeEncodeError`。
+
+**本机为什么看不到**：这台 Mac 的 Python 3.14 开着 **UTF-8 模式**（`sys.flags.utf8_mode == 1`），
+locale 也恰好是 UTF-8 —— 两边都对，所以本地永远看不出来。
+
+#### 13.35.4 修法：绕开文本层，直接管字节
+
+```python
+sql_text = sys.stdin.buffer.read().decode('utf-8')      # 读：原始字节 + 显式 UTF-8
+sys.stdout.buffer.write(line.encode('utf-8'))            # 写：原始字节 + 显式 UTF-8
+```
+
+**完全不依赖系统 locale**。本机用 `PYTHONIOENCODING=cp936` 仿真验证过：
+
+| 写法 | `PYTHONIOENCODING=cp936` 下的结果 |
+| --- | --- |
+| `sys.stdin.read()`（旧） | `UnicodeDecodeError: 'gbk' codec can't decode byte 0xb2` ← 与 Windows 实机同源 |
+| `sys.stdin.buffer.read().decode('utf-8')`（新） | 正常执行，输出与 CLI 逐字节一致 |
+
+三档环境（默认 / `cp936` / `ascii:backslashreplace`）实测输出都是 `等价甲|迁移前乙`，
+与 `sqlite3` CLI 的输出完全相同。
+
+#### 13.35.5 顺带挖出的第二个坑：**文档里写错误信息，触发了那个错误**
+
+修完上面那个之后，本地跑又报**一模一样**的错：
+
+```
+UnicodeEncodeError: 'utf-8' codec can't encode character '\udc81' in position 208
+```
+
+但这次的位置是 `source_to_code` —— **编译模块自己**就失败了。原因是：
+
+```python
+"""...甚至产生**孤立代理字符**（`\udc81` 这类）..."""   # ← 非 raw 字符串
+```
+
+在 **Python 的普通字符串里，`\udc81` 是真的转义序列**，编译期就生成了孤立代理字符，
+于是模块的 docstring 常量无法编码成 UTF-8 → **模块自己都 import 不了**。
+
+**报错信息长得一模一样，所以极具迷惑性**——差点以为是同一个 bug 没修干净。
+解法：那个 docstring 改成 **raw 字符串**（`r"""`），让文档里的示例保持原样。
+
+> 教训：**在 Python 文档字符串里引用错误信息时，`\uXXXX` 形式的字面量必须用 raw 字符串**，
+> 否则你写下的示例会真的被执行。
+
+#### 13.35.6 断言守护：把「非 ASCII 往返」变成必须过的断言
+
+第 ⑬ 组原来比的是表结构与计数（纯 ASCII），**测不出编码问题**。现在加一条：
+
+```js
+'SELECT title FROM todos ORDER BY id;',   // 行内容是中文「等价甲」
+```
+
+两个后端必须给出相同结果 —— 一旦有人把 `sys.stdin.buffer.read().decode('utf-8')`
+改回 `sys.stdin.read()`，在非 UTF-8 环境下这条断言立刻判红。
+
+#### 13.35.7 验证
+
+| 项 | 结果 |
+| --- | --- |
+| `npm run check:unit` | PASS（10/10；第 ⑬ 组 6 项断言） |
+| 第 ⑬ 组 | PASS（6 项断言，含非 ASCII 往返） |
+| `PYTHONIOENCODING=cp936` 仿真（旧写法） | `UnicodeDecodeError: 'gbk' codec can't decode byte 0xb2`（复现 Windows 故障） |
+| `PYTHONIOENCODING=cp936` 仿真（新写法） | 正常，与 CLI 输出逐字节一致 |
+| 三档编码环境（默认 / cp936 / ascii:backslashreplace） | 输出均为 `等价甲\|迁移前乙` ✓ |
+| `npm run build` / 主 E2E / 同步 E2E / `cargo test` | exit 0 / 6 passed / 4 passed / 4 passed |
+| CRLF 全量仿真 | 10/10 PASS |
+| Windows CI | 由本次 run 实跑确认 |
+
+#### 13.35.8 这一轮补进纪律的
+
+1. **拿不到日志不等于无解**——先查本机凭据（keychain / credential helper），
+   `git credential fill` 往往就能用；**别在只能推断的情况下猜**。
+2. **Windows 的 runner 镜像不只是「Windows」**——它还有自己的 **locale**：
+   Python 的标准输入默认按系统 ANSI 代码页解码，这条 macOS 上完全不成立。
+   依赖外部解释器时，**要显式指定编码，不要依赖 locale**。
+3. **错误信息可能自己触发那个错误**——在 Python 字符串里写 `\uXXXX` 字面量时用 raw 字符串。
+
 ---
 
 ## 14. AC-01 ~ AC-70 统一判定台账（70 行）

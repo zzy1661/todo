@@ -31,13 +31,49 @@ import sqlite3
 import sys
 
 
+def read_sql() -> str:
+    r"""
+    从 stdin 读 SQL，**显式按 UTF-8 解码**。
+
+    **为什么不能用 `sys.stdin.read()`**：Windows 上 Python 的标准输入默认用
+    **系统 ANSI 代码页**（cp936 / cp1252）解码，不是 UTF-8 ——
+    Node 写进来的是 UTF-8 字节，被按本地代码页一解就成了乱码，
+    甚至产生**孤立代理字符**（`\udc81` 这类），随后 SQLite 往里编码时报
+    `UnicodeEncodeError: 'utf-8' codec can't encode character`。
+
+    （2026-11-23：CI 在 Windows 上真跑出来了 —— macOS 的 locale 恰好是 UTF-8，
+    所以本地永远看不到。）
+
+    所以走 `sys.stdin.buffer` 拿**原始字节**，再自己按 UTF-8 解：
+    这样与系统 locale 完全无关。
+
+    **注意这个 docstring 是 raw 字符串（r\"\"\"）**：上面为了说明现象写了
+    `\udc81` 这个字面量 —— 在**普通**字符串里它会被当成**真的转义序列**，
+    编译期就生成了孤立代理字符，于是**模块自己都编译不过**
+    （报错还长得一模一样，也是 `UnicodeEncodeError ... \\udc81`，极具迷惑性）。
+    raw 字符串让文档里的示例保持原样。
+    """
+    return sys.stdin.buffer.read().decode('utf-8')
+
+
+def write_row(values) -> None:
+    """
+    把一行结果写成 `sqlite3` CLI 的 list 格式（`|` 分隔、NULL 输出空串）。
+
+    同样**显式按 UTF-8 编码**写字节：Node 那边按 UTF-8 解码 stdout，
+    这里就必须按 UTF-8 编码，否则中文标题会变成乱码。
+    """
+    line = '|'.join('' if v is None else str(v) for v in values) + '\n'
+    sys.stdout.buffer.write(line.encode('utf-8'))
+
+
 def main() -> int:
     if len(sys.argv) != 3:
         sys.stderr.write('usage: sqlite-run.py <run|query> <db>\n')
         return 2
 
     mode, db_path = sys.argv[1], sys.argv[2]
-    sql_text = sys.stdin.read()
+    sql_text = read_sql()
 
     con = sqlite3.connect(db_path)
     try:
@@ -49,7 +85,7 @@ def main() -> int:
             cur = con.execute(sql_text)
             if cur.description is not None:
                 for row in cur.fetchall():
-                    sys.stdout.write('|'.join('' if v is None else str(v) for v in row) + '\n')
+                    write_row(row)
         else:
             sys.stderr.write('unknown mode: %s\n' % mode)
             return 2

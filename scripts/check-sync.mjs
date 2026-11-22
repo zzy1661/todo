@@ -1247,6 +1247,11 @@ section('⑬ SQLite 后端等价：命令行与 Python 必须给出相同结果'
       'SELECT count(*) FROM todos;',
       'SELECT count(*) FROM todos WHERE uuid IS NULL;',
       "SELECT group_concat(name) FROM sqlite_master WHERE type='table' ORDER BY name;",
+      // **必须含非 ASCII**：Windows 上 Python 的 stdin/stdout 默认用系统 ANSI 代码页，
+      // 而非 UTF-8。中文一进来就被解码成乱码 / 孤立代理字符，
+      // 然后 SQLite 往里编码时抛 `UnicodeEncodeError`。
+      // （2026-11-23：CI 在 Windows 上真跑出来了 —— macOS 的 locale 恰好是 UTF-8。）
+      'SELECT title FROM todos ORDER BY id;',
     ];
     for (const probe of probes) {
       const outCli = cli.query(dbCli, probe);

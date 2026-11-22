@@ -60,7 +60,8 @@ v0.2.3 的教训正卡在这里：`cmd /C start` 是 Windows 专有的、被正�
 | C3 | ~~Windows 上 spawn 闪黑色控制台窗口~~ | ✅ **已作废**：不再自己 spawn，opener 内部处理 | — |
 | C4 | 外部命令的 PATH 依赖 | ✅ **已修（v0.3.0）**：① `sqlite3` 命令行**只在 macOS 有**，windows-latest 镜像里没有 → 改走统一后端（有 Python 标准库退路）；② `npm` 在 Windows 上是 `npm.cmd`，`spawn` 不带 shell 时只找 `npm.exe` → ENOENT | `scripts/sqlite-backend.mjs`；守护规则 S1/S1b/S2 |
 | C5 | 平台专有调用缺少守护 | ✅ 已加守护脚本（13 条产品代码规则 + 3 条 scripts/ 外部命令规则） | `npm run check:platform` |
-| C6 | **验证脚本自身的跨平台风险** | ⚠️ **这是最容易漏的一层**：自检脚本在 Windows 上失败，会让 Windows job **在第一个失败脚本处中断**，后面的脚本**一次都跑不到**——于是「Windows 上没报错」不等于「Windows 上没问题」，而只等于「第一个失败点被修掉了」 | CI 自检**逐个脚本独立成 step**（10 个 step），失败点一眼可见；本机另做 CRLF / 缺命令的**全量仿真** |
+| C6 | **验证脚本自身的跨平台风险** | ⚠️ **这是最容易漏的一层**：自检脚本在 Windows 上失败，会让 Windows job **在第一个失败脚本处中断**，后面的脚本**一次都跑不到**——于是「Windows 上没报错」不等于「Windows 上没问题」，而只等于「第一个失败点被修掉了」 | CI 自检**逐个脚本独立成 step**（10 个 step），失败点一眼可见；本机另做 CRLF / 缺命令 / 非 UTF-8 locale 的**全量仿真** |
+| C7 | 外部解释器的 locale 与编码 | ✅ **已修（v0.3.1）**：Windows 上 Python 的**标准输入默认按系统 ANSI 代码页解码**（cp936 / cp1252），不是 UTF-8 → Node 写的 UTF-8 字节被解成乱码/孤立代理字符 → SQLite 编码时报 `UnicodeEncodeError`。本机 macOS 的 locale 恰好是 UTF-8，**本地永远看不到** | 改为 `sys.stdin.buffer.read().decode('utf-8')` + `sys.stdout.buffer.write(...encode('utf-8'))`，**完全不依赖 locale**；自检第 ⑬ 组加**非 ASCII 往返**探针 |
 
 ## 四、UI 与交互
 
@@ -92,6 +93,7 @@ v0.2.3 的教训正卡在这里：`cmd /C start` 是 Windows 专有的、被正�
 | F1 | 三份 conf 的平台中立 | ✅ 一个平台不写死另一端的产物形态 | `check-bundle-config.mjs`（54 条） |
 | F2 | WebView2 安装模式 | ✅ `embedBootstrapper`（`offlineInstaller` 会让 artifact 涨到 418MB，已实测放弃） | `check-bundle-config.mjs` |
 | F3 | tag 与 `tauri.conf.json` 版本号一致 | ✅ 两处同源（CI 用它命名 Release 资产） | 发版流程 |
+| F7 | **改版本号时不能批量正则替换** | ⚠️ **已踩坑（v0.3.1）**：用一条 `perl s/0\.3\.0/0.3.1/g` 改版本，把 **`src-tauri/Cargo.lock` 里依赖 `alloc-stdlib` 的版本号也改了** → registry 里没有这个版本 → **打包直接失败**（而且 `npm run tauri build \| tail` 会把退出码吃掉，看起来像成功）。**正确做法**：只改 `package.json` / `tauri.conf.json` / `Cargo.toml` 里**本包自己的** `version` 字段，`Cargo.lock` 里也**只改 `name = "todo"` 那一段**；改完必须 `git diff` 逐条核对 | 发版流程 |
 | F4 | NSIS / WiX 语言与安装模式 | ✅ `currentUser` + `SimpChinese`/`English`，允许中文安装路径 | — |
 | F5 | 代码签名 | ⚠️ 遗留：CI 产物未签名 → Windows SmartScreen 拦截；本期无证书不做签名 | — |
 | F6 | CI 的 Windows 步骤真出包 | ✅ 真跑 `npx tauri build` + `if-no-files-found: error` | CI 本身 |
@@ -154,7 +156,24 @@ Windows 的 `powershell`、`cmd.exe`、`cmd` 进程、`cmd /C` 参数、
 | **CRLF checkout** | 把仓库整份复制一份，所有文本文件转成 CRLF，在副本上跑全部 10 个自检 | Windows 上 `core.autocrlf=true` 的真实效果 |
 | **缺 sqlite3 CLI** | 在 PATH 前面放一个退非零的 `sqlite3` 桩 | Windows runner 镜像的真实条件 |
 | **缺 node:sqlite** | 把 `import('node:sqlite')` 换成导入一个不存在的模块 | Node 官方说明 `node:sqlite` 不支持 Windows |
+| **非 UTF-8 locale** | `PYTHONIOENCODING=cp936` | Windows 上 Python 的 stdin/stdout 默认按系统 ANSI 代码页解码 |
 
 三种仿真可以叠加。**每一个都必须实际跑一遍，不能靠推断**——
 v0.2.7 那次「修 `node:sqlite`」就是**推断**出来的（当时日志要登录才能看），
 结果真正的第一个失败点在三个脚本之前。
+
+## 「拿不到 CI 日志」不是无解
+
+此前几轮只能靠推断，是因为 GitHub 未认证（`gh` 未登录），step 日志与 artifact 都要登录才能取。
+
+但**推 tag / push 是成功的** —— 说明凭据就在本机。`git config credential.helper` 若是
+`osxkeychain`（或 `cache`），就可以：
+
+```bash
+TOKEN=$(printf 'protocol=https\nhost=github.com\n\n' | git credential fill | sed -n 's/^password=//p')
+curl -sL -H "Authorization: Bearer $TOKEN" \
+  "https://api.github.com/repos/<owner>/<repo>/actions/jobs/<job_id>/logs" -o job.log
+```
+
+拿到 job id 用匿名就能读的 `GET /repos/<owner>/<repo>/actions/runs/<run_id>/jobs`。
+**先把这条用上，再考虑推断**——v0.3.1 的 Windows 失败（Python 编码）就是这样一次定位的。
