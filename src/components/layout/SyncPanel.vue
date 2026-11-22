@@ -18,6 +18,7 @@ import {
   login,
   logout,
   phaseLabel,
+  pushAllLocal,
   retrySync,
   syncState,
   togglePanel,
@@ -96,6 +97,20 @@ const canLogin = computed(
           @click="retrySync"
         >
           立即重试
+        </button>
+        <!--
+          上传本机全部：自动同步只覆盖「变更驱动」的增量，
+          配 key 之前就存在的历史待办不在增量里，需要这个入口才能上云。
+          做成显式动作而不是自动行为 —— 本地待办不带账号归属标记，
+          自动全量上传会在「换账号登录」时把旧数据带到新账号下。
+        -->
+        <button
+          type="button"
+          class="sync-push-all"
+          :disabled="!signedIn || syncState.actionBusy"
+          @click="pushAllLocal"
+        >
+          上传本机全部
         </button>
       </footer>
     </div>
@@ -237,6 +252,12 @@ const canLogin = computed(
   color: var(--color-text-secondary);
   cursor: not-allowed;
   opacity: 0.6;
+}
+
+/* 「上传本机全部」：与其它按钮同族，但用主色描边以示区别 */
+.sync-actions .sync-push-all:not(:disabled) {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
 }
 
 .sync-actions .sync-login {

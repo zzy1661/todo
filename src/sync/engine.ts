@@ -41,6 +41,8 @@ import type {
 export interface LocalTodoGateway {
   /** 按 uuid 读取（含墓碑） */
   loadByUuids(uuids: string[]): Promise<LocalTodoRow[]>;
+  /** 读取本机全部待办（含墓碑）——「上传本机全部」用 */
+  loadAll(): Promise<LocalTodoRow[]>;
   /** 应用远端记录（LWW + 墓碑终结） */
   applyRemote(rows: RemoteTodo[]): Promise<MergeStats>;
 }
@@ -230,9 +232,14 @@ export class SyncEngine {
    * 同一个 5 秒窗口内的多次变更合并为一次推送。
    */
   markLocalChange(uuid: string): void {
-    if (!this.options.config.enabled || this.disposed) return;
+    if (this.disposed) return;
+    // **即使同步未配置，也要把这次变更记进 pending。**
+    // 原来这里第一行就 `if (!config.enabled) return;` —— 用户「先在本地用着、
+    // 后来才配 key 登录」的场景下，变更**从未入队**，于是永远推不上去。
+    // 改后：未配置只是**不发请求**，变更本身先记下来。
     this.pending.set(uuid, (this.pending.get(uuid) ?? 0) + 1);
-    if (!this.session) return; // 未登录：不发请求，等登录后一并处理
+    if (!this.options.config.enabled) return; // 未配置：不发请求
+    if (!this.session) return; // 未登录：不发请求，等登录后补推（见 enterSession）
     this.scheduleFlush(this.debounceMs);
   }
 
@@ -339,7 +346,11 @@ export class SyncEngine {
       const rows = await this.options.api.pull(token);
       const stats = await this.options.local.applyRemote(rows);
       this.options.onMerged?.(stats);
-      this.markSuccess(`已拉取（${reason}）`);
+      // 把**拉了多少条**说出来：否则「已拉取」既可能是「拉到 3 条」也可能是
+      // 「一条都没拉到」，用户无法区分「云端没有数据」和「拉取失败/被拦」。
+      this.markSuccess(
+        `已拉取（${reason}）· 新增 ${stats.inserted} 条、更新 ${stats.updated} 条`,
+      );
       this.busy = false;
       return stats;
     } catch (error) {
@@ -467,7 +478,15 @@ export class SyncEngine {
    * 这里改成：先判断是否到期 —— 到期就只跑补做那一轮（它含拉取），
    * 没到期才走常规的启动 / 登录拉取。两种情况下启动都恰好拉一次。
    */
-  private async enterSession(reason: string): Promise<void> {
+  /**
+   * 进入已登录会话：拉取远端 → 补推积压的本地变更。
+   *
+   * **补推这一步是必须的**：`markLocalChange` 在未登录/未配置时只把变更记进
+   * `pending` 而不发请求（注释里承诺「等登录后一并处理」）。如果这里不补推，
+   * 这些变更就永远留在 pending 里没人发——用户看到的现象是
+   * 「登录成功了，但本地数据一条没上云」。
+   */
+  async enterSession(reason: string): Promise<void> {
     const overdue = await this.prepareAutoSync();
     if (overdue) {
       // 补做一轮：拉 + 推，成功后锚点推进
@@ -476,6 +495,10 @@ export class SyncEngine {
       return;
     }
     await this.pull(reason);
+    // **登录后补推积压的本地变更** —— 兑现 `markLocalChange` 与 `flush` 注释里
+    // 「等登录后一并处理 / 登录后补推」的承诺（原来只 pull，pending 里的变更
+    // 一直没人推，用户看到的现象就是「登录成功了，但本地数据一条没上云」）。
+    if (this.pending.size > 0) await this.flush();
     this.publishAutoSyncState();
   }
 
@@ -558,6 +581,51 @@ export class SyncEngine {
   }
 
   /* ----------------------------------------------------------- 手动重试 */
+
+  /**
+   * 把**本机全部待办**上传到当前账号（用户显式动作）。
+   *
+   * 为什么需要它：登录后的自动补推只覆盖 `pending` 里的变更（内存态），
+   * 而「先在本地用了一段时间、后来才配 key 登录」的历史待办**不在 pending 里**，
+   * 永远推不上去。这个方法把本机全部记录一次性推上去（按 uuid 幂等 upsert，
+   * 重复点不会产生重复行）。
+   *
+   * 边界：本地待办**不带账号归属标记**，所以「换账号登录」时也会把本机的数据
+   * 带到新账号下——这是既有数据模型的固有限制（pull 同样不会清理旧账号的数据），
+   * 因此本方法做成**用户显式点击**而不是自动行为。
+   */
+  async pushAllLocal(): Promise<void> {
+    if (!this.options.config.enabled) return;
+    if (!this.session) {
+      await this.login();
+      return;
+    }
+    if (this.busy) return;
+    this.busy = true;
+    this.setStatus({ phase: 'syncing', detail: '正在上传本机全部待办…' });
+    try {
+      const token = await this.ensureFreshToken();
+      const rows = await this.options.local.loadAll();
+      if (rows.length === 0) {
+        this.markSuccess('本机没有待办可上传');
+        this.busy = false;
+        return;
+      }
+      await this.options.api.push(token, this.session.userId, rows);
+      this.retryIndex = 0;
+      this.markSuccess(`已上传本机全部 ${rows.length} 条待办`);
+    } catch (error) {
+      this.busy = false;
+      const message = error instanceof Error ? error.message : String(error);
+      this.setStatus({
+        phase: 'error',
+        detail: `上传失败：${message}`,
+        lastResult: 'failed',
+        lastError: message,
+      });
+    }
+    this.busy = false;
+  }
 
   async retry(): Promise<void> {
     if (!this.options.config.enabled) return;

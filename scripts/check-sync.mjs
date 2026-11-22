@@ -260,6 +260,7 @@ function buildEngine(
     ...(stateStore ? { stateStore } : {}),
     local: {
       loadByUuids: (uuids) => db.fetchTodoSyncRows(uuids),
+      loadAll: () => db.fetchTodoSyncRows(null),
       applyRemote: (rows) => db.applyRemoteTodos(rows),
     },
     oauth,
@@ -648,6 +649,7 @@ section('⑥ 未配置时零请求（AC-57）');
     sessionStore: createMemorySessionStore(),
     local: {
       loadByUuids: (uuids) => db.fetchTodoSyncRows(uuids),
+      loadAll: () => db.fetchTodoSyncRows(null),
       applyRemote: (rows) => db.applyRemoteTodos(rows),
     },
     oauth: createOAuthLauncher(),
@@ -1020,6 +1022,7 @@ section('⑨ 每 2 天自动同步：假时钟推进 2 天 → 真跑一轮拉�
     sessionStore: createMemorySessionStore(),
     local: {
       loadByUuids: (uuids) => db.fetchTodoSyncRows(uuids),
+      loadAll: () => db.fetchTodoSyncRows(null),
       applyRemote: (rows) => db.applyRemoteTodos(rows),
     },
     oauth: createOAuthLauncher(),
@@ -1218,13 +1221,135 @@ section('v3 迁移结构证据（TC-076 / AC-64，只给 todos 加列）');
   endSection();
 }
 
+/* ------------------------------------------- ⑪ 推送链路：登录后补推 / 全量上传 */
+
+// section('⑪ 推送链路：登录后补推 + 全量上传')
+//
+// 背景：实机反馈「Windows 上登录了，但没有同步到数据」。查出来的根因是**推送链路的
+// 三个承诺没有兑现**：
+//   1. `markLocalChange` 注释写着「未登录：不发请求，等登录后一并处理」——但
+//      `enterSession` 只 pull 不推，pending 里的变更**一直没人推**；
+//   2. `markLocalChange` 第一行 `if (!config.enabled) return;` 让「先在本地用、
+//      后来才配 key」的变更**从未入队**；
+//   3. 没有「把本机全部上传」的入口，配 key 之前就存在的历史待办永远上不了云。
+//
+// 这三条属于**逻辑正确性**（不是平台差异），只能靠断言守护。
+
+{
+  section('⑪ 推送链路：登录后补推 + 全量上传');
+
+  // ── ① 未登录时的变更必须入队（否则「登录后一并处理」无从谈起）
+  {
+    const stub = await createMockSupabase();
+    const { engine, off } = buildEngine(stub, {
+      sessionStore: createMemorySessionStore(),
+      oauth: createOAuthLauncher(),
+    });
+    const uuid = nextUuid();
+    engine.markLocalChange(uuid);
+    assert(
+      engine.pendingCount() === 1,
+      `未登录时的本地变更必须入队（实际 ${engine.pendingCount()}）`,
+    );
+    off();
+    engine.dispose();
+    await stub.close();
+  }
+
+  // ── ①' **同步未配置**时，变更也必须入队
+  //      （用户可能是「先在本地用着、后来才配 key」；原来这里直接 return，
+  //        变更从未入队，于是永远推不上去）
+  {
+    const stub = await createMockSupabase();
+    const { engine, off } = buildEngine(stub, {
+      sessionStore: createMemorySessionStore(),
+      oauth: createOAuthLauncher(),
+    });
+    // 构造一个「未配置」的引擎：enabled = false
+    const disabled = new SyncEngine({
+      config: { ...config(stub.url), enabled: false },
+      api: new SupabaseRestApi({ baseUrl: stub.url, anonKey: ANON_KEY }),
+      sessionStore: createMemorySessionStore(),
+      stateStore: createMemorySessionStore(),
+      local: {
+        loadByUuids: (uuids) => db.fetchTodoSyncRows(uuids),
+        loadAll: () => db.fetchTodoSyncRows(null),
+        applyRemote: (rows) => db.applyRemoteTodos(rows),
+      },
+      oauth: createOAuthLauncher(),
+      clock,
+      timers,
+      onStatus: () => {},
+      debounceMs: 5000,
+    });
+    disabled.markLocalChange(nextUuid());
+    assert(
+      disabled.pendingCount() === 1,
+      `未配置同步时变更也必须入队（实际 ${disabled.pendingCount()}）`,
+    );
+    disabled.dispose();
+    off();
+    engine.dispose();
+    await stub.close();
+  }
+
+  // ── ② 登录成功后必须补推 pending（enterSession 里 pull 之后要 flush）
+  {
+    const stub = await createMockSupabase();
+    const { engine, off } = buildEngine(stub, {
+      sessionStore: createMemorySessionStore(),
+      oauth: createOAuthLauncher(),
+    });
+    await engine.login();
+    const uuid = nextUuid();
+    engine.markLocalChange(uuid);
+    assert(engine.pendingCount() === 1, '变更应入队');
+    // 走「进入会话」这条路径：pull 之后必须补推
+    await engine.enterSession('自检');
+    assert(
+      engine.pendingCount() === 0,
+      `登录后必须补推 pending（实际还剩 ${engine.pendingCount()} 条）`,
+    );
+    off();
+    engine.dispose();
+    await stub.close();
+  }
+
+  // ── ③ 「上传本机全部」：本机待办必须能一次性推上去
+  {
+    const stub = await createMockSupabase();
+    const { engine, off } = buildEngine(stub, {
+      sessionStore: createMemorySessionStore(),
+      oauth: createOAuthLauncher(),
+    });
+    await engine.login();
+    await db.createTodo({
+      title: '待上传的本地待办',
+      date: '2026-11-22',
+      priority: 1,
+      note: '',
+    });
+    await engine.pushAllLocal();
+    const payload = JSON.stringify(lastPushPayload(stub));
+    assert(
+      payload.includes('待上传的本地待办'),
+      '「上传本机全部」必须把本机待办推上去',
+    );
+    off();
+    engine.dispose();
+    await stub.close();
+  }
+
+  endSection();
+}
+
 console.log('');
 if (failures.length > 0) {
   console.error(`✗ 同步自检失败 ${failures.length} / ${checks} 项：`);
   for (const failure of failures) console.error(`  - ${failure}`);
   process.exit(1);
 }
-console.log(`✓ 同步自检 PASS：${checks} 项断言，十组路径 + v3 迁移结构证据全部通过`);
+console.log(`✓ 同步自检 PASS：${checks} 项断言，十一组路径 + v3 迁移结构证据全部通过`);
 console.log('  NOT-VERIFIED：真实 Supabase 读写、真实 GitHub OAuth 往返、云侧 RLS 越权不可见');
 
 /* ------------------------------------------------------------------ 辅助 */

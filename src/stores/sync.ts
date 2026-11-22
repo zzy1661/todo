@@ -211,6 +211,7 @@ async function startSync(): Promise<void> {
     stateStore,
     local: {
       loadByUuids: (uuids) => fetchTodoSyncRows(uuids),
+      loadAll: () => fetchTodoSyncRows(null),
       applyRemote: (rows) => applyRemoteTodos(rows),
     },
     oauth: isTauriEnv() ? tauriOAuthLauncher : unsupportedOAuthLauncher,
@@ -289,6 +290,22 @@ export async function retrySync(): Promise<void> {
   syncState.actionBusy = true;
   try {
     await engine.retry();
+  } finally {
+    syncState.actionBusy = false;
+  }
+}
+
+/**
+ * 把本机全部待办上传到当前账号（用户显式动作）。
+ *
+ * 自动同步只覆盖「变更驱动」的增量；配 key 之前就存在的历史待办不在增量里，
+ * 需要这个入口才能上云。
+ */
+export async function pushAllLocal(): Promise<void> {
+  if (!engine || syncState.actionBusy) return;
+  syncState.actionBusy = true;
+  try {
+    await engine.pushAllLocal();
   } finally {
     syncState.actionBusy = false;
   }
