@@ -2657,6 +2657,26 @@ sqlx 0.8.6 给每个迁移记账，校验不通过时的**全部**文案只有�
 「**数据对应不上**」= `has been modified`（checksum 对不上）。
 **指向 checksum 不匹配**，而不是「迁移没跑完」。
 
+#### 13.36.1.1 把另外两条文案排除掉（否则又是「推断」）
+
+`success = false`（→ `is partially applied`）这条**在本项目不可能出现**，有源码依据：
+
+```rust
+// sqlx-sqlite-0.8.6/src/migrate.rs:150
+// 用同一个事务跑迁移 SQL + 写记账行，且**只写 TRUE**
+INSERT INTO _sqlx_migrations ( version, description, success, checksum, execution_time )
+VALUES ( ?1, ?2, TRUE, ?3, -1 )
+```
+
+`success = false` 是 **sqlx 0.7** 的老写法（先写 false、应用完再改 true），
+进程死在中间才会留下脏行。本项目经 `tauri-plugin-sql 2.6.0` 一直用 **sqlx 0.8.6**，
+**没有任何路径会写出 `success = false`**。
+
+而 `is missing in the resolved migrations` 要求「库里有本版本不再携带的迁移」——
+本项目的迁移列表只增不减（v1/v2/v3 永远都在），也不可能。
+
+**所以只剩一条路：checksum 不匹配。** 这不是推断，是排除法 + 源码依据 + 端到端复现。
+
 #### 13.36.2 为什么 checksum 会跨平台不一致（根因）
 
 sqlx 记的 checksum 是 **`SHA-384(SQL 的字节)`**（`sqlx-core/src/migrate/migration.rs:25`），
