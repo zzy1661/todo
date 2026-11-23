@@ -121,6 +121,19 @@ jobs:
       - name: Build frontend
         run: npm run build
 
+      # Rust 侧断言（迁移只增不改、迁移 SQL 的平台无关性、OAuth 回环、会话上限…）。
+      #
+      # **此前 Rust 测试从未进 CI** —— 「本地跑过」不等于「有防护」。
+      # 2026-11-23 的实机故障（迁移 checksum 因换行符跨平台不一致 → 应用起不来）
+      # 正是 Rust 侧的问题，而当时的 CI 里一条 Rust 断言都没跑。
+      #
+      # 放在「Build frontend」之后：`tauri::generate_context!` 会把前端产物嵌进二进制，
+      # dist 不存在时编译不过。
+      # 用 --release：与随后的 `npx tauri build` 共用同一套 release 依赖产物，
+      # 不额外编译一遍依赖。
+      - name: Rust unit tests (cargo test)
+        run: cargo test --release --manifest-path src-tauri/Cargo.toml
+
       - name: Install Playwright Chromium (unix)
         if: runner.os != 'Windows'
         run: npx playwright install --with-deps chromium

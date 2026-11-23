@@ -8,6 +8,7 @@ use tauri::Manager;
 use tauri_plugin_sql::{Builder, Migration, MigrationKind};
 
 mod startup;
+mod migrate_repair;
 
 /// 数据库文件所在目录：Tauri 的 app config dir。
 ///
@@ -37,7 +38,7 @@ fn ensure_app_data_dir(app: &tauri::AppHandle) -> Result<(), String> {
 ///
 /// v3 起同步字段以独立文件 `migrations/0003_sync_columns.sql` 引入（`include_str!`）：
 /// 该文件只做 `ADD COLUMN` 与幂等回填，v1 / v2 的 SQL 逐字未动（AC-64 / TC-077）。
-fn migrations() -> Vec<Migration> {
+pub fn migrations() -> Vec<Migration> {
     vec![
         // v1：待办表
         Migration {
@@ -72,7 +73,15 @@ fn migrations() -> Vec<Migration> {
         Migration {
             version: 3,
             description: "add_sync_columns_to_todos",
-            sql: include_str!("../migrations/0003_sync_columns.sql"),
+            // **编译期已归一化成 LF**（见 build.rs）。
+            //
+            // 为什么必须归一化：sqlx 用 `SHA-384(SQL 的字节)` 给迁移记账，
+            // 每次启动都校验，对不上就报「migration 3 was previously applied but
+            // has been modified」→ 迁移被拒 → 插件初始化失败 → 应用起不来。
+            // 而 `include_str!` 是**原样嵌入文件字节**（CRLF 就是 CRLF），
+            // Rust 的内联字面量却会被编译器归一化成 LF —— 于是 v1 / v2 各平台一致，
+            // 唯独 v3 会随 checkout 的换行符变。详见 build.rs 的注释。
+            sql: include_str!(concat!(env!("OUT_DIR"), "/0003_sync_columns.sql")),
             kind: MigrationKind::Up,
         },
     ]
@@ -673,6 +682,38 @@ pub fn run() {
     }
 
     let result = tauri::Builder::default()
+        // 迁移记账修复**必须排在 sql 插件之前**。
+        //
+        // 插件按**注册顺序**初始化（Tauri 的 PluginStore 是 `push` + `iter_mut`），
+        // 而 sql 插件的 setup 里就会做迁移校验 —— 修复晚一步就来不及了：
+        // 校验一旦失败，整个 build() 返回错误，应用直接起不来。
+        //
+        // 修的是什么：旧 Windows 安装包（v0.3.0 之前没有 `.gitattributes`，
+        // 检出是 CRLF）内嵌的是 CRLF 版 v3 SQL，库里的 checksum 也是 CRLF 版；
+        // 新包内嵌 LF 版 → 对不上。这里在校验之前把「只因换行符而对不上」的
+        // 记账纠正回来（只改记账，不动 schema 与数据）。
+        .plugin(
+            tauri::plugin::Builder::<tauri::Wry, ()>::new("migration-repair")
+                .setup(|app, _api| {
+                    let handle = app.clone();
+                    let migrations = migrations();
+                    tauri::async_runtime::block_on(async move {
+                        match migrate_repair::repair_database(&handle, &migrations).await {
+                            Ok(Some(report)) => {
+                                startup::write_log(&format!("[迁移修复] {}", report.summary()));
+                            }
+                            Ok(None) => {}
+                            Err(error) => {
+                                // 修不了也要继续往下走：让 sqlx 报出**准确**的原始错误，
+                                // 而不是我们猜的错。
+                                startup::write_log(&format!("[迁移修复] 未能完成：{error}"));
+                            }
+                        }
+                    });
+                    Ok(())
+                })
+                .build(),
+        )
         .plugin(
             Builder::new()
                 .add_migrations("sqlite:todo.db", migrations())
@@ -707,7 +748,10 @@ pub fn run() {
             "日程待办 启动失败",
             &format!(
                 "应用初始化未完成：\n\n{err}\n\n\
-                 详细信息已写入日志：\n{}",
+                 详细信息已写入日志：\n{}\n\n\
+                 若日志显示「migration ... was previously applied」，说明本地数据库的\
+                 迁移记账与当前版本对不上。可删除该目录下的 todo.db 重置本地数据后重试\
+                 （已登录并同步过的数据会从云端拉回；仅存于本机的待办会丢失）。",
                 startup::log_path().display()
             ),
         );

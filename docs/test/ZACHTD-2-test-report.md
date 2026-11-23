@@ -2634,6 +2634,123 @@ UnicodeEncodeError: 'utf-8' codec can't encode character '\udc81' in position 20
    依赖外部解释器时，**要显式指定编码，不要依赖 locale**。
 3. **错误信息可能自己触发那个错误**——在 Python 字符串里写 `\uXXXX` 字面量时用 raw 字符串。
 
+### 13.36 Windows 实机：启动报「数据对不上·部分数据已经执行过了」（v0.3.2）
+
+> 需求方反馈：**Windows 启动报错**，具体内容记不清了，大意是
+> **「数据对应不上，部分数据已经执行过了」**。
+>
+> 这次**不能靠猜**——但也不能像 v0.2.7 那样「推断出一个原因就去修」。
+> 所以先把机制查清楚，再对症。
+
+#### 13.36.1 症状与 sqlx 的报错逐字对应
+
+sqlx 0.8.6 给每个迁移记账，校验不通过时的**全部**文案只有三条：
+
+```rust
+// sqlx-core-0.8.6/src/migrate/error.rs
+"migration {0} was previously applied but is missing in the resolved migrations"
+"migration {0} was previously applied but has been modified"
+"migration {0} is partially applied; fix and remove row from `_sqlx_migrations` table"
+```
+
+需求方那句「**部分数据已经执行过了**」= `was previously applied`，
+「**数据对应不上**」= `has been modified`（checksum 对不上）。
+**指向 checksum 不匹配**，而不是「迁移没跑完」。
+
+#### 13.36.2 为什么 checksum 会跨平台不一致（根因）
+
+sqlx 记的 checksum 是 **`SHA-384(SQL 的字节)`**（`sqlx-core/src/migrate/migration.rs:25`），
+每次启动都比对，不一致就拒绝迁移。而「SQL 的字节」有两个来源，行为**完全不同**：
+
+| 来源 | 换行符处理 | 结果 |
+| --- | --- | --- |
+| Rust **内联字符串字面量** | 编译器把 CRLF **归一化成 LF** | 各平台字节一致 → checksum 恒定 |
+| **`include_str!` 读文件** | **原样嵌入文件字节** | checksum **随 checkout 的换行符变化** |
+
+本项目 v1 / v2 是**内联字面量**（安全），**v3 是 `include_str!` 读 `.sql` 文件**
+—— 全项目**唯一**一个 checksum 会随平台变的迁移。
+
+**实测验证**（Rust 1.92，编译器确实会归一化内联字面量）：
+
+```
+CRLF 源文件 → include_str! → len=10 "AAA\r\nBBB\r\n"
+LF   源文件 → include_str! → len=8  "AAA\nBBB\n"     两者相同？ false
+CRLF 源文件 → 内联字面量   → "AAA\nBBB"（CRLF 被归一化）
+LF   源文件 → 内联字面量   → "AAA\nBBB"             两者相同？ true
+```
+
+**事故链**：
+
+1. v0.3.0 之前仓库**没有 `.gitattributes`**，而 `actions/checkout` 在 Windows 上把
+   `core.autocrlf` 设成 true → 检出为 **CRLF**；
+2. v0.2.0 – v0.2.5 的 Windows 安装包内嵌 **CRLF 版** v3 SQL → 它们的库记下 **CRLF 版 checksum**；
+3. v0.3.0 起有 `.gitattributes`（LF）→ 新包算出 **LF 版 checksum**；
+4. 对不上 → sqlx 拒绝迁移 → sql 插件初始化失败 → `build()` 返回错误 → **应用起不来**。
+
+#### 13.36.3 修法：三层
+
+**① 根因**：`build.rs` 在**编译期**把 v3 SQL 归一化成 LF，写进 `OUT_DIR`，
+`lib.rs` 改用 `include_str!(concat!(env!("OUT_DIR"), "/0003_sync_columns.sql"))`。
+各平台内嵌的字节从此完全一致，checksum 永久稳定。
+
+**② 既有库**：已经用旧 Windows 包建过库的机器，库里记的还是 CRLF 版 checksum。
+新增 `src-tauri/src/migrate_repair.rs`，注册成**排在 sql 插件之前**的插件
+（Tauri 的插件按**注册顺序**初始化：`PluginStore::push` + `iter_mut`），
+在迁移校验**之前**把「只因换行符而对不上」的记账纠正回来。判定条件很严：
+
+- 记账值必须**恰好等于**「当前 SQL 换成 CRLF 后的 checksum」——
+  否则说明内容真被改过，**不碰**，让 sqlx 报准确的原始错误；
+- 还必须有 **schema 证据**（v3 的 `todos.uuid` / `updated_at_ms` / `deleted` 都在）
+  ——证明那次迁移真的执行过；
+- **只改记账，不动 schema、不动数据。**
+
+**③ 可见性**：失败不再静默。`lib.rs` 早已用 `startup::fatal()` 把
+`build()` 的错误弹成原生消息框并写进 `startup.log`（这条本来就做对了）。
+
+#### 13.36.4 断言守护（三层，每层都用「故意注入回归」验证过会红）
+
+| 层 | 断言 | 注入回归 | 结果 |
+| --- | --- | --- | --- |
+| **源码级**（Node 自检，任何平台都咬得住） | `lib.rs` 的 v3 必须取 `OUT_DIR` 归一化产物；不得直接 `include_str!` 源文件；`build.rs` 必须做 CRLF→LF | 把 `lib.rs` 改回直接 include 源文件 | ✗ 2 项断言失败 ✓ |
+| **运行期**（Rust 单测，CRLF 平台才咬得住） | 每个迁移的 SQL 不得含 CR；内嵌的 v3 必须等于「源文件归一化后」 | 源文件转 CRLF + `lib.rs` 改回直接 include | ✗ 2 个测试 FAILED ✓ |
+| **编译期**（build.rs，任何平台） | 归一化产物里不得残留 CR | — | 断言在 build 里 ✓ |
+
+另补一条**纪律**：**Rust 测试此前从未进 CI**（16 个自检脚本进 CI 了，Rust 侧的
+迁移只增不改、OAuth 回环、会话上限等断言全在本地跑）。
+现已在 workflow 里加 `cargo test --release` 步骤（放在 `Build frontend` 之后 ——
+`tauri::generate_context!` 要把前端产物嵌进二进制，dist 不存在编译不过）。
+
+#### 13.36.5 端到端验证（真造了一个「旧 Windows 包」的库）
+
+本机造库：v1 / v2 记**内联字面量**的 LF 版 checksum（真实情况），
+v3 记 **CRLF 版** checksum，并放入一条历史待办「迁移前甲」。
+启动应用后：
+
+```
+[04:45:13] ==== 应用启动 ====
+[04:45:13] WebView2 就绪："19616.2.9.11.7"
+[04:45:13] [迁移修复] 迁移 3：记账 checksum 因换行符不一致，已按当前 SQL 纠正（schema 与数据未改动）
+```
+
+| 项 | 结果 |
+| --- | --- |
+| 应用启动 | ✓ 进程在跑，无报错 |
+| v1 / v2 / v3 记账 | 全部归位为 LF 版 checksum ✓ |
+| 历史数据 | 「迁移前甲」**一条没丢** ✓ |
+| `todos` 表结构 | `uuid` / `updated_at_ms` / `deleted` 三列完好 ✓ |
+
+#### 13.36.6 这一轮补进纪律的
+
+1. **数据文件也是跨平台契约**——不只是代码能跑，**旧版本留下的数据文件**也得能被新版本认出来。
+   「旧 Windows 包建的库」是真实存在的资产，不能一句「删库重装」打发。
+2. **「同一份源码」不等于「同一份字节」**——编译期会归一化内联字面量，
+   但**不会**归一化 `include_str!` 读进来的文件。凡是「字节进哈希」的地方，
+   都要先问一句「这字节跨平台一致吗」。
+3. **修复既有数据时，判定条件要比「看起来像」严格**——本实现要求
+   「差异恰好等于换行符造成的」**且**「有 schema 证据」，
+   否则一律不碰，让原始错误暴露出来。宁可让用户看到准确的报错，
+   也不要一个「善意的」猜测把真问题盖掉。
+
 ---
 
 ## 14. AC-01 ~ AC-70 统一判定台账（70 行）

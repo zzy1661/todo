@@ -50,6 +50,7 @@ v0.2.3 的教训正卡在这里：`cmd /C start` 是 Windows 专有的、被正�
 | B4 | 换行符 CRLF/LF | ✅ **已修（v0.3.0）**：仓库原本没锁换行符，而 `actions/checkout` 在 Windows 上把 `core.autocrlf` 设成 true → checkout 出来全是 CRLF；任何「按 `\n` 找边界」的代码与脚本在 Windows 上失配而 macOS 完全正常 | `.gitattributes`（`* text=auto eol=lf`）+ 脚本改成换行符无关 |
 | B5 | 文件锁 / 原子写 | ✅ 落盘失败有 try/catch；`fs::rename` 在 Windows 带 `MOVEFILE_REPLACE_EXISTING`，会覆盖而非失败 | — |
 | B6 | 目录权限 / 自动创建 | ✅ `create_dir_all` 兜底 | — |
+| B7 | **数据库文件跨版本 / 跨平台兼容** | ✅ **已修（v0.3.2）**：sqlx 用 `SHA-384(SQL 的字节)` 给迁移记账，对不上就拒绝迁移 → 应用起不来。而**内联字面量**的字节会被编译器归一化成 LF、**`include_str!` 读的文件**却原样嵌入 → 只有 v3 的 checksum 会随换行符变。已改为编译期归一化（`build.rs`）+ 既有库自动纠正（`migrate_repair.rs`，只改记账不动数据） | Rust 单测（SQL 不含 CR）+ Node 源码级断言 + `build.rs` 编译期断言，三层均注入回归验证 |
 
 ## 三、进程与命令
 
@@ -93,7 +94,8 @@ v0.2.3 的教训正卡在这里：`cmd /C start` 是 Windows 专有的、被正�
 | F1 | 三份 conf 的平台中立 | ✅ 一个平台不写死另一端的产物形态 | `check-bundle-config.mjs`（54 条） |
 | F2 | WebView2 安装模式 | ✅ `embedBootstrapper`（`offlineInstaller` 会让 artifact 涨到 418MB，已实测放弃） | `check-bundle-config.mjs` |
 | F3 | tag 与 `tauri.conf.json` 版本号一致 | ✅ 两处同源（CI 用它命名 Release 资产） | 发版流程 |
-| F7 | **改版本号时不能批量正则替换** | ⚠️ **已踩坑（v0.3.1）**：用一条 `perl s/0\.3\.0/0.3.1/g` 改版本，把 **`src-tauri/Cargo.lock` 里依赖 `alloc-stdlib` 的版本号也改了** → registry 里没有这个版本 → **打包直接失败**（而且 `npm run tauri build \| tail` 会把退出码吃掉，看起来像成功）。**正确做法**：只改 `package.json` / `tauri.conf.json` / `Cargo.toml` 里**本包自己的** `version` 字段，`Cargo.lock` 里也**只改 `name = "todo"` 那一段**；改完必须 `git diff` 逐条核对 | 发版流程 |
+| F7 | **改版本号时不能批量正则替换** | ⚠️ **已踩坑（v0.3.1）**：用一条 `perl s/0\.3\.0/0.3.1/g` 改版本，把 **`src-tauri/Cargo.lock` 里依赖 `alloc-stdlib` 的版本号也改了** → registry 里没有这个版本 → **打包直接失败**（而且 `npm run tauri build \| tail` 会把退出码吃掉，看起来像成功）。**正确做法**：只改 `package.json` / `tauri.conf.json` / `Cargo.toml` 里**本包自己的** `version` 字段，`Cargo.lock` **交给 cargo 自己更新**（改完 `Cargo.toml` 后跑一次 `cargo metadata`）；改完必须 `git diff` 逐条核对 | 发版流程 |
+| F8 | **Rust 侧断言是否进 CI** | ✅ **已补（v0.3.2）**：此前 16 个 Node 自检脚本进了 CI，**Rust 侧的断言（迁移只增不改、OAuth 回环、会话上限、凭据上限…）却从未跑过 CI** ——「本地跑过」不等于「有防护」，而 v0.3.2 这个故障恰恰是 Rust 侧的问题 | workflow 新增 `cargo test --release` 步骤（置于 `Build frontend` 之后，因 `generate_context!` 要嵌入前端产物） |
 | F4 | NSIS / WiX 语言与安装模式 | ✅ `currentUser` + `SimpChinese`/`English`，允许中文安装路径 | — |
 | F5 | 代码签名 | ⚠️ 遗留：CI 产物未签名 → Windows SmartScreen 拦截；本期无证书不做签名 | — |
 | F6 | CI 的 Windows 步骤真出包 | ✅ 真跑 `npx tauri build` + `if-no-files-found: error` | CI 本身 |
@@ -117,6 +119,36 @@ v0.2.3 的教训正卡在这里：`cmd /C start` 是 Windows 专有的、被正�
    改它属**架构变更**（PRD 的数据目录契约）。
 5. **Windows 的真实登录流程未实机验证**——本机无 Windows 环境；
    CI 只能证明「能编译」，证明不了「调用序列对」。
+
+## Rust 侧的守护（此前完全没进 CI）
+
+```bash
+cargo test --manifest-path src-tauri/Cargo.toml
+```
+
+Rust 侧承载着一批**只有它能断言**的契约：迁移只增不改、迁移 SQL 的平台无关性、
+OAuth 回环、会话 blob 上限与 BOM 剥离、凭据上限对齐 Windows 常量……
+
+**这些断言此前只在本地跑** —— 和「16 个自检脚本一个都不进 CI」是同一类问题。
+现在 workflow 里有 `cargo test --release` 步骤。
+
+> 迁移 SQL 的平台无关性有三层守护，任何一层被绕过都会让 checksum 再次跨平台不一致：
+> **源码级**（`lib.rs` 不得直接 include 源文件）、**运行期**（SQL 不得含 CR）、
+> **编译期**（`build.rs` 断言归一化产物无 CR）。
+
+## 「数据文件」也是跨平台契约
+
+代码能跑不等于**旧版本留下的数据文件**能被新版本认出来。
+
+v0.3.2 之前，Windows 上「旧包建的库」因为迁移 checksum 跨平台不一致而**打不开**——
+这不是「代码在 Windows 上有 bug」，而是「数据文件在两个平台之间不兼容」。
+处理这类问题时要记住：
+
+1. **不能一句「删库重装」打发**——用户的本地待办是真实资产；
+2. 修复既有数据时，**判定条件要比「看起来像」严格**：
+   本实现要求「差异恰好等于换行符造成的」**且**「有 schema 证据」，
+   否则一律不碰、让原始错误暴露出来；
+3. **宁可让用户看到准确的报错**，也不要用一个善意的猜测把真问题盖掉。
 
 ## 守护脚本
 

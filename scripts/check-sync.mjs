@@ -1088,6 +1088,50 @@ section('⑨ 每 2 天自动同步：假时钟推进 2 天 → 真跑一轮拉�
 
 /* ================================================================ 迁移证据 */
 
+/**
+ * v3 迁移 SQL 必须**与平台无关**。
+ *
+ * 背景（2026-11-23 实机故障「启动报错·数据对不上·部分数据已经执行过了」）：
+ * sqlx 用 `SHA-384(SQL 的字节)` 给迁移记账，对不上就报
+ * 「migration 3 was previously applied but has been modified」→ 迁移被拒 → 应用起不来。
+ * 而 `include_str!` 是**原样嵌入文件字节**（CRLF 就是 CRLF），Rust 的内联字面量
+ * 却会被编译器归一化成 LF —— 于是 v1 / v2 各平台一致，**唯独 v3 会随换行符变**。
+ *
+ * v0.3.0 之前没有 `.gitattributes`，Windows 检出是 CRLF → 旧 Windows 安装包内嵌
+ * CRLF 版 v3 SQL、库里记的是 CRLF 版 checksum；新包是 LF 版 → 对不上。
+ *
+ * 这些断言是**源码级**的，所以在任何平台都咬得住
+ * （运行期的「SQL 不含 CR」断言在本来就只有 LF 的 macOS 上是恒真的）。
+ */
+section('v3 迁移 SQL 必须与平台无关（checksum 不能随换行符变）');
+{
+  const libSource = fs.readFileSync('src-tauri/src/lib.rs', 'utf8');
+  const buildSource = fs.readFileSync('src-tauri/build.rs', 'utf8');
+
+  assert(
+    /include_str!\(\s*concat!\(\s*env!\("OUT_DIR"\)\s*,\s*"\/0003_sync_columns\.sql"\s*\)\s*\)/.test(
+      libSource
+    ),
+    'lib.rs 的 v3 迁移必须取 include_str!(concat!(env!("OUT_DIR"), "/0003_sync_columns.sql")) —— 那是 build.rs 归一化后的产物'
+  );
+  assert(
+    !/include_str!\("\.\.\/migrations\//.test(libSource),
+    'lib.rs 不得直接 include_str! 源迁移文件：换行符会原样嵌入，checksum 随平台变'
+  );
+  assert(
+    /replace\("\\r\\n",\s*"\\n"\)/.test(buildSource),
+    'build.rs 必须把迁移 SQL 的 CRLF 归一化成 LF'
+  );
+
+  const v3File = fs.readFileSync('src-tauri/migrations/0003_sync_columns.sql', 'utf8');
+  assert(
+    !v3File.includes('\r'),
+    '仓库里的 0003_sync_columns.sql 必须是 LF（由 .gitattributes 保证）'
+  );
+
+  endSection();
+}
+
 section('v3 迁移结构证据（TC-076 / AC-64，只给 todos 加列）');
 migrationEvidence: {
   const dbPath = path.join(os.tmpdir(), `todo_v3_check_${process.pid}_${Date.now()}.db`);
