@@ -354,11 +354,68 @@ for (const rule of SCRIPT_RULES) {
   }
 }
 
+/* --------------------------------------------- Rust 侧（含 tests/）的外部命令依赖 */
+
+/**
+ * Rust 侧也可能在**测试**里依赖只在单一平台存在的命令。
+ *
+ * 2026-11-23 的实例：`src-tauri/tests/migration_guard.rs` 用 `sqlite3` 命令行跑真实 SQL，
+ * 注释里还写着「**macOS 自带**」—— 但没有平台分支。而 `sqlite3` 命令只有 macOS 有
+ * （windows-latest 的 runner 镜像里没有）。于是这个集成测试在 Windows 上**必然失败**：
+ * 「无法执行 sqlite3 命令（macOS 自带）：program not found」。
+ *
+ * 它之所以一直没被发现：**Rust 测试此前从未进 CI**。
+ * 补上 `cargo test` 步骤后，第一次跑就当场暴露。
+ *
+ * 修法：改用 **sqlx**（本来就在依赖树里），两端一致、不依赖外部命令。
+ */
+const RUST_EXTERNAL_COMMANDS = [
+  {
+    command: 'sqlite3',
+    note: 'sqlite3 命令只有 macOS 自带；windows-latest 的 runner 镜像里没有。请改用 sqlx（已在依赖树里）。',
+  },
+];
+
+const rustRoots = ['src-tauri/src', 'src-tauri/tests'];
+const rustFiles = [];
+for (const root of rustRoots) {
+  const walkRust = (dir) => {
+    let entries;
+    try {
+      entries = readdirSync(dir);
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      const full = join(dir, entry);
+      if (statSync(full).isDirectory()) walkRust(full);
+      else if (entry.endsWith('.rs')) rustFiles.push(full);
+    }
+  };
+  walkRust(root);
+}
+
+for (const { command, note } of RUST_EXTERNAL_COMMANDS) {
+  const pattern = new RegExp(`Command::new\\(\\s*"${command}"\\s*\\)`);
+  for (const file of rustFiles) {
+    const lines = readFileSync(file, 'utf8').split('\n');
+    lines.forEach((line, index) => {
+      if (!pattern.test(line)) return;
+      const trimmed = line.trim();
+      if (trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*')) return;
+      errors.push(
+        `${file}:${index + 1} 调用了只在单一平台存在的命令 '${command}'：${note}`
+      );
+    });
+  }
+}
+
 console.log('平台可移植性校验（scripts/check-platform-portability.mjs）');
 console.log(`  扫描文件数    ${files.length}（src/ + src-tauri/src/）`);
 console.log(
   `  守护规则      ${PLATFORM_TOKENS.length} 条（平台专有调用必须被 #[cfg(...)] 保护）` +
-    ` + ${SCRIPT_RULES.length} 条（scripts/ 的外部命令依赖）`
+    ` + ${SCRIPT_RULES.length} 条（scripts/ 的外部命令依赖）` +
+    ` + ${RUST_EXTERNAL_COMMANDS.length} 条（Rust 侧的外部命令依赖）`
 );
 console.log(`  违规          ${errors.length}`);
 

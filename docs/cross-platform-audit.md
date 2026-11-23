@@ -172,6 +172,15 @@ Windows 的 `powershell`、`cmd.exe`、`cmd` 进程、`cmd /C` 参数、
 | S1b | 用了 `npmCmd` 就必须真的写 `.cmd` 分支 | 换了个写法，坑还在 |
 | S2 | 除 `scripts/sqlite-backend.mjs` 外不得直接调 `'sqlite3'` | windows-latest 镜像没有 sqlite3.exe → ENOENT |
 
+**第三部分：Rust 侧的外部命令依赖**（扫 `src-tauri/src/` **与 `src-tauri/tests/`**）
+
+| 规则 | 内容 | 对应的真实故障 |
+| --- | --- | --- |
+| R1 | Rust 侧（含**测试**）不得调用只在单一平台存在的命令（`sqlite3`） | `tests/migration_guard.rs` 用 `sqlite3` 命令行跑真实 SQL，注释写着「macOS 自带」却无平台分支 → **Windows 上必然失败** |
+
+> **`tests/` 也要扫**：产品代码守得再严，测试里的平台假设一样会让 CI 在另一端红。
+> 这条规则是 2026-11-23 补 `cargo test` 进 CI 后**第一次跑**就逼出来的。
+
 **脚本本身是用「故意注入回归」验证的**：每个缺陷都是靠注入一个真实回归逼出来的，
 产品代码部分共修过 5 轮（cfg 嵌套括号解析、越过 item 边界、链式调用缩进、局部 const 误判、
 顶层与嵌套 item 未区分、只覆盖字符串 token 漏掉 API 名），当前 **7 个注入点全部判红，

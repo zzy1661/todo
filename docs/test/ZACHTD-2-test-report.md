@@ -2771,6 +2771,79 @@ v3 记 **CRLF 版** checksum，并放入一条历史待办「迁移前甲」。
    否则一律不碰，让原始错误暴露出来。宁可让用户看到准确的报错，
    也不要一个「善意的」猜测把真问题盖掉。
 
+### 13.37 Rust 测试第一次进 CI，当场抓到另一个 Windows-only 缺陷（v0.3.3）
+
+> §13.36 补了 `cargo test` 进 CI。**下一个 run 就抓到了东西**——
+> 这正是「把断言接进 CI」的意义：不是「多跑一遍」，而是**新增了一整个此前不存在的观测面**。
+
+#### 13.37.1 现象
+
+v0.3.2 的 CI：macOS 全绿，**Windows 死在 `Rust unit tests (cargo test)`**（新加的那一步）：
+
+```
+test sqlite_path_matches_localstorage_semantics ... FAILED
+test v3_migration_adds_sync_columns_to_todos_only ... FAILED
+thread '...' panicked at tests\migration_guard.rs:22:29:
+无法执行 sqlite3 命令（macOS 自带）：program not found
+```
+
+#### 13.37.2 根因：**同一个老毛病的第四个实例**
+
+`src-tauri/tests/migration_guard.rs` 用 `sqlite3` **命令行**跑真实 SQL，
+文件头注释还明明白白写着「**macOS 自带**」—— 但**没有任何平台分支**。
+
+而 `sqlite3` 命令只有 macOS 有（windows-latest 的 runner 镜像里没有）→
+这个集成测试在 Windows 上**必然失败**。
+
+它为什么一直没被发现？因为 **Rust 测试此前从未进 CI**。
+本地跑永远在 macOS 上 → 永远绿。**「本地全绿」不等于「两端都成立」**——
+这是 §13.34 那条纪律的第四个实例，只是这次藏在 Rust 侧。
+
+#### 13.37.3 修法：改用 sqlx，输出格式刻意与 CLI 对齐
+
+`sqlx` 本来就在依赖树里（`tauri-plugin-sql` 也用它），所以**零新增编译量**：
+
+| 原实现 | 新实现 |
+| --- | --- |
+| `Command::new("sqlite3")` + stdin 喂 SQL | `sqlx::raw_sql()`（支持多语句与 `--` 注释） |
+| 解析 CLI 的 `\|` 分隔输出 | 直接取行，**按 CLI 的 list 模式渲染**（`\|` 分隔、NULL 输出空串） |
+
+**断言语义一字未改** —— 期望值仍然是 `"C\nA2\nD\nB"`、`"A2\|2026-11-01\|1\|"` 这种形态。
+渲染方式对齐了 CLI，测试就仍然在验证同一件事。
+
+顺带一个实现细节：**sqlx 的类型检查是严格的**——INTEGER 列按 `String` 解会直接报
+「mismatched types; Rust type `Option<String>` (as SQL type `TEXT`) is not compatible
+with SQL type `INTEGER`」。而 SQLite 自己的 `sqlite3_value_text` 是**任何类型都能转文本**
+（CLI 就靠它）。sqlx 没把这个入口暴露成公开 API，于是按「文本 → 整数 → 实数」依次尝试解码，
+**等价于 SQLite 的那套转换规则**。
+
+#### 13.37.4 守护：可移植性检查器扩到 Rust 侧
+
+新增规则（扫 `src-tauri/src/` **与 `src-tauri/tests/`**）：
+
+| 规则 | 内容 | 注入回归 |
+| --- | --- | --- |
+| R1 | Rust 侧（含测试）不得调用只在单一平台存在的命令（`sqlite3`） | 在测试里加一行 `Command::new("sqlite3")` → 判红 ✓ |
+
+**注意 `tests/` 也要扫**——产品代码守得再严，测试里的平台假设一样会让 CI 在另一端红。
+
+#### 13.37.5 验证
+
+| 项 | 结果 |
+| --- | --- |
+| `cargo test`（单元 16 + 集成 4） | 全过 ✓ |
+| **屏蔽 `sqlite3` 后重跑集成测试**（仿真 Windows 条件） | 4/4 全过 ✓ —— 证明已无命令依赖 |
+| 守护规则注入回归（R1） | 判红 ✓，还原后无误报 ✓ |
+| `npm run check:unit` | 10/10 ✓ |
+| Windows CI | 由本次 run 实跑确认 |
+
+#### 13.37.6 补进纪律
+
+1. **「本地全绿」不等于「两端都成立」**——断言没进 CI 的那一端，等于没有断言。
+   补 `cargo test` 步骤后**第一次跑**就抓到，说明这个观测面值得开。
+2. **注释里的「macOS 自带」不是保护**——那是**说明**，不是**分支**。
+   凡是「某平台才有」的东西，都要么给退路，要么就别用。
+
 ---
 
 ## 14. AC-01 ~ AC-70 统一判定台账（70 行）
