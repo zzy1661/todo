@@ -106,6 +106,31 @@ const isUnauthorized = (error: unknown): boolean =>
 const MISSING_TABLE_DETAIL =
   '云端缺少 todos 表（PGRST205）：请在 Supabase SQL Editor 执行仓库里的 supabase/schema.sql，然后点「立即重试」';
 
+/**
+ * 把一次拉取的结果说清楚。
+ *
+ * **为什么要报「远端行数」**：合并有三种结果 —— 新增 / 覆盖本地 / **保持本地不变**
+ * （后者记在 `stats.skipped` 里）。只报「新增 X 条、更新 Y 条」的话，
+ * 「云端返回 0 行」与「云端返回 5 行但本地已是最新」会显示成**一模一样**的
+ * 「新增 0 条、更新 0 条」——用户分不出「云端没有我的数据」和「早就同步过了」。
+ *
+ * （2026-11-23 实机反馈「Windows 同步一条都没拉到」：实测云端从来没有该用户的行，
+ * 而界面只说了「新增 0 条、更新 0 条」，无从判断。）
+ */
+export function describePull(
+  reason: string,
+  remoteCount: number,
+  stats: MergeStats
+): string {
+  const head = `已拉取（${reason}）`;
+  if (remoteCount === 0) {
+    return `${head} · 云端暂无你的数据（远端 0 行）`;
+  }
+  const parts = [`远端 ${remoteCount} 行`, `新增 ${stats.inserted} 条`, `更新 ${stats.updated} 条`];
+  if (stats.skipped > 0) parts.push(`已是最新 ${stats.skipped} 条`);
+  return `${head} · ${parts.join('、')}`;
+}
+
 export class SyncEngine {
   private readonly options: SyncEngineOptions;
   private readonly debounceMs: number;
@@ -346,11 +371,32 @@ export class SyncEngine {
       const rows = await this.options.api.pull(token);
       const stats = await this.options.local.applyRemote(rows);
       this.options.onMerged?.(stats);
-      // 把**拉了多少条**说出来：否则「已拉取」既可能是「拉到 3 条」也可能是
-      // 「一条都没拉到」，用户无法区分「云端没有数据」和「拉取失败/被拦」。
-      this.markSuccess(
-        `已拉取（${reason}）· 新增 ${stats.inserted} 条、更新 ${stats.updated} 条`,
-      );
+
+      // 把**远端返回了几行**说出来。
+      //
+      // 为什么必须区分「远端行数」：合并有三种结果 —— 新增 / 覆盖本地 /
+      // **保持本地不变**（记在 `stats.skipped` 里）。只报「新增 X 条、更新 Y 条」的话，
+      // 「云端返回 0 行」与「云端返回 5 行但本地已是最新」会显示成**一模一样**的
+      // 「新增 0 条、更新 0 条」——用户根本分不出「云端没有我的数据」和「早就同步过了」。
+      // （2026-11-23 实机反馈「Windows 同步一条都没拉到」，实为云端从来没有该用户的行。）
+      const remoteCount = rows.length;
+      let localNotUploaded = 0;
+      if (remoteCount === 0) {
+        // 云端空：数一下本机有多少条**还没上云**。
+        // 自动同步只推「变更驱动」的增量，**登录之前就存在的历史待办不在增量里**，
+        // 所以「云端 0 行」多半不是故障，而是「本地数据还没上传」——
+        // 界面据此直接给出「点『上传本机全部』」的指引。
+        //
+        // **这条是诊断增强，绝不能让它拖垮同步本身**：网关实现缺失或查询失败时，
+        // 静默跳过提示（计数保持 0），拉取照常成功。
+        try {
+          const local = await this.options.local.loadAll();
+          localNotUploaded = local.filter((row) => !row.deleted).length;
+        } catch {
+          localNotUploaded = 0;
+        }
+      }
+      this.markSuccess(describePull(reason, remoteCount, stats), { localNotUploaded });
       this.busy = false;
       return stats;
     } catch (error) {
@@ -454,6 +500,9 @@ export class SyncEngine {
         detail: '未登录',
         email: '',
         nextAutoSyncAt: null,
+        // 登出后「本地还有多少条没上云」不再有意义（而且那时的上传按钮是禁用的，
+        // 留着提示只会让人点不动）。
+        localNotUploaded: 0,
       });
     }
     if (token && this.options.config.enabled) {
@@ -613,7 +662,8 @@ export class SyncEngine {
       }
       await this.options.api.push(token, this.session.userId, rows);
       this.retryIndex = 0;
-      this.markSuccess(`已上传本机全部 ${rows.length} 条待办`);
+      // 上传完了：本机待办**已经在云端**，「还没上云」的提示必须撤掉。
+      this.markSuccess(`已上传本机全部 ${rows.length} 条待办`, { localNotUploaded: 0 });
     } catch (error) {
       this.busy = false;
       const message = error instanceof Error ? error.message : String(error);
@@ -640,13 +690,14 @@ export class SyncEngine {
 
   /* ----------------------------------------------------------- 内部 */
 
-  private markSuccess(detail: string): void {
+  private markSuccess(detail: string, extra?: Partial<SyncStatus>): void {
     this.setStatus({
       phase: this.session ? 'signed-in' : 'signed-out',
       detail,
       lastSyncAt: this.options.clock.now(),
       lastResult: 'ok',
       lastError: '',
+      ...extra,
     });
   }
 

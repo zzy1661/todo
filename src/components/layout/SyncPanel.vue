@@ -71,6 +71,17 @@ const canLogin = computed(
       <p v-else-if="status.phase === 'error' && status.lastError" class="sync-hint">
         {{ status.lastError }}
       </p>
+      <!--
+        云端为空、但本机还有没上云的待办时，给出**下一步该做什么**。
+        自动同步只推「变更驱动」的增量，**登录之前就存在的历史待办不在里面**，
+        所以「云端 0 行」通常不是故障，而是「本地数据还没上传」。
+        没有这条提示，用户只会看到「新增 0 条、更新 0 条」，无从判断。
+      -->
+      <p v-else-if="status.localNotUploaded" class="sync-hint">
+        云端还没有你的数据：本机有 {{ status.localNotUploaded }} 条待办尚未上传
+        （自动同步只推「登录后被改动过」的增量，登录前的历史待办不在里面）。
+        点下面的「上传本机全部」即可同步到云端。
+      </p>
 
       <footer class="sync-actions">
         <button

@@ -61,6 +61,18 @@ export interface SyncStatus {
   autoSyncIntervalMs: number;
   /** 下一轮定时同步的时刻（毫秒）；null = 未排期 */
   nextAutoSyncAt: number | null;
+  /**
+   * 云端为空时，本机有多少条待办**还没上云**（0 = 无 / 不适用）。
+   *
+   * 为什么要有它：自动同步只推「**变更驱动**的增量」，**登录之前就存在的历史待办
+   * 不在增量里**。所以「云端 0 行」通常不是故障，而是「本地数据还没上传」——
+   * 用户看到「一条都没拉到」却不知道该做什么。
+   * 有这个数字，界面就能直接提示「点『上传本机全部』」，而不是让用户自己猜。
+   *
+   * （2026-11-23 实机反馈：Windows 上「同步一条都没拉到」，实测为云端从来没有
+   * 该用户的行——本机 8 条待办的修改时间全部早于登录锚点，从未进入推送队列。）
+   */
+  localNotUploaded?: number;
 }
 
 export const EMPTY_STATUS: SyncStatus = {
@@ -73,6 +85,7 @@ export const EMPTY_STATUS: SyncStatus = {
   autoSyncEnabled: false,
   autoSyncIntervalMs: 0,
   nextAutoSyncAt: null,
+  localNotUploaded: 0,
 };
 
 /** 合并结果统计（AC-61 / AC-63 的观察点） */

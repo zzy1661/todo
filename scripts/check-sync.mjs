@@ -1644,13 +1644,107 @@ section('⑬ SQLite 后端等价：命令行与 Python 必须给出相同结果'
   endSection();
 }
 
+/* ================================================ ⑭ 「拉取结果」必须说清楚 */
+
+/**
+ * 拉取结果必须区分「远端 0 行」与「远端 N 行但本地已是最新」。
+ *
+ * 背景（2026-11-23 实机反馈「Windows 同步一条都没拉到」）：
+ * 合并有三种结果 —— 新增 / 覆盖本地 / **保持本地不变**（记在 `stats.skipped` 里）。
+ * 原实现只报「新增 X 条、更新 Y 条」，于是
+ * 「云端返回 0 行」与「云端返回 5 行但本地已是最新」显示成**一模一样**的
+ * 「新增 0 条、更新 0 条」——用户分不出「云端没有我的数据」和「早就同步过了」。
+ *
+ * 实测那次：云端 schema 完全正常（与 `supabase/schema.sql` 一致），
+ * 但**从来没有该用户的行**——本机 8 条待办的修改时间全部早于登录锚点，
+ * 从未进入推送队列（自动同步只推「变更驱动」的增量）。
+ * 所以「0 条」不是故障，是**本地数据还没上传**，界面必须把这件事说出来。
+ */
+section('⑭ 拉取结果说清「远端 N 行」，云端为空时给出上传指引');
+{
+  const { describePull } = await import('../src/sync/engine.ts');
+
+  // ── 文案语义
+  const emptyText = describePull('登录', 0, { inserted: 0, updated: 0, skipped: 0 });
+  assert(
+    emptyText.includes('云端暂无你的数据'),
+    `远端 0 行必须明说「云端暂无你的数据」，实际：${emptyText}`
+  );
+
+  const someText = describePull('登录', 5, { inserted: 1, updated: 2, skipped: 2 });
+  assert(someText.includes('远端 5 行'), `必须报出远端行数，实际：${someText}`);
+  assert(
+    someText.includes('新增 1 条') && someText.includes('更新 2 条'),
+    `必须报出新增/更新数，实际：${someText}`
+  );
+  assert(
+    someText.includes('已是最新 2 条'),
+    `保持本地不变的条数也要说出来（否则与「0 条」混淆），实际：${someText}`
+  );
+
+  const noSkip = describePull('登录', 3, { inserted: 3, updated: 0, skipped: 0 });
+  assert(
+    !noSkip.includes('已是最新'),
+    `skipped 为 0 时不该显示「已是最新」，实际：${noSkip}`
+  );
+
+  // ── 运行期：云端为空 → localNotUploaded = 本机待办数
+  {
+    resetLocal([
+      makeTodo({ id: 1, uuid: 'local-a', updated_at_ms: 1000 }),
+      makeTodo({ id: 2, uuid: 'local-b', updated_at_ms: 1000 }),
+    ]);
+    const stub = await createMockSupabase();
+    const statuses = [];
+    const { engine, off } = buildEngine(stub, {
+      sessionStore: createMemorySessionStore(),
+      oauth: createOAuthLauncher(),
+      onStatus: (status) => statuses.push(status),
+    });
+    await engine.login();
+    await engine.pull('登录');
+
+    const after = statuses[statuses.length - 1];
+    eq(after.localNotUploaded, 2, '云端为空时必须报出本机有多少条待办尚未上传');
+    assert(
+      after.detail.includes('云端暂无你的数据'),
+      `状态文案必须说「云端暂无你的数据」，实际：${after.detail}`
+    );
+
+    // ── 上传本机全部后，提示必须撤掉
+    await engine.pushAllLocal();
+    const pushed = statuses[statuses.length - 1];
+    eq(pushed.localNotUploaded, 0, '上传本机全部后「尚未上传」的提示必须撤掉');
+
+    // ── 云端已有数据时，不再提示「尚未上传」
+    await engine.pull('手动重试');
+    const refetched = statuses[statuses.length - 1];
+    eq(refetched.localNotUploaded, 0, '云端已有数据时不应再提示「尚未上传」');
+    assert(
+      refetched.detail.includes('远端 2 行'),
+      `云端已有数据时必须报出远端行数，实际：${refetched.detail}`
+    );
+
+    // ── 登出后提示必须清掉（那时的「上传本机全部」按钮是禁用的）
+    await engine.logout();
+    const loggedOut = statuses[statuses.length - 1];
+    eq(loggedOut.localNotUploaded, 0, '登出后「尚未上传」的提示必须清掉');
+
+    off();
+    engine.dispose();
+    await stub.close();
+  }
+
+  endSection();
+}
+
 console.log('');
 if (failures.length > 0) {
   console.error(`✗ 同步自检失败 ${failures.length} / ${checks} 项：`);
   for (const failure of failures) console.error(`  - ${failure}`);
   process.exit(1);
 }
-console.log(`✓ 同步自检 PASS：${checks} 项断言，十二组路径 + v3 迁移结构证据全部通过`);
+console.log(`✓ 同步自检 PASS：${checks} 项断言，十四组路径 + v3 迁移结构证据 + 平台无关性全部通过`);
 console.log('  NOT-VERIFIED：真实 Supabase 读写、真实 GitHub OAuth 往返、云侧 RLS 越权不可见');
 
 /* ------------------------------------------------------------------ 辅助 */
