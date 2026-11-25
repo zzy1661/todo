@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>同步面板夹具 · 墓碑死锁</title>
+    <style>
+      /*
+        夹具页的布局补丁。
+        `.sync-panel` 是 `position: absolute`（相对 `.sync-area` 定位），
+        在真实应用里它锚在侧栏**底部**；夹具页没有侧栏，
+        不给 `.sync-area` 高度的话面板会整个跑到视口外，
+        点击时 Playwright 报「element is outside of the viewport」。
+      */
+      body {
+        margin: 0;
+      }
+      .sync-area {
+        min-height: 640px;
+      }
+    </style>
+  </head>
+  <body>
+    <!--
+      夹具页：只挂载**真实的** SyncPanel 组件，并把模块级 `syncState` 设成
+      「已登录 + 有 N 条可找回」的状态。
+
+      **为什么不直接测整个应用**：浏览器环境下同步恒为未配置（AC-57 的硬约束），
+      没法造出「已登录 + 云端有活数据」的局面；而这个夹具只改**测试夹具**里的
+      状态，**不碰产品代码**（`App.vue` 才会调 `initSync()`，这里没挂 App）。
+    -->
+    <div id="app"></div>
+    <script type="module" src="./panel-harness.ts"></script>
+  </body>
+</html>

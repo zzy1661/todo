@@ -437,6 +437,29 @@ check(
   'verify-release 缺资产时判失败',
   /exit 1/.test(verifyRun) && /missing/.test(verifyRun),
 );
+
+/* ------------------------------- 6.2 E2E 套件是否真的进 CI（不只是「本地跑过」） */
+
+// **为什么要这一组**：2026-11-22 的实机故障（「登录了但没有同步到数据」）
+// 之所以能一路漏到实机，正是因为**同步侧的断言只存在于本机**。
+// 同理，`e2e-sync/` 这一整套同步 E2E **从未进过 CI** ——
+// 2026-11-25 的实机故障恰恰是「界面没把同步结果说出来」，
+// 而那一组断言（状态区表达、墓碑死锁的「找回」出口）正是为它准备的。
+//
+// 「本地跑过」不等于「有防护」：只有断言进了 CI，改坏了才会当场被拦。
+const e2eRuns = steps.map((s) => s.run ?? '').join('\n');
+check(
+  '主套件 E2E 进 CI（npx playwright test）',
+  /npx playwright test/.test(e2eRuns),
+);
+check(
+  '同步套件 E2E 进 CI（npm run test:sync）',
+  /npm run test:sync/.test(e2eRuns),
+);
+check(
+  'Rust 侧断言进 CI（cargo test --release）',
+  /cargo test --release/.test(e2eRuns),
+);
 } // ← workflow 自检（ruby 可用时才做）
 
 /* ------------------------------------------------- 7. 结果 */

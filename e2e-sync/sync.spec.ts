@@ -133,3 +133,58 @@ test('S4 · 状态区：未配置说明、登录入口存在但禁用、关闭�
   expect(stored).toHaveLength(1);
   expect(dayjs(TODAY).isValid()).toBe(true);
 });
+
+/**
+ * S5 · 墓碑死锁：状态区必须说清「数据被本机的删除记录挡住了」，并给出出口。
+ *
+ * **为什么要有这条**：2026-11-25 实机反馈「远端 8 行、已是最新 8 条，
+ * 但界面上一条都不显示」。引擎侧的断言能证明**合并结果正确**，
+ * 证明不了**界面上有没有把这件事说出来**——
+ * 用户能不能看见「8 条待办被标记为已删除」与「找回」按钮，是另一回事。
+ *
+ * 这条用例只验证**界面表达与交互**（复活逻辑由 `check-sync.mjs` 第 ⑮ 组断言）。
+ */
+test('S5 · 墓碑死锁：状态区说清「被标记为已删除」并给出「找回」出口（v0.3.7）', async ({
+  page,
+}) => {
+  await page.goto('/e2e-sync/support/panel-harness.html?recoverable=8');
+  await expect(syncPanel(page)).toBeVisible();
+
+  // ① 「可找回」必须**说出来**，且说清是「这台机器上」的删除记录
+  const hint = syncPanel(page).locator('[data-sync-recoverable]');
+  await expect(hint).toContainText('8 条待办在这台机器上被标记为「已删除」');
+  await expect(hint).toContainText('只影响这台机器');
+
+  // ② 「找回」按钮必须在，条数要对
+  const recover = syncPanel(page).locator('[data-sync-recover]');
+  await expect(recover).toBeVisible();
+  await expect(recover).toHaveText('找回 8 条被删除的条目');
+
+  // ③ 「上传本机全部」的解释必须写清**删除记录不会上传**
+  //    （否则用户以为删掉的条目也会跟着搬上云）
+  await expect(syncPanel(page)).toContainText('删除记录不会上传');
+
+  // ④ 这是**反删除**，必须二次确认，且确认语要说清影响范围
+  let dialogText = '';
+  page.on('dialog', async (dialog) => {
+    dialogText = dialog.message();
+    await dialog.accept();
+  });
+  await recover.click();
+  await expect.poll(() => dialogText).toContain('找回 8 条被删除的条目');
+  expect(dialogText).toContain('只影响这台机器');
+});
+
+/**
+ * S6 · 没有可找回的条目时**不得出现**「找回」出口。
+ *
+ * **为什么**：按钮若在「其实找不回」时也出现，就是**无效承诺**——
+ * 用户点了没反应，只会更困惑。
+ */
+test('S6 · 无可找回条目时不出现「找回」按钮与提示（v0.3.7）', async ({ page }) => {
+  await page.goto('/e2e-sync/support/panel-harness.html?recoverable=0');
+  await expect(syncPanel(page)).toBeVisible();
+
+  await expect(syncPanel(page).locator('[data-sync-recoverable]')).toHaveCount(0);
+  await expect(syncPanel(page).locator('[data-sync-recover]')).toHaveCount(0);
+});
