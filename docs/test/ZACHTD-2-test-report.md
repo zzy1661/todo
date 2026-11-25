@@ -3505,6 +3505,18 @@ ScheduleTodo-0.3.7-windows-x64.msi
 - **`|| true` 是错误的藏身处**：它让「命令根本跑不起来」和「命令跑起来但结果是空」
   变成同一件事，本轮就是这个 `|| true` 掩盖了真正的错误信息。
 
+#### 13.43.6 v0.3.8 发版记录
+
+| 项 | 结果 |
+| --- | --- |
+| 提交 / tag | `6034a0e` / `v0.3.8`（**产品代码与 v0.3.7 完全一致**，仅修发布核对链） |
+| CI run | [45667199347](https://github.com/zzy1661/todo/actions/runs/45667199347) → **success**（**三个 job 全绿**：macOS 35 步 / Windows 35 步 / **verify-release 3 步**） |
+| verify-release | **success** —— 这一轮**真的跑起来了**（v0.3.7 那轮是「检查没跑起来」），四个资产名逐个核对通过 |
+| 关键步骤 | `cargo test --release` ✅ · E2E 基线 **6 passed** ✅ · **E2E 同步套件 6 passed** ✅（两端都过） · `check-ui-text` ✅ · 两端出包 ✅ |
+| Release 资产 | **4 个齐全**：`ScheduleTodo-0.3.8-macos-arm64.dmg`（3 378 817 B）/ `.app.zip`（3 147 038 B）/ `windows-x64-setup.exe`（4 152 527 B）/ `windows-x64.msi`（5 177 344 B），**匿名可下载**（不带任何凭据，HTTP 200 且字节数逐个吻合） |
+| 本机安装 | `/Applications/日程待办.app` = **0.3.8**，启动正常，本机 `todo.db` 仍是 8 条全活跃（**数据一条没丢**） |
+| 与 v0.3.7 的关系 | **功能完全一致**，只有发布核对链不同；**Windows 用户装 v0.3.8 即可**，v0.3.7 的四个资产也已上线（但那次的 CI 有一条红） |
+
 ---
 
 ## 14. AC-01 ~ AC-70 统一判定台账（70 行）
