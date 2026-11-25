@@ -62,6 +62,8 @@ const OP_SEQUENCE = [
   ['update', 4, { note: '丁的备注', priority: 2 }],
   ['update', 2, { date: '2026-11-03' }],
   ['delete', 1],
+  // 复活本机的墓碑行（v0.3.7 的「找回」出口用同一套接口）
+  ['revive', 1],
   ['pick', '2026-11-01', 'gtd', false],
   ['pick', '2026-11-01', '5w2h', true],
   ['pick', '2026-11-02', 'issue-tree', false],
@@ -78,7 +80,7 @@ const visible = (todo) => ({
 });
 
 /** 采集一条后端的可见结果 */
-async function collect(db) {
+async function collect(db, notes = {}) {
   const all = await db.fetchTodos();
   const raw = await db.fetchTodoSyncRows(null);
   return {
@@ -94,15 +96,30 @@ async function collect(db) {
     picks: await db.fetchDailyPicks(),
     onePick: await db.fetchDailyPick('2026-11-01'),
     missingPick: await db.fetchDailyPick('2026-01-01'),
+    /** 复活相关（v0.3.7）：实际复活条数、复活后是否可见、复活期间有没有广播事件 */
+    revivedCount: notes.revivedCount ?? null,
+    revivedVisible: notes.reviveTargetTitle
+      ? all.some((todo) => todo.title === notes.reviveTargetTitle)
+      : null,
+    reviveEvents: notes.reviveEvents ?? null,
   };
 }
 
-async function runSequence(db) {
+async function runSequence(db, notes = {}) {
   for (const op of OP_SEQUENCE) {
     if (op[0] === 'create') await db.createTodo(op[1]);
     else if (op[0] === 'update') await db.updateTodo(op[1], op[2]);
     else if (op[0] === 'delete') await db.deleteTodo(op[1]);
-    else if (op[0] === 'pick') {
+    else if (op[0] === 'revive') {
+      // 复活接口按 **uuid** 定位，这里先从同步行里取该 id 的 uuid
+      const raw = await db.fetchTodoSyncRows(null);
+      const row = raw.find((item) => item.id === op[1]);
+      notes.reviveTargetTitle = row ? row.title : '';
+      const before = notes.events.length;
+      notes.revivedCount = await db.reviveTombstones(row ? [row.uuid] : []);
+      // **复活不得广播事件**（不广播 ⇒ 不进推送队列 ⇒ 别的设备上的删除依然有效）
+      notes.reviveEvents = notes.events.slice(before);
+    } else if (op[0] === 'pick') {
       await db.upsertDailyPick({
         date: op[1],
         method_id: op[2],
@@ -224,8 +241,12 @@ async function runBackend(mode) {
   }
 
   const db = await import('../src/db/database.ts');
-  await runSequence(db);
-  return collect(db);
+  // 订阅本地变更事件：用来断言「复活**不广播**」（v0.3.7 的硬边界）
+  const events = await import('../src/sync/events.ts');
+  const notes = { events: [] };
+  events.onLocalTodoChange((change) => notes.events.push(`${change.kind}:${change.uuid}`));
+  await runSequence(db, notes);
+  return collect(db, notes);
 }
 
 // ---------------------------------------------------------------------------
@@ -276,6 +297,23 @@ if (modeArg !== -1) {
   compare('软删除墓碑数', localResult.tombstones, sqliteResult.tombstones);
   compare('含墓碑的总行数', localResult.rawTotal, sqliteResult.rawTotal);
   compare('uuid 唯一且非空', localResult.uuidUnique, sqliteResult.uuidUnique);
+  // v0.3.7：复活路径的两条后端必须**完全等价**
+  compare('复活条数', localResult.revivedCount, sqliteResult.revivedCount);
+  compare('复活后对界面可见', localResult.revivedVisible, sqliteResult.revivedVisible);
+  compare('复活不广播事件', localResult.reviveEvents, sqliteResult.reviveEvents);
+
+  // 复活的三条**硬边界**（不是「两条后端一致」就算过）：
+  if (sqliteResult.revivedCount !== 1) {
+    errors.push(`复活条数应为 1，实际 ${sqliteResult.revivedCount}`);
+  }
+  if (sqliteResult.revivedVisible !== true) {
+    errors.push('复活后该条应对界面可见（deleted 1 → 0）');
+  }
+  if (!Array.isArray(sqliteResult.reviveEvents) || sqliteResult.reviveEvents.length !== 0) {
+    errors.push(
+      `复活**不得广播事件**（不广播 ⇒ 不进推送队列 ⇒ 别的设备上的删除依然有效），实际 ${JSON.stringify(sqliteResult.reviveEvents)}`
+    );
+  }
 
   console.log('双后端等价性对拍（scripts/check-db-parity.mjs）');
   console.log(`  操作序列        ${OP_SEQUENCE.length} 步`);
@@ -286,7 +324,7 @@ if (modeArg !== -1) {
       .map((p) => `${p.date}=${p.method_id}(manual=${p.manual})`)
       .join(', ')}`
   );
-  console.log('  已比对维度      fetchTodos / ByDate / ByMonth×2 / DailyPicks / DailyPick×2');
+  console.log('  已比对维度      fetchTodos / ByDate / ByMonth×2 / DailyPicks / DailyPick×2 / 复活×3');
 
   if (errors.length > 0) {
     console.error('');
