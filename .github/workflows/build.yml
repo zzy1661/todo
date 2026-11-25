@@ -263,14 +263,22 @@ jobs:
 
           for attempt in 1 2 3 4 5; do
             # ① Release 可能已由另一端 job 创建 → 直接补传
-            if gh release upload "$TAG" "${FILES[@]}" --clobber; then
+            # **`-R "$GITHUB_REPOSITORY"` 不是可选项**：`gh` 默认从**当前目录的 git remote**
+            # 推断仓库，没有 checkout 的目录里它会直接报
+            # 「failed to run git: fatal: not a git repository」并把输出吞进 `|| true`，
+            # 于是「发布」看起来成功了，其实一个文件都没传。
+            # （2026-11-26 实例：v0.3.7 的 verify-release job 没有 checkout，
+            #   `gh release view` 连续 30 次都返回空 ⇒ 报「四个资产全缺」⇒ job 判红，
+            #   而四个资产其实**早就上线且匿名可下载**。）
+            if gh release upload "$TAG" "${FILES[@]}" --clobber -R "$GITHUB_REPOSITORY"; then
               echo "发布成功（upload，第 $attempt 次尝试）"
               exit 0
             fi
             # ② 还没有 → 创建（gh 会把文件一起挂上）
             if gh release create "$TAG" "${FILES[@]}" \
                  --title "日程待办 $TAG" \
-                 --notes "由 GitHub Actions 自动发布；变更说明见仓库 docs/test/ZACHTD-2-test-report.md"; then
+                 --notes "由 GitHub Actions 自动发布；变更说明见仓库 docs/test/ZACHTD-2-test-report.md" \
+                 -R "$GITHUB_REPOSITORY"; then
               echo "发布成功（create，第 $attempt 次尝试）"
               exit 0
             fi
@@ -304,7 +312,14 @@ jobs:
             "ScheduleTodo-${VERSION}-windows-x64.msi"
           )
           for attempt in $(seq 1 30); do
-            have=$(gh release view "$TAG" --json assets --jq '.assets[].name' 2>/dev/null || true)
+            # **必须带 `-R "$GITHUB_REPOSITORY"`**：本 job **没有 checkout**，
+            # `gh` 在非 git 目录里无法推断仓库（会报 "failed to run git: not a git
+            # repository"），错误又被 `|| true` 吞掉 ⇒ `have` 恒为空 ⇒
+            # 一轮轮地误报「四个资产全缺」。
+            # （2026-11-26 实例：v0.3.7 的这一 job 连续 30 次误报后判红，
+            #   而四个资产当时**早已上线且匿名可下载**。）
+            have=$(gh release view "$TAG" --json assets --jq '.assets[].name' \
+                     -R "$GITHUB_REPOSITORY" 2>/dev/null || true)
             missing=""
             for want in "${WANT[@]}"; do
               if ! echo "$have" | grep -qx "$want"; then

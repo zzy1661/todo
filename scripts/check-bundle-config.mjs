@@ -438,6 +438,61 @@ check(
   /exit 1/.test(verifyRun) && /missing/.test(verifyRun),
 );
 
+/* --------------------------- 6.2 gh 必须显式指定仓库（-R），否则「静默什么都没做」 */
+
+// **为什么必须断言这条**（2026-11-26 实测踩坑）：
+// `gh` 默认从**当前目录的 git remote** 推断仓库。
+// `verify-release` job **没有 checkout** ⇒ 它的工作目录不是 git 仓库 ⇒
+// `gh release view` 直接报「failed to run git: fatal: not a git repository」，
+// 而这句错误又被 `|| true` **吞掉** ⇒ `have` 恒为空 ⇒
+// 连续 30 轮误报「四个资产全缺」⇒ **job 判红**，
+// 而四个资产其实**早已上线且匿名可下载**。
+//
+// 这种失败最坏的地方在于：**它看起来像「发布没成功」，实际是「检查没跑起来」**——
+// 会把人引到「产物没打出来」的错误方向上去查，方向完全错了。
+//
+// 修法：所有 `gh release …` 调用都显式带 `-R "$GITHUB_REPOSITORY"`。
+
+/** 把 run 脚本按「命令」切开（处理 `\` 续行、`;` 分隔，并**去掉注释行**） */
+function splitCommands(script) {
+  return script
+    .split('\n')
+    // 注释行不是命令：workflow 里为了讲清楚「为什么」写了不少提到 `gh release` 的注释，
+    // 不去掉会把它们当成「没带 -R 的 gh 调用」⇒ 误报。
+    .filter((line) => !/^\s*#/.test(line))
+    .join('\n')
+    .replace(/\\\r?\n\s*/g, ' ')
+    .split(/[;\n]/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+const ghCommands = [
+  ...releaseSteps.map((s) => s.run ?? ''),
+  verifyJob?.steps?.map((s) => s.run ?? '').join('\n') ?? '',
+]
+  .flatMap(splitCommands)
+  .filter((line) => /\bgh\s+release\b/.test(line));
+
+check(
+  '存在 gh release 调用（发布与核对都走 gh）',
+  ghCommands.length > 0,
+  `${ghCommands.length} 条`,
+);
+check(
+  '所有 gh release 调用都显式指定仓库（-R "$GITHUB_REPOSITORY"）',
+  ghCommands.length > 0 &&
+    ghCommands.every((line) => /-R\s+"?\$\{?GITHUB_REPOSITORY\}?"?/.test(line)),
+  ghCommands.filter((line) => !/-R\s+"?\$\{?GITHUB_REPOSITORY\}?"?/.test(line)).join(' | ') ||
+    '（无未指定项）',
+);
+check(
+  'verify-release job 没有 checkout —— 所以 -R 是唯一可行的仓库来源',
+  !(verifyJob?.steps ?? []).some((s) => /actions\/checkout/.test(s.uses ?? '')),
+  '有 checkout' +
+    ((verifyJob?.steps ?? []).some((s) => /actions\/checkout/.test(s.uses ?? '')) ? '' : '（无）'),
+);
+
 /* ------------------------------- 6.2 E2E 套件是否真的进 CI（不只是「本地跑过」） */
 
 // **为什么要这一组**：2026-11-22 的实机故障（「登录了但没有同步到数据」）

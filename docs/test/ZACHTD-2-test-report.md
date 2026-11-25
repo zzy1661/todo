@@ -3419,6 +3419,94 @@ a1efd450-563f-46a2-9f8b-21f046014542  2026-10-15  升级前 · 上月
 
 ---
 
+### 13.43 发布核对 job 自己坏了：`gh` 在没有 checkout 的目录里猜不到仓库（v0.3.8）
+
+> v0.3.7 的两个构建 job 全绿、四个资产**全部上线且匿名可下载**（逐个 HTTP 200 +
+> 字节数吻合），但第三个 job `verify-release` **判红**，
+> 日志连续 30 轮写着「还缺四个资产」——**而四个资产当时全都在**。
+
+#### 13.43.1 事实
+
+| 项 | 结果 |
+| --- | --- |
+| `Windows (NSIS + MSI)` | **success**（34 步全过） |
+| `macOS (arm64 · .app + .dmg)` | **success**（34 步全过） |
+| `Verify release assets (must be 4)` | **failure**（连续 30 轮误报「四个全缺」） |
+| Release 实际状态 | **四个资产齐全**，`gh release view` 与匿名下载都确认过 |
+
+日志原文（每轮都一样，直到第 30 轮才退出）：
+
+```
+第 29 次核对：还缺 ScheduleTodo-0.3.7-macos-arm64.dmg …msi，30 秒后再看
+第 30 次核对：还缺 ScheduleTodo-0.3.7-macos-arm64.dmg …msi，30 秒后再看
+发布资产不完整，缺： …（四个全列出来了）
+```
+
+#### 13.43.2 根因：`gh` 从**当前目录的 git remote** 推断仓库
+
+`gh` 的默认行为是「在当前目录找 git remote，推断是哪个仓库」。
+而 `verify-release` job **没有 `actions/checkout` 步骤** ⇒ 它的目录不是 git 仓库 ⇒
+
+```
+failed to run git: fatal: not a git repository (or any of the parent directories): .git
+```
+
+这句错误又被脚本里的 `2>/dev/null || true` **吞掉** ⇒ `have` 恒为空串 ⇒
+`grep -qx` 一个都匹配不上 ⇒ **每一轮都判定「四个全缺」**。
+
+本机复现（同一段命令，区别只在目录是不是 git 仓库）：
+
+```
+$ cd /tmp && gh release view v0.3.7 --json assets --jq '.assets[].name'
+failed to run git: fatal: not a git repository (or any of the parent directories): .git
+
+$ cd <仓库目录> && gh release view v0.3.7 --json assets --jq '.assets[].name'
+ScheduleTodo-0.3.7-macos-arm64.app.zip
+ScheduleTodo-0.3.7-macos-arm64.dmg
+ScheduleTodo-0.3.7-windows-x64-setup.exe
+ScheduleTodo-0.3.7-windows-x64.msi
+```
+
+**这个失败最坏的地方**：它长得像「产物没打出来 / 发布没成功」，
+但实际是「**检查根本没跑起来**」——会把排查方向引到完全错误的地方
+（去查打包、查 GitHub API 限流），而真正的问题只是命令行少了一个参数。
+
+**为什么构建 job 里的 `gh release upload/create` 没出问题**：那个 job **有 checkout**
+（`needs` 之前的第一步就是它），目录是 git 仓库 ⇒ `gh` 能推断出仓库。
+⇒ **同一个 `gh`，在有 checkout 的 job 里好使，在没有 checkout 的 job 里必然失败**——
+这类差异**编译期查不出来、也不会在本地复现**。
+
+#### 13.43.3 改法与守护
+
+- **改法**：所有 `gh release …` 调用显式带 `-R "$GITHUB_REPOSITORY"`
+  （发布两处 + 核对一处），不再依赖「当前目录恰好是 git 仓库」；
+- **守护**（`check-bundle-config.mjs` 65 → **68 条**）：
+  ①「存在 gh release 调用」；
+  ②「所有 gh release 调用都显式指定仓库（`-R "$GITHUB_REPOSITORY"`）」——
+  判定前**先剥掉注释行**（workflow 里为了讲「为什么」写了不少提到 `gh release` 的注释，
+  不剥掉会把注释当成「没带 `-R` 的命令」而误报）；
+  ③「`verify-release` job 没有 checkout —— 所以 `-R` 是唯一可行的仓库来源」；
+- **注入回归验证**（三条都确认会红，还原后 68/68 通过）：
+  去掉 verify 的 `-R` ⇒ 判红；去掉 publish 的 `-R` ⇒ 判红；
+  给 verify job 加 checkout ⇒ 第 ③ 条判红。
+
+#### 13.43.4 版本策略
+
+按仓库惯例（**tag 从不复用**），v0.3.7 的 tag 已发布且其 `verify-release` job 失败，
+**改发 v0.3.8：产品代码与 v0.3.7 完全一致，仅修发布核对链**——
+与 v0.3.0 → v0.3.1 当时的处理方式一致（§13.35）。
+
+#### 13.43.5 纪律更新
+
+- **「核对失败」要先问「核对跑起来了吗」**：失败信息说「缺 N 个」，
+  不等于「真的缺 N 个」——**先确认检查本身有没有跑起来**（这一步本轮花了几轮才想到）；
+- **依赖「当前目录」的命令必须显式指定目标**：凡是靠 cwd 推断仓库 / 路径 / 配置的命令
+  （`gh`、`git`、`npm` workspace），在 CI 里都要显式传参——**CI 的每个 job 的 cwd 不一样**；
+- **`|| true` 是错误的藏身处**：它让「命令根本跑不起来」和「命令跑起来但结果是空」
+  变成同一件事，本轮就是这个 `|| true` 掩盖了真正的错误信息。
+
+---
+
 ## 14. AC-01 ~ AC-70 统一判定台账（70 行）
 
 > 本节是 **M2 台账统一**的产物（ZACHTD-14）：把 §3（S7，AC-01~56）与 §13（S10.5，AC-43 重判 + AC-57~68）两段结论**并成一张可逐条引用的账**。M2 那轮**一行都没有改判**；只修了附录 A.2 的重复计数，并新增两条「判定含义注」。
