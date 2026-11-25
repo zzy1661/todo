@@ -73,6 +73,13 @@ export interface SyncStatus {
    * 该用户的行——本机 8 条待办的修改时间全部早于登录锚点，从未进入推送队列。）
    */
   localNotUploaded?: number;
+  /**
+   * 本次拉取里，有多少条云端记录在本机是「已删除」状态（墓碑）而没被写入。
+   *
+   * 界面据此提示用户：**这些条目不会出现在列表里是正常的**——
+   * 删除会传播到所有设备（墓碑终结，PRD BR-28 / OPEN-01）。
+   */
+  localTombstone?: number;
 }
 
 export const EMPTY_STATUS: SyncStatus = {
@@ -93,4 +100,23 @@ export interface MergeStats {
   inserted: number;
   updated: number;
   skipped: number;
+  /**
+   * `skipped` 的**原因细分**（三者之和 = skipped）。
+   *
+   * 为什么必须拆开：合并有三种「保持本地不变」，
+   * 对用户的含义完全不同 ——
+   * - `skippedEqual`：两边完全一样 → **数据早就在本地了**；
+   * - `skippedLocalNewer`：本地更新 → 保留本地，正常；
+   * - `skippedTombstone`：**本地这条是墓碑（已删除）** → 云端拉不回来，
+   *   界面若不说清楚，用户只会看到「已是最新 N 条」而界面空空如也，
+   *   完全想不通数据去哪了。
+   *
+   * （2026-11-23 实机反馈：Windows 上「远端 8 行、已是最新 8 条」，
+   * 但界面一条不显示 —— 光看「已是最新」无法判断是哪种情况。）
+   */
+  skippedEqual?: number;
+  skippedLocalNewer?: number;
+  skippedTombstone?: number;
+  /** 跳过的细分：云端行缺必填字段（**坏数据**，不是合并结果） */
+  skippedInvalid?: number;
 }

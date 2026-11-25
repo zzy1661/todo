@@ -4,6 +4,37 @@ import { localTimestamp, nowMs } from '../sync/clock.ts';
 import { emitLocalTodoChange } from '../sync/events.ts';
 import type { LocalTodoRow, MergeStats, RemoteTodo } from '../sync/types.ts';
 import { decideMerge } from '../sync/merge.ts';
+import type { MergeDecision } from '../sync/merge.ts';
+
+/**
+ * 记一次「跳过」，并按原因细分。
+ *
+ * 三种「保持本地不变」的原因对用户含义完全不同（见 `MergeStats` 的说明）：
+ * 「两边一样」「本地更新」「本地是墓碑」——界面若只说「已是最新 N 条」，
+ * 用户看到空空的列表会完全想不通数据去哪了。
+ *
+ * 第四种是「云端行缺必填字段」——那不是合并结果，而是**坏数据**，也得说出来。
+ * 四个计数器之和恒等于 `skipped`。
+ */
+function countSkipReason(
+  stats: MergeStats,
+  reason: MergeDecision['reason'] | 'invalid-row'
+): void {
+  switch (reason) {
+    case 'equal':
+      stats.skippedEqual = (stats.skippedEqual ?? 0) + 1;
+      break;
+    case 'lww-local':
+      stats.skippedLocalNewer = (stats.skippedLocalNewer ?? 0) + 1;
+      break;
+    case 'tombstone-terminal':
+      stats.skippedTombstone = (stats.skippedTombstone ?? 0) + 1;
+      break;
+    default:
+      stats.skippedInvalid = (stats.skippedInvalid ?? 0) + 1;
+      break;
+  }
+}
 
 /**
  * 数据访问层：SQLite（桌面版）与 localStorage（浏览器 / E2E）双实现。
@@ -318,6 +349,7 @@ async function sqliteApplyRemoteTodos(rows: RemoteTodo[]): Promise<MergeStats> {
     const decision = decideMerge(local, remote);
     if (decision.action === 'keep') {
       stats.skipped += 1;
+      countSkipReason(stats, decision.reason);
       continue;
     }
     if (decision.action === 'insert') {
@@ -568,12 +600,14 @@ async function localApplyRemoteTodos(rows: RemoteTodo[]): Promise<MergeStats> {
     const decision = decideMerge(local, remote);
     if (decision.action === 'keep') {
       stats.skipped += 1;
+      countSkipReason(stats, decision.reason);
       continue;
     }
     if (decision.action === 'insert') {
       if (!remote.title) {
         // 云端行缺必填字段：跳过而不是写一条空行，避免污染本地列表
         stats.skipped += 1;
+        countSkipReason(stats, 'invalid-row');
         continue;
       }
       const maxId = todos.reduce((max, t) => Math.max(max, t.id), 0);

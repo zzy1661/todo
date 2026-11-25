@@ -127,7 +127,23 @@ export function describePull(
     return `${head} · 云端暂无你的数据（远端 0 行）`;
   }
   const parts = [`远端 ${remoteCount} 行`, `新增 ${stats.inserted} 条`, `更新 ${stats.updated} 条`];
-  if (stats.skipped > 0) parts.push(`已是最新 ${stats.skipped} 条`);
+  // 跳过的**原因**必须说出来：「两边一样」「本地更新」「本地已删除」对用户是三件事。
+  // 只报「已是最新 N 条」的话，本机是墓碑的情况会被误读成「数据早就在本地了」，
+  // 而界面恰恰一条都不显示 —— 用户完全想不通。
+  const skipParts: string[] = [];
+  if (stats.skippedEqual) skipParts.push(`已是最新 ${stats.skippedEqual} 条`);
+  if (stats.skippedLocalNewer) skipParts.push(`本地更新 ${stats.skippedLocalNewer} 条`);
+  if (stats.skippedTombstone) skipParts.push(`本地已删除 ${stats.skippedTombstone} 条`);
+  if (stats.skippedInvalid) skipParts.push(`云端数据不完整 ${stats.skippedInvalid} 条`);
+  if (stats.skipped > 0) {
+    // **兜底**：细分计数缺失时也必须报出「跳过 N 条」——
+    // 宁可信息粗一点，也不能把「有东西被跳过」这件事整个吞掉。
+    parts.push(
+      skipParts.length > 0
+        ? `跳过 ${stats.skipped} 条（${skipParts.join('、')}）`
+        : `跳过 ${stats.skipped} 条`
+    );
+  }
   return `${head} · ${parts.join('、')}`;
 }
 
@@ -396,7 +412,10 @@ export class SyncEngine {
           localNotUploaded = 0;
         }
       }
-      this.markSuccess(describePull(reason, remoteCount, stats), { localNotUploaded });
+      this.markSuccess(describePull(reason, remoteCount, stats), {
+        localNotUploaded,
+        localTombstone: stats.skippedTombstone ?? 0,
+      });
       this.busy = false;
       return stats;
     } catch (error) {
@@ -503,6 +522,7 @@ export class SyncEngine {
         // 登出后「本地还有多少条没上云」不再有意义（而且那时的上传按钮是禁用的，
         // 留着提示只会让人点不动）。
         localNotUploaded: 0,
+        localTombstone: 0,
       });
     }
     if (token && this.options.config.enabled) {

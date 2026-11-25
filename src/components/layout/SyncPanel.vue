@@ -82,6 +82,19 @@ const canLogin = computed(
         （自动同步只推「登录后被改动过」的增量，登录前的历史待办不在里面）。
         点下面的「上传本机全部」即可同步到云端。
       </p>
+      <p v-else-if="status.localTombstone" class="sync-hint">
+        其中 {{ status.localTombstone }} 条在本机是「已删除」状态，因此不会出现在列表里
+        —— 删除会传播到所有设备（墓碑终结），这是正常的。
+      </p>
+      <!--
+        「上传本机全部」上传的是**这台机器**上的待办。
+        这句话必须**可见**：用户看到的是「我的数据在另一台机器上」，
+        在这台机器点按钮只会把这台机器的行传上去 —— 看起来「点了没用」，
+        实际是传错了机器。
+      -->
+      <p v-if="signedIn" class="sync-hint sync-hint--soft">
+        「上传本机全部」上传的是这台机器上的待办；另一台机器上的数据，要在那一台点一次。
+      </p>
 
       <footer class="sync-actions">
         <button
@@ -240,6 +253,13 @@ const canLogin = computed(
 
 .sync-hint code {
   font-size: 10px;
+}
+
+/* 常驻说明（不随状态出现/消失）：比提示更轻，避免喧宾夺主 */
+.sync-hint--soft {
+  padding: 4px 8px;
+  color: var(--color-text-muted);
+  background: transparent;
 }
 
 .sync-actions {

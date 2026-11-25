@@ -1678,14 +1678,43 @@ section('⑭ 拉取结果说清「远端 N 行」，云端为空时给出上传�
     `必须报出新增/更新数，实际：${someText}`
   );
   assert(
-    someText.includes('已是最新 2 条'),
-    `保持本地不变的条数也要说出来（否则与「0 条」混淆），实际：${someText}`
+    someText.includes('跳过 2 条'),
+    `被跳过的条数必须说出来（否则与「0 条」混淆），实际：${someText}`
+  );
+
+  // 有细分计数时，必须说出**原因**（用户要靠它判断「数据去哪了」）
+  const tombstoneText = describePull('登录', 8, {
+    inserted: 0,
+    updated: 0,
+    skipped: 8,
+    skippedEqual: 0,
+    skippedLocalNewer: 0,
+    skippedTombstone: 8,
+    skippedInvalid: 0,
+  });
+  assert(
+    tombstoneText.includes('本地已删除 8 条'),
+    `本机是墓碑的情况必须明说（否则用户看到空列表会想不通），实际：${tombstoneText}`
+  );
+
+  const equalText = describePull('登录', 8, {
+    inserted: 0,
+    updated: 0,
+    skipped: 8,
+    skippedEqual: 8,
+    skippedLocalNewer: 0,
+    skippedTombstone: 0,
+    skippedInvalid: 0,
+  });
+  assert(
+    equalText.includes('已是最新 8 条'),
+    `两边一样时要说明白，实际：${equalText}`
   );
 
   const noSkip = describePull('登录', 3, { inserted: 3, updated: 0, skipped: 0 });
   assert(
-    !noSkip.includes('已是最新'),
-    `skipped 为 0 时不该显示「已是最新」，实际：${noSkip}`
+    !noSkip.includes('跳过'),
+    `skipped 为 0 时不该出现「跳过」，实际：${noSkip}`
   );
 
   // ── 运行期：云端为空 → localNotUploaded = 本机待办数
@@ -1729,6 +1758,45 @@ section('⑭ 拉取结果说清「远端 N 行」，云端为空时给出上传�
     await engine.logout();
     const loggedOut = statuses[statuses.length - 1];
     eq(loggedOut.localNotUploaded, 0, '登出后「尚未上传」的提示必须清掉');
+
+    off();
+    engine.dispose();
+    await stub.close();
+  }
+
+  // ── 运行期：本地是墓碑 → 界面必须能解释「为什么列表是空的」
+  {
+    resetLocal([
+      makeTodo({ id: 1, uuid: 'tomb-1', deleted: true, updated_at_ms: 1000 }),
+    ]);
+    const stub = await createMockSupabase();
+    stub.seed({
+      uuid: 'tomb-1',
+      title: '本机已删除',
+      date: '2026-11-01',
+      priority: 1,
+      note: '',
+      done: 0,
+      created_at: '2026-11-01 09:00:00',
+      updated_at: '2026-11-01 09:00:00',
+      updated_at_ms: 1000,
+      deleted: 1,
+    });
+    const statuses = [];
+    const { engine, off } = buildEngine(stub, {
+      sessionStore: createMemorySessionStore(),
+      oauth: createOAuthLauncher(),
+      onStatus: (status) => statuses.push(status),
+    });
+    await engine.login();
+    await engine.pull('登录');
+
+    const after = statuses[statuses.length - 1];
+    eq(after.localTombstone, 1, '本机是墓碑的条数必须被记下来（界面要解释「为什么列表是空的」）');
+    assert(
+      after.detail.includes('本地已删除 1 条'),
+      `状态文案必须说明是墓碑，实际：${after.detail}`
+    );
 
     off();
     engine.dispose();
