@@ -3114,6 +3114,72 @@ error returned from database: (code: 1032) attempt to write a readonly database
 
 ---
 
+### 13.41 发布通道连着咬了三次：把「发布」也变成一条会红的断言（v0.3.7 的 workflow 改动）
+
+> v0.3.6 的 CI 期间才发现：**v0.3.5 其实一个资产都没有**（Release 根本没生成）。
+> 顺着这条线查下去，发现发布通道本身有结构性问题。
+
+#### 13.41.1 事实
+
+| 版本 | macOS job | Windows job | Release 资产 |
+| --- | --- | --- | --- |
+| v0.3.4 | ✅ | ✅ | **4 个** |
+| v0.3.5 | ❌ `cargo test` | ❌ `Publish release assets` | **0 个** |
+| v0.3.0 / v0.3.2 | ✅ | ❌ | 只有 **2 个**（macOS） |
+
+v0.3.5 的 Windows job 日志原文：
+
+```
+👩‍🏭 Creating new GitHub release for tag v0.3.5...
+⚠️ GitHub release failed with status: 500        ← 连返 3 次
+⚠️ Unexpected error fetching GitHub release for tag refs/tags/v0.3.5: Error: Too many retries.
+```
+
+#### 13.41.2 两个结构性问题
+
+1. **第三方 action 对 500 没有兜底**：`softprops/action-gh-release` 只对
+   422 `already_exists`（两个 job 抢建同一个 Release 的竞态）有重试，
+   **GitHub API 返回 500 时**它的内部重试只有 **4 秒、3 次** → 直接放弃。
+   而**哪个 job 先创建 Release 是不确定的**（v0.3.4 是 Windows 先建的），
+   所以这条路径随时可能踩中。
+2. **缺文件会静默通过**：`fail_on_unmatched_files: false` 让「这个文件没打出来」
+   不报错 ⇒ v0.3.0 / v0.3.2 那种「只有 2 个 macOS 资产」的残缺发布，
+   **没有任何一处会红**。
+
+#### 13.41.3 改法
+
+- **自己用 `gh` 发布并控制重试**：先试 `gh release upload`（Release 可能已被另一端
+  job 创建）→ 再试 `gh release create` → 都失败就**退避 30 秒**重来，**最多 5 次**；
+- **产物缺失直接失败**：不再静默少挂一个文件；
+- **新增 `verify-release` job**（`needs: build`）：逐个核对
+  `dmg / app.zip / setup.exe / msi` 四个资产名，30 次 × 30 秒轮询，
+  **少一个就判红**——残缺发布从此不再可能悄悄溜过去。
+
+#### 13.41.4 断言守护
+
+`check-bundle-config.mjs` 的发布通道断言从 5 条扩到 **12 条**，
+新增的关键几条：
+
+- 发布步骤**同时具备 upload 与 create 两条路径**（另一端 job 可能已创建）；
+- **退避重试至少尝试 3 次**（只匹配「有 for attempt in」会把 `for attempt in 1;`
+  这种「只试一次」的写法放过——那正是 v0.3.5 的失败形态）；
+- **重试之间有退避等待（≥ 15 秒）**；
+- **产物缺失时直接失败**；
+- `verify-release` job 存在、依赖 build、只在 tag 推送时执行、逐个核对四个资产名、
+  缺资产时判失败。
+
+每条都用**故意注入回归**验证过会亮（注入 1：只试一次；注入 2：退避改成 1 秒；
+注入 3：删掉 verify job —— 三次全部判红，还原后 62/62 通过）。
+
+#### 13.41.5 纪律更新
+
+- **发布通道也是产品**：它决定用户能不能拿到安装包，必须有断言、有重试、有核对；
+- **「发布成功」不等于「资产齐全」**：缺文件曾经静默通过，差点让两个残缺版本
+  当成正式版发出去；
+- **第三方 action 的重试策略要读**：它对 422 有兜底不等于对 500 有兜底。
+
+---
+
 ## 14. AC-01 ~ AC-70 统一判定台账（70 行）
 
 > 本节是 **M2 台账统一**的产物（ZACHTD-14）：把 §3（S7，AC-01~56）与 §13（S10.5，AC-43 重判 + AC-57~68）两段结论**并成一张可逐条引用的账**。M2 那轮**一行都没有改判**；只修了附录 A.2 的重复计数，并新增两条「判定含义注」。

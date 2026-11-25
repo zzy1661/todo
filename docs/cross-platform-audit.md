@@ -101,6 +101,7 @@ v0.2.3 的教训正卡在这里：`cmd /C start` 是 Windows 专有的、被正�
 | F4 | NSIS / WiX 语言与安装模式 | ✅ `currentUser` + `SimpChinese`/`English`，允许中文安装路径 | — |
 | F5 | 代码签名 | ⚠️ 遗留：CI 产物未签名 → Windows SmartScreen 拦截；本期无证书不做签名 | — |
 | F6 | CI 的 Windows 步骤真出包 | ✅ 真跑 `npx tauri build` + `if-no-files-found: error` | CI 本身 |
+| F9 | **发布通道必须能重试、且能核对资产齐全** | ⚠️ **已踩坑（v0.3.5，2026-11-25）**：两个 matrix job 并发创建同一个 Release，第三方 action（`softprops/action-gh-release`）只对 422 `already_exists` 有兜底、**对 GitHub API 的 500 没有**——实测 Windows 侧创建 Release 时**连返 3 次 500**，它的内部重试只有 4 秒、3 次 → 「Too many retries」→ **Windows 资产全丢**；同一次运行 macOS job 因 cargo test 失败没走到发布 ⇒ **v0.3.5 一个资产都没有**（前一个能用的版本停在 v0.3.4）。另有 `fail_on_unmatched_files: false` 让「少挂一个文件」静默通过 ⇒ v0.3.0 / v0.3.2 只挂上 2 个 macOS 资产也没人发现。**改法**：① 自己用 `gh release upload` / `gh release create` 发布并**退避重试 ≥ 3 次**；② **产物缺失直接失败**，不再静默少挂；③ 新增 `verify-release` job，**核对四个资产都在**，少一个就是红的 | `check-bundle-config.mjs`（发布通道 12 条断言，每条都用「故意注入回归」验证过会亮） |
 
 ## 已确认的跨平台机制（源码级，供以后查阅）
 

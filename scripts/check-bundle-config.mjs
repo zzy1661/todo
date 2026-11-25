@@ -359,8 +359,11 @@ check(
   JSON.stringify(workflow.permissions),
 );
 
-const releaseSteps = steps.filter((s) => /softprops\/action-gh-release/.test(s.uses ?? ''));
-check('存在发布 Release 资产的步骤（softprops/action-gh-release）', releaseSteps.length > 0);
+// 发布步骤：现在自己用 gh CLI 发布（不再用 softprops/action-gh-release），
+// 理由见 workflow 注释：第三方 action 对 GitHub API 的 500 没有兜底，
+// v0.3.5 实测「连返 3 次 500 → Too many retries → Windows 资产全丢」。
+const releaseSteps = steps.filter((s) => /gh release (upload|create)/.test(s.run ?? ''));
+check('存在发布 Release 资产的步骤（gh release）', releaseSteps.length > 0);
 check(
   '发布步骤只在 tag 推送时执行',
   releaseSteps.length > 0 &&
@@ -368,29 +371,71 @@ check(
   releaseSteps.map((s) => s.if ?? '').join(' | '),
 );
 check(
-  '发布步骤声明了 files 且 fail_on_unmatched_files: false',
+  '发布步骤同时具备 upload 与 create 两条路径（另一端 job 可能已创建 Release）',
   releaseSteps.length > 0 &&
     releaseSteps.every(
-      (s) =>
-        typeof s.with?.files === 'string' &&
-        s.with.files.trim() !== '' &&
-        s.with?.['fail_on_unmatched_files'] === false,
+      (s) => /gh release upload/.test(s.run ?? '') && /gh release create/.test(s.run ?? '')
     ),
 );
-const releaseFiles = releaseSteps.map((s) => s.with?.files ?? '').join('\n');
+// 重试次数要**明确够多**：只匹配「有 for attempt in」会把 `for attempt in 1;`
+// 这种「只试一次」的写法放过——那正是 v0.3.5 的失败形态（4 秒内试 3 次就放弃）。
+const attemptCounts = releaseSteps.map((s) => {
+  const matched = (s.run ?? '').match(/for attempt in\s+([0-9\s]+);/);
+  return matched ? matched[1].trim().split(/\s+/).filter(Boolean).length : 0;
+});
+check(
+  '发布步骤的退避重试至少尝试 3 次（GitHub API 偶发 500 时不能一次就放弃）',
+  releaseSteps.length > 0 && attemptCounts.every((count) => count >= 3),
+  attemptCounts.join(' | '),
+);
+check(
+  '发布步骤的重试之间有退避等待（≥ 15 秒）',
+  releaseSteps.length > 0 &&
+    releaseSteps.every((s) => /sleep\s+(?:1[5-9]|[2-9]\d|\d{3,})/.test(s.run ?? '')),
+);
+check(
+  '发布步骤在产物缺失时直接失败（不再静默少挂一个资产）',
+  releaseSteps.length > 0 &&
+    releaseSteps.every((s) => /产物缺失/.test(s.run ?? '') && /exit 1/.test(s.run ?? '')),
+);
+const releaseFiles = releaseSteps.map((s) => s.run ?? '').join('\n');
 check(
   '发布资产覆盖 dmg / app.zip / exe / msi 四类产物',
   ['.dmg', '.app.zip', '.exe', '.msi'].every((ext) => releaseFiles.includes(ext)),
   releaseFiles.replace(/\s+/g, ' ').slice(0, 120),
 );
+// 只看**资产名**本身必须是 ASCII（脚本里的中文提示与说明不影响资产名），
+// 断言的是「Release 资产 URL 里不会出现百分号编码的中文」。
+const assetNameTokens = releaseFiles.match(/ScheduleTodo-[^"'\s]*/g) ?? [];
 check(
   '发布资产名统一为 ASCII 前缀 ScheduleTodo-',
-  releaseFiles.includes('ScheduleTodo-') && !/[^\x00-\x7F]/.test(releaseFiles),
-  releaseFiles.replace(/\s+/g, ' ').slice(0, 120),
+  assetNameTokens.length > 0 && assetNameTokens.every((name) => !/[^\x00-\x7F]/.test(name)),
+  assetNameTokens.join(' | '),
 );
 check(
   '存在把产物改名为 ASCII 的步骤',
   steps.some((s) => /mv\b/.test(s.run ?? '') && /ScheduleTodo-/.test(s.run ?? '')),
+);
+
+// 核对 job：发布完必须确认四个资产都在（缺一个就是红的）。
+const verifyJob = workflow.jobs?.['verify-release'];
+check('存在 verify-release job（核对四个资产都在）', Boolean(verifyJob));
+check('verify-release 依赖 build job（两个平台都发完才核对）', verifyJob?.needs === 'build');
+check(
+  'verify-release 只在 tag 推送时执行',
+  /startsWith\(github\.ref, 'refs\/tags\/v'\)/.test(verifyJob?.if ?? ''),
+  verifyJob?.if ?? '',
+);
+const verifyRun = (verifyJob?.steps ?? []).map((s) => s.run ?? '').join('\n');
+check(
+  'verify-release 逐个核对 dmg / app.zip / exe / msi 四个资产名',
+  ['-macos-arm64.dmg', '-macos-arm64.app.zip', '-windows-x64-setup.exe', '-windows-x64.msi'].every(
+    (name) => verifyRun.includes(name)
+  ),
+);
+check(
+  'verify-release 缺资产时判失败',
+  /exit 1/.test(verifyRun) && /missing/.test(verifyRun),
 );
 } // ← workflow 自检（ruby 可用时才做）
 
