@@ -107,6 +107,8 @@ jobs:
         run: node scripts/check-bundle-config.mjs
       - name: Self-check · check-platform-portability
         run: node scripts/check-platform-portability.mjs
+      - name: Self-check · check-ui-text
+        run: node scripts/check-ui-text.mjs
 
       # 自检的完整输出（每个脚本的 stdout/stderr）传成 artifact：
       # 失败时**不必本地复现**也能看到到底是哪个脚本、报了什么。

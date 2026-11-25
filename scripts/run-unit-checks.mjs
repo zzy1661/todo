@@ -27,13 +27,14 @@ const CHECKS = [
   ['check-cases', '内容库契约：总数 / 分类分布 / case 分布 / 正文长度 / id 唯一'],
   ['check-permutation', '推送确定性：与 PRD 附录 A 的参考实现逐位一致'],
   ['check-cases-negative', '负向篡改：四种篡改各自必须让校验脚本判红'],
-  ['check-sync', '同步层自检：十二组路径（含双端回路）'],
+  ['check-sync', '同步层自检：十五组路径（含双端回路与墓碑死锁）'],
   ['check-sync-extra', '同步补充：登出 / 断网降级 / 防抖时间线'],
   ['check-data-layer', '数据层：localStorage 路径'],
   ['check-db-parity', '双后端等价性对拍（需 node:sqlite，Windows 会明确跳过）'],
   ['check-deleted-filter', '软删除过滤：所有读取路径都带 deleted = 0'],
   ['check-bundle-config', '打包配置：三份 conf 合规 + 平台中立 + 数据路径中立'],
   ['check-platform-portability', '平台可移植性：平台专有调用必须被 #[cfg] 保护'],
+  ['check-ui-text', '界面文案：模板正文不得出现 Markdown 强调标记与反引号'],
 ];
 
 const results = [];

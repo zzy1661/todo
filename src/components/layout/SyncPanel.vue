@@ -20,6 +20,7 @@ import {
   logout,
   phaseLabel,
   pushAllLocal,
+  recoverDeleted,
   retrySync,
   syncState,
   togglePanel,
@@ -78,6 +79,24 @@ function gotoAllTodos(): void {
   closePanel();
   emit('goto-todos');
 }
+
+/**
+ * 找回被本机删除记录挡住的条目。
+ *
+ * **为什么要二次确认**：这是**反删除**——本机记着「这些条目被删了」，
+ * 墓碑终结（PRD BR-28 / OPEN-01）本来让它们永远回不来。这个出口撤销**本机**的
+ * 删除记录（只影响这台机器，不广播），所以必须让用户明确知道自己在做什么。
+ */
+function onRecover(): void {
+  const count = status.value.recoverableCount ?? 0;
+  const confirmed = window.confirm(
+    `找回 ${count} 条被删除的条目？\n\n` +
+      `这些条目在这台机器上被标记为「已删除」，但云端还留着它们。\n` +
+      `找回后它们会重新出现在这台机器上（只影响这台机器，不会改动别的设备）。`
+  );
+  if (!confirmed) return;
+  void recoverDeleted();
+}
 </script>
 
 <template>
@@ -126,6 +145,20 @@ function gotoAllTodos(): void {
         （自动同步只推「登录后被改动过」的增量，登录前的历史待办不在里面）。
         点下面的「上传本机全部」即可同步到云端。
       </p>
+      <!--
+        **可找回**：这些条目在本机被标记为「已删除」，但云端还活着。
+
+        墓碑终结（PRD BR-28 / OPEN-01）规定「已删条目不因任何非删除记录复活」，
+        于是它们**永远拉不回来**——界面上连「全部待办」都看不到，
+        状态区只会说「已是最新 N 条」。用户完全想不通数据去哪了。
+
+        所以这里必须给一个**出口**：撤销**本机**的删除记录（只影响这台机器，
+        不广播，别的设备上的删除依然有效），它们就能回来。
+      -->
+      <p v-else-if="status.recoverableCount" class="sync-hint" data-sync-recoverable>
+        有 {{ status.recoverableCount }} 条待办在这台机器上被标记为「已删除」，但云端还留着它们。
+        点下面的「找回」可以撤销「这台机器上」的删除记录，让它们重新出现（只影响这台机器）。
+      </p>
       <p v-else-if="status.localTombstone" class="sync-hint">
         其中 {{ status.localTombstone }} 条在本机是「已删除」状态，因此不会出现在列表里
         —— 删除会传播到所有设备（墓碑终结），这是正常的。
@@ -150,9 +183,12 @@ function gotoAllTodos(): void {
         这句话必须**可见**：用户看到的是「我的数据在另一台机器上」，
         在这台机器点按钮只会把这台机器的行传上去 —— 看起来「点了没用」，
         实际是传错了机器。
+        **删除记录不会一起上传**（2026-11-26 修正）——把墓碑推上云会让别的设备
+        把你的活数据当成「已删除」清掉。
       -->
       <p v-if="signedIn" class="sync-hint sync-hint--soft">
-        「上传本机全部」上传的是这台机器上的待办；另一台机器上的数据，要在那一台点一次。
+        「上传本机全部」上传的是这台机器上「还活着」的待办（删除记录不会上传）；
+        另一台机器上的数据，要在那一台点一次。
       </p>
 
       <footer class="sync-actions">
@@ -207,6 +243,21 @@ function gotoAllTodos(): void {
           @click="gotoAllTodos"
         >
           查看全部待办
+        </button>
+        <!--
+          「找回」：解除墓碑终结对本机造成的死锁。
+          没有它，「本机已删、云端还活着」的条目永远回不来，
+          用户看到的只是「已是最新 N 条」+ 空列表（2026-11-25 实机反馈）。
+        -->
+        <button
+          v-if="status.recoverableCount"
+          type="button"
+          class="sync-recover"
+          data-sync-recover
+          :disabled="!signedIn || syncState.actionBusy"
+          @click="onRecover"
+        >
+          找回 {{ status.recoverableCount }} 条被删除的条目
         </button>
       </footer>
     </div>
@@ -367,6 +418,13 @@ function gotoAllTodos(): void {
 .sync-actions .sync-goto-all {
   color: var(--color-primary);
   border-color: var(--color-primary);
+}
+
+/* 「找回」：解除墓碑死锁的出口，用主色描边与其它按钮区分 */
+.sync-actions .sync-recover:not(:disabled) {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+  font-weight: 600;
 }
 
 .sync-actions .sync-login {

@@ -45,6 +45,13 @@ export interface LocalTodoGateway {
   loadAll(): Promise<LocalTodoRow[]>;
   /** 应用远端记录（LWW + 墓碑终结） */
   applyRemote(rows: RemoteTodo[]): Promise<MergeStats>;
+  /**
+   * **复活**本机指定的墓碑行（撤销本机的删除记录），返回实际复活条数。
+   *
+   * 只影响本机、且**不推送**——复活不是「删除」，不能广播到别的设备，
+   * 否则会破坏那些设备上的删除语义（墓碑终结的前提是删除确实发生过）。
+   */
+  reviveTombstones(uuids: string[]): Promise<number>;
 }
 
 /** OAuth 回环启动器：桌面端走 Rust 的 TcpListener，stub 走本地 HTTP */
@@ -219,6 +226,13 @@ export class SyncEngine {
   private busy = false;
   private loginInFlight = false;
   private disposed = false;
+  /**
+   * 最近一次拉取发现的「可找回」条目（本机是墓碑、云端还活着）的 uuid。
+   *
+   * 只留在引擎内部：界面只需要条数（`status.recoverableCount`），
+   * uuid 属于内部细节，不进面向界面的状态对象。
+   */
+  private recoverableUuids: string[] = [];
 
   constructor(options: SyncEngineOptions) {
     this.options = options;
@@ -467,12 +481,16 @@ export class SyncEngine {
       }
       // 云端数据落在哪些日期：界面用它说明「数据到了，只是今天看不到」
       const remote = summarizeRemoteRows(rows);
+      // 本机被删、但云端还活着的条目：**只留在引擎内部**，
+      // 界面只需要知道「有多少条可以找回」（uuid 属于内部细节，不必进状态对象）。
+      this.recoverableUuids = [...(stats.recoverableUuids ?? [])];
       this.markSuccess(describePull(reason, remoteCount, stats), {
         localNotUploaded,
         localTombstone: stats.skippedTombstone ?? 0,
         remoteLiveCount: remote.liveCount,
         remoteDateMin: remote.dateMin,
         remoteDateMax: remote.dateMax,
+        recoverableCount: this.recoverableUuids.length,
       });
       this.busy = false;
       return stats;
@@ -565,6 +583,7 @@ export class SyncEngine {
     const token = this.session?.accessToken;
     this.session = null;
     this.pending.clear();
+    this.recoverableUuids = [];
     if (this.debounceTimer !== null) this.options.timers.clearTimeout(this.debounceTimer);
     this.debounceTimer = null;
     // 登出后必须停掉定时器：留着的定时器到点会发请求，违反 FR-SYNC-10
@@ -585,6 +604,8 @@ export class SyncEngine {
         remoteLiveCount: 0,
         remoteDateMin: '',
         remoteDateMax: '',
+        // 「可找回」的条目同理失效（找回要连着云端拉取）
+        recoverableCount: 0,
       });
     }
     if (token && this.options.config.enabled) {
@@ -721,6 +742,14 @@ export class SyncEngine {
    * 永远推不上去。这个方法把本机全部记录一次性推上去（按 uuid 幂等 upsert，
    * 重复点不会产生重复行）。
    *
+   * **只上传「还活着」的待办，不上传本机的删除记录**（2026-11-26 修正）：
+   * 按钮的意图是「把本机的待办搬上去」，不是「把本机的删除历史广播出去」。
+   * 之前会把墓碑一起推上去，后果是**双向的**：
+   * ① 云端那批行变成墓碑 → 别的设备拉到它，墓碑会**覆盖掉那边的活数据**
+   *    （`tombstone-wins`：远端是墓碑就把本地改成已删）→ **真实数据在所有设备上消失**；
+   * ② 「换账号登录」时会把旧账号的删除历史带到新账号下。
+   * 删除记录的传播由**增量推送**负责（用户真的删了某条时）——那条路径不受影响。
+   *
    * 边界：本地待办**不带账号归属标记**，所以「换账号登录」时也会把本机的数据
    * 带到新账号下——这是既有数据模型的固有限制（pull 同样不会清理旧账号的数据），
    * 因此本方法做成**用户显式点击**而不是自动行为。
@@ -736,9 +765,15 @@ export class SyncEngine {
     this.setStatus({ phase: 'syncing', detail: '正在上传本机全部待办…' });
     try {
       const token = await this.ensureFreshToken();
-      const rows = await this.options.local.loadAll();
+      const all = await this.options.local.loadAll();
+      // **过滤墓碑**：删除记录不跟着「上传本机全部」走（见上面的说明）
+      const rows = all.filter((row) => !row.deleted);
       if (rows.length === 0) {
-        this.markSuccess('本机没有待办可上传');
+        this.markSuccess(
+          all.length > 0
+            ? '本机没有可上传的待办（只有已删除的记录；删除记录不会上传）'
+            : '本机没有待办可上传'
+        );
         this.busy = false;
         return;
       }
@@ -757,6 +792,52 @@ export class SyncEngine {
       });
     }
     this.busy = false;
+  }
+
+  /**
+   * **找回**被本机的删除记录挡住的条目（用户显式动作）。
+   *
+   * **这个出口为什么必须存在**：墓碑终结（PRD BR-28 / OPEN-01）规定
+   * 「已删条目不因任何非删除记录复活」，于是「本机是墓碑、云端还活着」的条目
+   * **永远拉不回来**——界面上（`deleted = 0`）连「全部待办」都看不到它们。
+   * 用户看到的只是「已是最新 N 条」+ 空列表（2026-11-25 实机反馈就是这个局面）。
+   *
+   * **它做什么**：把本机这些行**复活**（`deleted = 1` → `0`），然后重新拉取，
+   * 让云端的存活版本按 LWW 覆盖回来。
+   *
+   * **它不做什么**（边界很重要）：
+   * - 不改自动合并规则——墓碑终结在同步层依然成立；
+   * - 不往云端推「复活」——删除在别的设备上依然有效，
+   *   这里只撤销**这台机器**上的删除记录；
+   * - 不是物理删除行——行还在（NEG-03：删除一律走软删除）。
+   */
+  async recoverDeleted(): Promise<void> {
+    if (!this.options.config.enabled || !this.session) return;
+    if (this.busy) return;
+    const targets = [...this.recoverableUuids];
+    if (targets.length === 0) return;
+    this.busy = true;
+    this.setStatus({ phase: 'syncing', detail: '正在找回被删除的条目…' });
+    try {
+      const revived = await this.options.local.reviveTombstones(targets);
+      this.recoverableUuids = [];
+      this.busy = false;
+      // 复活后立刻拉一次：云端的存活版本会按 LWW 覆盖回来
+      await this.pull('找回后重新拉取');
+      this.setStatus({
+        detail: `已找回 ${revived} 条被删除的条目（只影响这台机器）`,
+        recoverableCount: 0,
+      });
+    } catch (error) {
+      this.busy = false;
+      const message = error instanceof Error ? error.message : String(error);
+      this.setStatus({
+        phase: 'error',
+        detail: `找回失败：${message}`,
+        lastResult: 'failed',
+        lastError: message,
+      });
+    }
   }
 
   async retry(): Promise<void> {

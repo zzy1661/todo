@@ -11,7 +11,7 @@
 import { reactive } from 'vue';
 import dayjs from 'dayjs';
 import { invoke } from '@tauri-apps/api/core';
-import { applyRemoteTodos, fetchTodoSyncRows, isTauriEnv } from '../db/database.ts';
+import { applyRemoteTodos, fetchTodoSyncRows, isTauriEnv, reviveTombstones } from '../db/database.ts';
 import {
   DISABLED_CONFIG,
   parseSyncConfig,
@@ -213,6 +213,7 @@ async function startSync(): Promise<void> {
       loadByUuids: (uuids) => fetchTodoSyncRows(uuids),
       loadAll: () => fetchTodoSyncRows(null),
       applyRemote: (rows) => applyRemoteTodos(rows),
+      reviveTombstones: (uuids) => reviveTombstones(uuids),
     },
     oauth: isTauriEnv() ? tauriOAuthLauncher : unsupportedOAuthLauncher,
     // 时钟与定时器走可注入的全局实现（FR-SYNC-15），这里只做转发
@@ -300,12 +301,30 @@ export async function retrySync(): Promise<void> {
  *
  * 自动同步只覆盖「变更驱动」的增量；配 key 之前就存在的历史待办不在增量里，
  * 需要这个入口才能上云。
+ *
+ * **只上传还活着的待办**：删除记录不跟着走（引擎里说明了原因）。
  */
 export async function pushAllLocal(): Promise<void> {
   if (!engine || syncState.actionBusy) return;
   syncState.actionBusy = true;
   try {
     await engine.pushAllLocal();
+  } finally {
+    syncState.actionBusy = false;
+  }
+}
+
+/**
+ * 找回被本机删除记录挡住的条目（用户显式动作）。
+ *
+ * 墓碑终结会让「本机已删、云端还活着」的条目**永远拉不回来**，
+ * 界面上连「全部待办」都看不到——这个入口是唯一的出路。
+ */
+export async function recoverDeleted(): Promise<void> {
+  if (!engine || syncState.actionBusy) return;
+  syncState.actionBusy = true;
+  try {
+    await engine.recoverDeleted();
   } finally {
     syncState.actionBusy = false;
   }

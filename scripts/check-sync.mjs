@@ -267,6 +267,7 @@ function buildEngine(
       loadByUuids: (uuids) => db.fetchTodoSyncRows(uuids),
       loadAll: () => db.fetchTodoSyncRows(null),
       applyRemote: (rows) => db.applyRemoteTodos(rows),
+      reviveTombstones: (uuids) => db.reviveTombstones(uuids),
     },
     oauth,
     clock,
@@ -1526,6 +1527,16 @@ section('⑬ SQLite 后端等价：命令行与 Python 必须给出相同结果'
       }
       return { inserted, updated, skipped: 0 };
     },
+    async reviveTombstones(uuids) {
+      let revived = 0;
+      for (const row of rows) {
+        if (row.deleted && uuids.includes(row.uuid)) {
+          row.deleted = false;
+          revived += 1;
+        }
+      }
+      return revived;
+    },
   });
 
   const makeRow = (uuid, title) => ({
@@ -1885,13 +1896,147 @@ section('⑭ 拉取结果说清「远端 N 行」，云端为空时给出上传�
   endSection();
 }
 
+/* ================================================ ⑮ 墓碑死锁与「找回」出口 */
+
+/**
+ * 「本机已删、云端还活着」的条目，必须有出路。
+ *
+ * 背景（2026-11-25 实机反馈「Windows 同步后，全部待办里也看不到数据」）：
+ * 实测就是这个局面——本机 8 行**全是墓碑**，云端同 uuid 的 8 行**还活着**，
+ * 合并结果全是 `tombstone-terminal`（保持本地不变），
+ * 于是「远端 8 行、已是最新 8 条」与「列表全空」同时成立。
+ *
+ * 墓碑终结（OPEN-01）规定「已删条目不因任何非删除记录复活」，
+ * 所以这类条目**永远拉不回来**——产品必须给出口：
+ * ① **「上传本机全部」不带墓碑**（否则墓碑上云后会反删别的设备的活数据）；
+ * ② **「找回」**：撤销**本机**的删除记录（只影响这台机器，不广播），再重新拉取。
+ */
+section('⑮ 墓碑死锁：「上传不带墓碑」+「找回」出口');
+{
+  // ── ① 数据层：只把「本机是墓碑且云端还活着」的条目算作可找回
+  {
+    resetLocal([
+      makeTodo({ id: 1, uuid: 'tomb-live', deleted: true, updated_at_ms: 1000 }),
+      makeTodo({ id: 2, uuid: 'tomb-dead', deleted: true, updated_at_ms: 1000 }),
+      makeTodo({ id: 3, uuid: 'plain', deleted: false, updated_at_ms: 1000 }),
+    ]);
+    const stats = await db.applyRemoteTodos([
+      { ...makeTodo({ uuid: 'tomb-live' }), deleted: false, updated_at_ms: 2000 },
+      { ...makeTodo({ uuid: 'tomb-dead' }), deleted: true, updated_at_ms: 2000 },
+      { ...makeTodo({ uuid: 'plain' }), deleted: false, updated_at_ms: 2000 },
+    ]);
+    eq(
+      stats.recoverableUuids?.length,
+      1,
+      '只有「本机是墓碑、且云端同 uuid 还活着」的条目才可找回'
+    );
+    eq(stats.recoverableUuids?.[0], 'tomb-live', '可找回的 uuid 必须报对');
+    eq(stats.skippedTombstone, 2, '本机是墓碑的条目都要记进 skippedTombstone');
+  }
+
+  // ── ② 运行期：本机是墓碑 + 云端还活着 → 状态里要给出「可找回」的条数
+  {
+    resetLocal([
+      makeTodo({ id: 1, uuid: 'blocked-1', deleted: true, updated_at_ms: 1000 }),
+      makeTodo({ id: 2, uuid: 'blocked-2', deleted: true, updated_at_ms: 1000 }),
+    ]);
+    const stub = await createMockSupabase();
+    for (const uuid of ['blocked-1', 'blocked-2']) {
+      stub.seed({
+        uuid,
+        title: `云端还活着 ${uuid}`,
+        date: '2026-11-01',
+        priority: 1,
+        note: '',
+        done: 0,
+        created_at: '2026-11-01 09:00:00',
+        updated_at: '2026-11-01 09:00:00',
+        updated_at_ms: 2000,
+        deleted: 0, // 云端版本**活着**
+      });
+    }
+    const statuses = [];
+    const { engine, off } = buildEngine(stub, {
+      sessionStore: createMemorySessionStore(),
+      oauth: createOAuthLauncher(),
+      onStatus: (status) => statuses.push(status),
+    });
+    await engine.login();
+    await engine.pull('登录');
+
+    const after = statuses[statuses.length - 1];
+    eq(
+      after.recoverableCount,
+      2,
+      '「本机是墓碑、云端还活着」的条目数必须被记下来（界面要给「找回」出口）'
+    );
+    eq(after.localTombstone, 2, '本机是墓碑的条数也要照记');
+
+    // 拉取之后：这 2 条**仍然看不见**（墓碑终结）——这就是「死锁」
+    const visibleBefore = await db.fetchTodos();
+    eq(
+      visibleBefore.length,
+      0,
+      '墓碑终结下这批条目本来就不可见（所以必须有「找回」出口，而不是只报「已是最新」）'
+    );
+
+    // ── ③ 「找回」：撤销本机的删除记录 → 重新拉取 → 条目回来
+    await engine.recoverDeleted();
+    const visibleAfter = await db.fetchTodos();
+    eq(
+      visibleAfter.length,
+      2,
+      '「找回」之后这批条目必须重新可见（否则用户永远卡在「已是最新 N 条」+ 空列表）'
+    );
+    assert(
+      visibleAfter.every((t) => t.deleted !== true),
+      '找回后不该还有墓碑留在可见列表里',
+    );
+    eq(
+      statuses[statuses.length - 1].recoverableCount,
+      0,
+      '找回完成后「可找回」的条数必须归零（不然会反复提示）'
+    );
+
+    // ── ④「上传本机全部」**不推墓碑**
+    //   把本机重新做成「一条活的 + 一条墓碑」，看推到云端的 payload 里有没有墓碑
+    resetLocal([
+      makeTodo({ id: 1, uuid: 'alive-1', deleted: false, updated_at_ms: 3000 }),
+      makeTodo({ id: 2, uuid: 'dead-1', deleted: true, updated_at_ms: 3000 }),
+    ]);
+    await engine.pushAllLocal();
+    const payload = lastPushPayload(stub);
+    assert(payload !== null, '「上传本机全部」应当发出一次推送');
+    const pushedUuids = (payload ?? []).map((row) => row.uuid);
+    assert(
+      pushedUuids.includes('alive-1'),
+      `活着的待办必须上传，实际：${pushedUuids.join('、')}`
+    );
+    assert(
+      !pushedUuids.includes('dead-1'),
+      `**删除记录不得跟着「上传本机全部」上云**——墓碑上云后会反删别的设备的活数据，` +
+        `实际推了：${pushedUuids.join('、')}`
+    );
+    assert(
+      !(payload ?? []).some((row) => row.deleted === 1 || row.deleted === true),
+      '推送 payload 里不得出现 deleted = 1 的行',
+    );
+
+    off();
+    engine.dispose();
+    await stub.close();
+  }
+
+  endSection();
+}
+
 console.log('');
 if (failures.length > 0) {
   console.error(`✗ 同步自检失败 ${failures.length} / ${checks} 项：`);
   for (const failure of failures) console.error(`  - ${failure}`);
   process.exit(1);
 }
-console.log(`✓ 同步自检 PASS：${checks} 项断言，十四组路径 + v3 迁移结构证据 + 平台无关性全部通过`);
+console.log(`✓ 同步自检 PASS：${checks} 项断言，十五组路径 + v3 迁移结构证据 + 平台无关性全部通过`);
 console.log('  NOT-VERIFIED：真实 Supabase 读写、真实 GitHub OAuth 往返、云侧 RLS 越权不可见');
 
 /* ------------------------------------------------------------------ 辅助 */

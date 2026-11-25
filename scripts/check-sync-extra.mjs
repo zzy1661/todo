@@ -186,6 +186,7 @@ function buildEngine(stub, { sessionStore }) {
       // 数出本机还有多少条待办没上云，好给出「点上传本机全部」的指引。
       loadAll: () => db.fetchTodoSyncRows(null),
       applyRemote: (rows) => db.applyRemoteTodos(rows),
+      reviveTombstones: (uuids) => db.reviveTombstones(uuids),
     },
     oauth: createOAuthLauncher(),
     clock,

@@ -97,6 +97,13 @@ export interface SyncStatus {
   /** 云端活跃待办的日期范围（`YYYY-MM-DD`）；没有带日期的云端行时为空串 */
   remoteDateMin?: string;
   remoteDateMax?: string;
+  /**
+   * **可找回**的条目数：本机是墓碑、但云端同 uuid 的版本还活着。
+   *
+   * 界面据此给出「找回」入口——没有它，这类条目会被墓碑终结**永久挡住**，
+   * 用户看到的只是「已是最新 N 条」与空空的列表（2026-11-25 实机反馈）。
+   */
+  recoverableCount?: number;
 }
 
 export const EMPTY_STATUS: SyncStatus = {
@@ -136,4 +143,22 @@ export interface MergeStats {
   skippedTombstone?: number;
   /** 跳过的细分：云端行缺必填字段（**坏数据**，不是合并结果） */
   skippedInvalid?: number;
+  /**
+   * **可找回**的条目：这些 uuid 在本机是墓碑（已删除），但**云端同 uuid 的版本还活着**。
+   *
+   * **为什么要有**：墓碑终结（PRD BR-28 / OPEN-01）规定「已删条目不因任何非删除记录复活」，
+   * 所以这类条目**永远拉不回来**——而界面（`deleted = 0`）上一条都不显示，
+   * 连「全部待办」也看不到（它同样只读 `deleted = 0`）。
+   *
+   * （2026-11-25 实机反馈「Windows 同步后，全部待办里也看不到数据」：
+   * 实测就是这个局面——本机 8 行全是墓碑，云端同 uuid 的 8 行还活着，
+   * 合并结果全是 `tombstone-terminal`（保持本地不变），
+   * 于是「远端 8 行、已是最新 8 条」与「列表全空」同时成立。）
+   *
+   * 把这批 uuid 报出来，界面才能给一个**出口**：本机删掉这些删除记录后重新拉取，
+   * 云端的存活版本就能回来。
+   * **这是用户显式的本地动作**：不改自动合并规则，也不往云端推「复活」，
+   * 因此不违反墓碑终结的同步语义（删除在别的设备上依然成立）。
+   */
+  recoverableUuids?: string[];
 }
