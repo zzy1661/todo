@@ -3178,6 +3178,21 @@ v0.3.5 的 Windows job 日志原文：
   当成正式版发出去；
 - **第三方 action 的重试策略要读**：它对 422 有兜底不等于对 500 有兜底。
 
+#### 13.41.6 v0.3.6 发版记录
+
+| 项 | 结果 |
+| --- | --- |
+| 提交 / tag | `0ccf172` / `v0.3.6`（工作流加固另起 `2080d85`，不单独发版） |
+| CI run | [45652341725](https://github.com/zzy1661/todo/actions/runs/45652341725) → **success**（macOS 与 Windows 两个 job 各 **31 步全过**） |
+| 关键步骤 | `cargo test --release`（含新增唯一性守卫）✅ · E2E **6 passed**（Windows 上同样 6 passed）✅ · 两端出包 ✅ |
+| Release 资产 | **4 个齐全**：`ScheduleTodo-0.3.6-macos-arm64.dmg` / `.app.zip` / `windows-x64-setup.exe` / `windows-x64.msi`，**匿名可下载**（HTTP 200） |
+| 本机安装 | `/Applications/日程待办.app` = **0.3.6**，启动正常，本机 `todo.db` 仍是 8 条（**数据一条没丢**） |
+| 未随本版发布 | 工作流加固（`2080d85`）只改 CI，**下次打 tag 自动生效**，不需要单独发版 |
+
+> **v0.3.5 的教训要记住**：那一版 macOS job 挂在 `cargo test`（本轮修掉），
+> Windows job 挂在发布（GitHub API 返 500），**结果一个资产都没有**——
+> 「tag 推上去了」不等于「用户能下载到」。
+
 ---
 
 ## 14. AC-01 ~ AC-70 统一判定台账（70 行）
