@@ -129,7 +129,12 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="app-shell">
-    <SideNav :current="currentModule" @select="selectModule" />
+    <SideNav
+      :current="currentModule"
+      :view-date="selectedDate"
+      @select="selectModule"
+      @goto-todos="currentModule = 'todos'"
+    />
 
     <main class="app-main" :data-module="currentModule">
       <div v-if="initError" class="init-error" role="alert">
@@ -151,6 +156,7 @@ onBeforeUnmount(() => {
               :date="selectedDate"
               @create="openCreate"
               @edit="openEdit"
+              @jump-date="selectedDate = $event"
               @error="setNotice"
             />
           </div>

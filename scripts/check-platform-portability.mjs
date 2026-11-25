@@ -410,12 +410,55 @@ for (const { command, note } of RUST_EXTERNAL_COMMANDS) {
   }
 }
 
+/* ------------------------------------------- Rust 测试的临时文件名唯一性 */
+
+/**
+ * Rust 测试里的临时库文件名**不能只靠时间戳**。
+ *
+ * 2026-11-25 实例：`src-tauri/tests/migration_guard.rs` 的 `temp_db_path()`
+ * 用 `SystemTime::now().as_nanos()` 做后缀，**不保证唯一**——系统时钟粒度可能粗到
+ * 微秒级，同一时刻取两次完全可能撞上。而 `cargo test` 默认**并行**跑多个测试，
+ * 两个测试拿到同一个文件名后，后启动的那个会 `remove_file` 删掉另一个**已经打开**的
+ * 库文件，SQLite 随即报 `attempt to write a readonly database`
+ * （扩展码 `SQLITE_READONLY_DBMOVED` = 库文件在打开期间被移走）。
+ *
+ * 之所以难发现：它在 macOS CI 上**偶发**失败、Windows 上不复现（两端时钟粒度不同），
+ * 而测试代码一个字没改——所以必须变成一条**可执行断言**而不是靠人记得。
+ *
+ * 判定口径：Rust **测试**文件里出现 `as_nanos()` / `as_millis()`，
+ * 却**没有原子计数器**这类唯一性保证时判违规。
+ *
+ * 注意：光有 `process::id()` **不算**——并行测试在**同一个进程**里跑，pid 相同，
+ * 真正保证「同进程内不撞名」的只有原子计数器。
+ */
+const RUST_TEMP_UNIQUENESS = {
+  /** 时间戳取名 */
+  timestamp: /\bas_(nanos|millis)\(\)/,
+  /** 唯一性保证：原子计数器（同一进程内绝不重复） */
+  uniqueness: /\bAtomic(?:U64|U32|Usize)\b/,
+};
+
+for (const file of rustFiles) {
+  // 只管测试文件：产品代码不造临时库
+  if (!/src-tauri[/\\]tests[/\\]/.test(file)) continue;
+  const text = readFileSync(file, 'utf8');
+  if (!RUST_TEMP_UNIQUENESS.timestamp.test(text)) continue;
+  if (RUST_TEMP_UNIQUENESS.uniqueness.test(text)) continue;
+  errors.push(
+    `${file} 的临时文件名只靠时间戳（as_nanos / as_millis）：并行测试会撞名，` +
+      `撞名后互相删库 → SQLite 报 SQLITE_READONLY_DBMOVED（attempt to write a readonly database）。` +
+      `必须补上原子计数器（AtomicU64 等）作为唯一性保证——光有进程号不够，` +
+      `并行测试在同一个进程里跑，pid 是同一个。`
+  );
+}
+
 console.log('平台可移植性校验（scripts/check-platform-portability.mjs）');
 console.log(`  扫描文件数    ${files.length}（src/ + src-tauri/src/）`);
 console.log(
   `  守护规则      ${PLATFORM_TOKENS.length} 条（平台专有调用必须被 #[cfg(...)] 保护）` +
     ` + ${SCRIPT_RULES.length} 条（scripts/ 的外部命令依赖）` +
-    ` + ${RUST_EXTERNAL_COMMANDS.length} 条（Rust 侧的外部命令依赖）`
+    ` + ${RUST_EXTERNAL_COMMANDS.length} 条（Rust 侧的外部命令依赖）` +
+    ` + 1 条（Rust 测试的临时文件名唯一性）`
 );
 console.log(`  违规          ${errors.length}`);
 

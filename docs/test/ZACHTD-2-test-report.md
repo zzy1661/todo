@@ -3019,6 +3019,101 @@ with SQL type `INTEGER`」。而 SQLite 自己的 `sqlite3_value_text` 是**任�
 
 ---
 
+### 13.40 数据早就到了，只是落在别的日期上（v0.3.6）
+
+> 承接 §13.39：v0.3.5 把「跳过的**原因**」说清楚了，需求方在同一台 Windows 上
+> 仍然看到「界面没显示出远端的数据」。这一版把**最后一环**查清并修掉。
+
+#### 13.40.1 先把事实钉死（本机可验证的三条）
+
+| 事实 | 取证方式 | 结果 |
+| --- | --- | --- |
+| 用户真实数据在 macOS，日期**全在过去** | `~/Library/Application Support/com.poisson.todo/todo.db` 直接读库 | 8 条，日期 `2026-10-15`、`10-31`、`11-01`×3、`11-02`、`11-03`、`11-16` |
+| 应用默认只显示**今天** | `src/App.vue:36` `selectedDate = ref(dayjs().format('YYYY-MM-DD'))` | 当时是 `2026-11-26` |
+| 日面板只显示选中日 | `src/stores/todo.ts` `byDate(date)` = `date === 选中日` | 11-26 这天**一条都没有** |
+
+⇒ **数据早在登录那一次拉取时就进到 Windows 本机库了**（所以再点「立即重试」自然是
+「已是最新 8 条」），只是那 8 条全在 `2026-11-16` 及以前，
+**当天面板当然一片空白**。**同步链路没问题，坏的是「同步完不告诉用户数据在哪」。**
+
+这与 §13.39 的推断一致，并与之互补：§13.39 排除了「墓碑」这一支，
+剩下的「日期不在当前选中日」正是本机的真实情况。
+
+#### 13.40.2 改法：把「数据在哪」变成看得见、点得到
+
+| 层 | 改动 |
+| --- | --- |
+| `src/sync/types.ts` | `SyncStatus` 增加 `remoteLiveCount` / `remoteDateMin` / `remoteDateMax`（**云端活跃待办的条数与日期范围**；只算 `deleted = 0`，墓碑不算——它本来就不出现在列表里） |
+| `src/sync/engine.ts` | 新增导出 `summarizeRemoteRows(rows)`（云端活跃待办的条数与日期范围）与 `isRemoteOutsideView(dateMin, dateMax, viewDate)`（**区间是否不含当前查看日**——抽成纯函数才能被自检覆盖，藏在 `.vue` 里只有实机能验）；`pull()` 把汇总写进状态；**登出时清零**（会话没了，再说「云端有 N 条」是误导） |
+| `src/components/layout/SyncPanel.vue` | 状态区新增一条可见说明：「云端有 8 条待办，日期在 10月15日 ~ 11月16日。它们不在当前查看的日期（2026-11-26）—— 这就是列表空着的原因。」；并新增 **「查看全部待办」** 按钮（那里按日期排好，一眼看到数据在哪天） |
+| `src/components/layout/SideNav.vue` / `src/App.vue` | 「查看全部待办」的出口：SyncPanel → SideNav → App 三级事件冒泡，模块切到 `todos`；`viewDate` 顺着 props 传下去，让提示比的是**当前查看的日期**而不是「今天」 |
+| `src/stores/todo.ts` | 新增 `nearestTodoDate(exclude)`：除当天外最近一个有待办的日期（优先往后，往后没有才退回最近的过去日期） |
+| `src/components/todo/TodoListView.vue` | 当天空状态新增一条可点的提示：「其他日期还有 N 条待办 · 最近的在 11月23日」——**一点就跳过去** |
+
+> 为什么要两处（同步面板 + 当日面板）：同步面板回答的是「同步完数据去哪了」，
+> 当日面板回答的是「我看到的空列表是不是丢数据了」。后者**不依赖登录**，
+> 本地数据跨天时同样受益。
+
+#### 13.40.3 顺带抓到：CI 的 Rust 测试**偶发**失败（macOS job 红）
+
+v0.3.5 的 CI 里 **macOS job 挂在 `cargo test`**（Windows job 通过）：
+
+```
+test sqlite_path_matches_localstorage_semantics ... FAILED
+SQL 执行失败: INSERT INTO todos (title, date, priority, note) VALUES ('A', '2026-11-01', 1, '');
+error returned from database: (code: 1032) attempt to write a readonly database
+```
+
+- **错误码 1032 = `SQLITE_READONLY`(8) | `SQLITE_READONLY_DBMOVED`(4)<<8** →
+  **库文件在连接打开期间被移走**；
+- 根因：`src-tauri/tests/migration_guard.rs` 的 `temp_db_path()` 用
+  `SystemTime::now().as_nanos()` 做**唯一性后缀**，而**纳秒时间戳不保证唯一**
+  （时钟粒度可能粗到微秒级），`cargo test` 又**并行**跑多个测试 →
+  两个测试拿到同一个文件名 → 后启动的那个 `remove_file` 删掉了另一个**已打开**的库；
+- 为什么之前没发现：**v0.3.4 还是全绿**，代码一个字没改 —— 这是个**概率性**缺陷，
+  两端时钟粒度不同 → macOS 上更容易撞；
+- 修法：文件名改为 **测试标签 + 进程号 + 纳秒 + 原子计数器**四段，
+  计数器保证**同进程内绝不重复**（正是撞名的场景）；加一条不变量回归守卫
+  `temp_db_paths_are_unique_under_concurrency`（8 线程 × 250 次取名，一个都不能重）；
+- 再加一条**可移植性守护规则 R2**：Rust 测试文件里出现 `as_nanos()` / `as_millis()`
+  却**没有原子计数器** → 判红（**光有 `process::id()` 不算**——并行测试在同一个进程里跑，
+  pid 是同一个）。规则用「故意注入回归」验证过会亮。
+
+#### 13.40.4 再顺带拆掉一颗**按日历引爆**的 E2E 雷
+
+本地跑 E2E 时用例 2 红了：`emptyDay = D(5)` 找的是「空的一天」，
+但同一个用例的「跨月」步骤刚在 **`target` = `other` 所在月的下个月 1 号**建了一条待办。
+**当今天离月底 5 天时，`D(5)` 正好就是下个月 1 号** → 两者撞车 → 「空的一天」其实有 1 条 → 必挂。
+
+- 本机（UTC+8，11-26，30 天的月份）**正好命中**；CI 跑在 UTC（11-25）**还没命中** →
+  **同样的代码，CI 绿、本地红**；
+- 危险在于：**从 2026-11-26 16:00 UTC 起 CI 也会开始失败**，而且每个月的
+  「月底前 5 天」都会复发（29 天的月份是 24 日、31 天的月份是 27 日）；
+- 修法**不是**换一个偏移量（那是换个日子再爆），而是**从「测试确定没建过待办」的候选里挑**，
+  并**显式断言**挑中的日子不在已用日期集合里；
+- 验证：旧写法在 `E2E_NOW=2026-12-27` **必挂**，新写法在
+  `2026-11-27 / 2026-12-27 / 2027-01-27 / 2027-02-24 / 2026-03-01 / 2026-10-31`
+  **六个日历位置全部 6 passed**。
+
+#### 13.40.5 断言守护
+
+| 层 | 守护 |
+| --- | --- |
+| `scripts/check-sync.mjs` | 第 ⑭ 组扩到 **30 项**：新增 `summarizeRemoteRows` 的语义（排除墓碑、日期范围取最早/最晚、空集、全墓碑）+ `isRemoteOutsideView` 的四种判定（区间之前 / 区间内 / 正好在终点 / 没有区间不下判断）+ 运行期（拉取后 `remoteLiveCount` / `remoteDateMin` / `remoteDateMax` 被写上；**登出后归零**） |
+| `scripts/check-platform-portability.mjs` | 新增 **R2**：Rust 测试的临时文件名唯一性（故意注入回归验证过会亮） |
+| `src-tauri/tests/migration_guard.rs` | 新增 `temp_db_paths_are_unique_under_concurrency`（8 × 250 次取名不得重复） |
+| `e2e/todo.spec.ts` | 用例 2 补断言：空状态里**必须**有「其他日期还有 … 最近的在 …」的提示，且**一点就跳到有待办的那一天** |
+
+#### 13.40.6 本轮回归
+
+- `npm run check:unit` → **10 / 10 通过**（`check-sync` **187 项断言**，原 172）；
+- `npx playwright test` → **6 passed**；另在 **6 个日历位置**各跑一遍 → 全部 6 passed；
+- `cargo test --release` → **21 passed**（含新增的唯一性守卫）；
+- `npm run build`（`vue-tsc --noEmit` + `vite build`）→ 通过；
+- 界面复核：新空状态实拍确认（「这一天还没有待办」+「其他日期还有 1 条待办 · 最近的在 11月23日」+「创建第一条待办」）。
+
+---
+
 ## 14. AC-01 ~ AC-70 统一判定台账（70 行）
 
 > 本节是 **M2 台账统一**的产物（ZACHTD-14）：把 §3（S7，AC-01~56）与 §13（S10.5，AC-43 重判 + AC-57~68）两段结论**并成一张可逐条引用的账**。M2 那轮**一行都没有改判**；只修了附录 A.2 的重复计数，并新增两条「判定含义注」。

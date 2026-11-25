@@ -11,6 +11,7 @@
  *    全程零云端请求（FR-SYNC-10 / AC-57）。
  */
 import { computed } from 'vue';
+import dayjs from 'dayjs';
 import {
   autoSyncText,
   closePanel,
@@ -23,6 +24,16 @@ import {
   syncState,
   togglePanel,
 } from '../../stores/sync.ts';
+import { isRemoteOutsideView } from '../../sync/engine.ts';
+
+const props = defineProps<{
+  /** 当前界面正在查看的日期（`YYYY-MM-DD`）——用来判断云端数据「看不看得见」 */
+  viewDate: string;
+}>();
+
+const emit = defineEmits<{
+  (e: 'goto-todos'): void;
+}>();
 
 const status = computed(() => syncState.status);
 const label = computed(() => phaseLabel(status.value));
@@ -34,6 +45,39 @@ const signedIn = computed(
 const canLogin = computed(
   () => syncState.enabled && !signedIn.value && !syncState.actionBusy
 );
+
+/** 最近一次拉取到的云端活跃待办条数 */
+const remoteCount = computed(() => status.value.remoteLiveCount ?? 0);
+
+/** 云端待办的日期范围文案（`10月15日 ~ 11月16日`） */
+const remoteRangeText = computed(() => {
+  const min = status.value.remoteDateMin ?? '';
+  const max = status.value.remoteDateMax ?? '';
+  if (!min) return '';
+  const format = (day: string) => dayjs(day).format('M月D日');
+  return min === max ? format(min) : `${format(min)} ~ ${format(max)}`;
+});
+
+/**
+ * 云端数据是否**不在**当前查看的这一天。
+ *
+ * **为什么要判断**：这是本次改动要解决的核心困惑——
+ * 「同步说成功、界面却空空」。真实原因是数据落在了别的日期，
+ * 而界面只显示当天。不说出来，用户只会认为同步没生效。
+ */
+const remoteOutsideView = computed(() =>
+  isRemoteOutsideView(
+    status.value.remoteDateMin ?? '',
+    status.value.remoteDateMax ?? '',
+    props.viewDate
+  )
+);
+
+/** 切到「全部待办」：云端数据在那里按日期排好，一眼就能看全 */
+function gotoAllTodos(): void {
+  closePanel();
+  emit('goto-todos');
+}
 </script>
 
 <template>
@@ -87,6 +131,21 @@ const canLogin = computed(
         —— 删除会传播到所有设备（墓碑终结），这是正常的。
       </p>
       <!--
+        **云端的数据落在哪些日期**。
+
+        这是本次改动要解决的核心困惑：「同步说成功，界面却空空」。
+        真实原因往往不是同步失败，而是**数据落在别的日期**——
+        界面只显示当天（FR-DAY-01），云端那几条全在过去或未来的日子里，
+        于是「已是最新 N 条」和「列表一条不显示」同时成立。
+        不把日期说出来，用户只会以为同步没生效（2026-11-25 实机反馈）。
+      -->
+      <p v-if="remoteCount > 0" class="sync-hint" data-sync-where>
+        云端有 {{ remoteCount }} 条待办，日期在 {{ remoteRangeText }}。
+        <template v-if="remoteOutsideView">
+          它们不在当前查看的日期（{{ props.viewDate }}）—— 这就是列表空着的原因。
+        </template>
+      </p>
+      <!--
         「上传本机全部」上传的是**这台机器**上的待办。
         这句话必须**可见**：用户看到的是「我的数据在另一台机器上」，
         在这台机器点按钮只会把这台机器的行传上去 —— 看起来「点了没用」，
@@ -135,6 +194,19 @@ const canLogin = computed(
           @click="pushAllLocal"
         >
           上传本机全部
+        </button>
+        <!--
+          「查看全部待办」：把「数据在哪」变成一次点击。
+          全部待办按日期排好，云端那几条在哪一天一目了然。
+        -->
+        <button
+          v-if="remoteCount > 0"
+          type="button"
+          class="sync-goto-all"
+          data-sync-goto-all
+          @click="gotoAllTodos"
+        >
+          查看全部待办
         </button>
       </footer>
     </div>
@@ -287,6 +359,12 @@ const canLogin = computed(
 
 /* 「上传本机全部」：与其它按钮同族，但用主色描边以示区别 */
 .sync-actions .sync-push-all:not(:disabled) {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+/* 「查看全部待办」：解决「数据在哪」的出口，样式与登录按钮同族 */
+.sync-actions .sync-goto-all {
   color: var(--color-primary);
   border-color: var(--color-primary);
 }

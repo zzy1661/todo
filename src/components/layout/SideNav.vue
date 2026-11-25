@@ -12,10 +12,14 @@ import SyncPanel from './SyncPanel.vue';
 defineProps<{
   /** 当前模块 id */
   current: string;
+  /** 当前界面正在查看的日期（`YYYY-MM-DD`）——同步状态区用它判断数据是否「在眼前」 */
+  viewDate: string;
 }>();
 
 const emit = defineEmits<{
   (e: 'select', id: string): void;
+  /** 同步状态区请求跳到「全部待办」（那里按日期排好，云端数据一眼可见） */
+  (e: 'goto-todos'): void;
 }>();
 
 /** 已知模块的图标；未命中时走 `clockIcon`（FR-NAV-04 的未知 id 回退） */
@@ -100,7 +104,7 @@ const pathsFor = (id: string): string[] => ICONS[id] ?? CLOCK_ICON;
     </div>
 
     <!-- C-16 同步状态与登录区：登录入口只在这里，不在导航内（AC-44 / AC-58） -->
-    <SyncPanel />
+    <SyncPanel :view-date="viewDate" @goto-todos="emit('goto-todos')" />
   </aside>
 </template>
 

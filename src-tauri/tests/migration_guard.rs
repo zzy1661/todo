@@ -21,6 +21,7 @@
 
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions, SqliteRow};
 use sqlx::{Row, SqlitePool};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 /// 打开（或创建）一个 SQLite 库。
 ///
@@ -96,19 +97,41 @@ fn row_to_text(row: &SqliteRow) -> String {
 }
 
 /// 造一个本次运行独有的临时库文件名，避免并行跑测试时互相覆盖
-fn temp_db_path() -> std::path::PathBuf {
+///
+/// **为什么不能只靠时间戳**：`SystemTime::now().as_nanos()` **不保证唯一**——
+/// 系统时钟粒度可能粗到微秒级，同一时刻取两次完全可能拿到同一个值；
+/// 而 `cargo test` 默认并行跑多个测试，于是两个测试会拿到**同一个文件名**。
+/// 后启动的那个会执行 `remove_file` 把**另一个测试已经打开的库文件删掉**，
+/// SQLite 随即报 `attempt to write a readonly database`
+/// （扩展码 `SQLITE_READONLY_DBMOVED` = 库文件在打开期间被移走）。
+///
+/// （2026-11-25 实例：macOS CI 上 `migration_guard` **偶发**失败，Windows 上不复现——
+/// 两端时钟粒度不同，撞名概率也不同。测试代码一个字没改，v0.3.4 还是全绿，
+/// 所以这个坑只在 CI 上偶尔露头，肉眼极难发现。）
+///
+/// 现在文件名由四段组成：**测试标签 + 进程号 + 纳秒 + 原子计数器**。
+/// 计数器保证**同一进程内绝不重复**（这正是撞名的场景），标签让不同测试互不干扰，
+/// 进程号再隔离并发跑的多个进程。
+///
+/// `temp_db_paths_are_unique_under_concurrency` 是这条不变量的回归守卫。
+fn temp_db_path(tag: &str) -> std::path::PathBuf {
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
     let nanos = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .expect("系统时间早于 Unix 纪元")
         .as_nanos();
-    std::env::temp_dir().join(format!("todo_s1_semantics_{nanos}.db"))
+    let seq = COUNTER.fetch_add(1, Ordering::Relaxed);
+    std::env::temp_dir().join(format!(
+        "todo_s1_{tag}_{}_{nanos}_{seq}.db",
+        std::process::id()
+    ))
 }
 
 #[test]
 fn sqlite_path_matches_localstorage_semantics() {
     tauri::async_runtime::block_on(async {
-        let db_path = temp_db_path();
-        let _ = std::fs::remove_file(&db_path);
+        let db_path = temp_db_path("semantics");
+        // **不再先删一次**：文件名已经唯一，删它只会误伤同名文件（见 temp_db_path 注释）
         let pool = open(&db_path).await;
 
         // 与 lib.rs 的 v1 / v2 迁移逐字一致
@@ -235,6 +258,42 @@ fn sqlite_path_matches_localstorage_semantics() {
     });
 }
 
+/// 临时库文件名必须真的唯一：并发取名不得撞名
+///
+/// 这是 `temp_db_path` 的回归守卫。曾经的实现只用 `as_nanos()` 做后缀，
+/// 撞名后两个测试互相删库，CI 上偶发
+/// `attempt to write a readonly database`（SQLITE_READONLY_DBMOVED）。
+///
+/// 这里用 8 个线程各取 250 个名字（共 2000 个）验证「一个都不重复」——
+/// 旧实现在时钟粒度粗的机器上会成片重复，新实现靠原子计数器保证唯一。
+#[test]
+fn temp_db_paths_are_unique_under_concurrency() {
+    let handles: Vec<_> = (0..8)
+        .map(|_| {
+            std::thread::spawn(|| {
+                (0..250)
+                    .map(|_| temp_db_path("uniq").to_string_lossy().into_owned())
+                    .collect::<Vec<String>>()
+            })
+        })
+        .collect();
+
+    let mut all: Vec<String> = Vec::new();
+    for handle in handles {
+        all.extend(handle.join().expect("取名线程 panic"));
+    }
+
+    let total = all.len();
+    all.sort();
+    all.dedup();
+    assert_eq!(
+        total,
+        all.len(),
+        "临时库文件名出现重复（取 {total} 个，去重后 {} 个）",
+        all.len()
+    );
+}
+
 /// 迁移只增不改：lib.rs 的迁移 SQL 里不得出现破坏性语句
 ///
 /// BR-08 禁止的不只是 DROP / ALTER，还有对既有表的 DELETE / UPDATE。
@@ -265,8 +324,8 @@ fn migration_sql_is_additive_only() {
 #[test]
 fn v3_migration_adds_sync_columns_to_todos_only() {
     tauri::async_runtime::block_on(async {
-        let db_path = temp_db_path();
-        let _ = std::fs::remove_file(&db_path);
+        let db_path = temp_db_path("v3columns");
+        // **不再先删一次**：文件名已经唯一，删它只会误伤同名文件（见 temp_db_path 注释）
         let pool = open(&db_path).await;
 
         // v2 结构（与 lib.rs 的 v1 / v2 逐字一致）

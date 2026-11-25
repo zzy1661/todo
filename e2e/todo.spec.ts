@@ -241,8 +241,26 @@ test('2 · 完整链路: create, dots, priority, completion rate, cross-month', 
   await expect(page.locator('.todo-panel .day-title')).toHaveText(dayTitleOf(target));
 
   // --- an empty day's empty-state action pre-fills that very date (TC-014)
+  //
+  // **为什么不能写死 `D(5)`**：上面「跨月」那一步在 `target`
+  // （= `other` 所在月的**下个月 1 号**）建了一条待办。
+  // 而 `D(5)` 在「今天离月底 5 天」时正好落在下个月 1 号 —— 两者撞车，
+  // 「空的一天」其实有 1 条待办，空状态自然不出现，测试必挂。
+  //
+  // （2026-11-26 实测命中：本机 UTC+8 当天正是「月底前 5 天」；
+  //   CI 跑在 UTC，同一天还是绿的 —— 这类**按日历引爆**的雷最难查，
+  //   它会在没人改代码的时候突然让 CI 变红。）
+  //
+  // 现在从候选里挑一个**测试确定没建过待办**的日子，并显式断言这一点。
+  const usedDates = new Set([other, target]);
+  const emptyDay = [1, 2, 3, 4, 5, 6, -1, -2, -4, -5, -6]
+    .map((offset) => D(offset))
+    .find((day) => !usedDates.has(day))!;
+  expect(
+    usedDates.has(emptyDay),
+    `挑中的「空日」${emptyDay} 撞上了已建待办的日期（${[...usedDates].join('、')}）`
+  ).toBe(false);
   await page.locator('.today-btn').click();
-  const emptyDay = D(5);
   await selectDate(page, emptyDay);
   const empty = page.locator('.todo-panel .empty-state[data-empty="no-todos"]');
   await expect(empty.locator('.empty-title')).toHaveText('这一天还没有待办');
@@ -251,6 +269,20 @@ test('2 · 完整链路: create, dots, priority, completion rate, cross-month', 
   await expect(editor.locator('input[data-field="date"]')).toHaveValue(emptyDay);
   await editor.locator('.editor-cancel').click();
   await expect(page.locator('.editor')).toHaveCount(0);
+
+  // --- the empty state points at the other dates (v0.3.6)
+  //
+  // 多设备同步之后，待办常常全在别的日期上：此时「这一天还没有待办」必须
+  // 顺带告诉用户「别的日期还有多少条、最近的在哪一天」，并能一点跳过去。
+  // 没有这条，用户只会以为「数据没同步过来」（2026-11-25 实机反馈的真正原因）。
+  const jump = empty.locator('.empty-jump');
+  await expect(jump).toHaveCount(1);
+  await expect(jump).toContainText('其他日期还有');
+  await expect(jump).toContainText('最近的在');
+  await jump.click();
+  // 跳过去的那一天**必须有待办**（不能跳到一个空日子）
+  await expect(page.locator('.todo-panel .day-title')).not.toHaveText(dayTitleOf(emptyDay));
+  await expect(page.locator('.todo-panel .todo-item').first()).toBeVisible();
 });
 
 /* ------------------------------------------------------------------ case 3 */

@@ -1662,7 +1662,7 @@ section('⑬ SQLite 后端等价：命令行与 Python 必须给出相同结果'
  */
 section('⑭ 拉取结果说清「远端 N 行」，云端为空时给出上传指引');
 {
-  const { describePull } = await import('../src/sync/engine.ts');
+  const { describePull, summarizeRemoteRows } = await import('../src/sync/engine.ts');
 
   // ── 文案语义
   const emptyText = describePull('登录', 0, { inserted: 0, updated: 0, skipped: 0 });
@@ -1717,6 +1717,64 @@ section('⑭ 拉取结果说清「远端 N 行」，云端为空时给出上传�
     `skipped 为 0 时不该出现「跳过」，实际：${noSkip}`
   );
 
+  // ── 云端数据的**日期范围**（界面要靠它说明「数据在哪一天」）
+  //
+  // 背景（2026-11-25 实机反馈「Windows 上界面没显示出远端的数据」）：
+  // 云端 8 行、本机也已入库 8 行、合并结果是「已是最新」——**数据早就到了**。
+  // 但那 8 条的日期是 2026-10-15 ~ 11-16，而界面默认只看**今天**，
+  // 于是「同步成功」与「列表空空」同时成立，用户完全想不通。
+  // 所以引擎必须把「云端有多少条、日期在哪个区间」带出去。
+  {
+    const summary = summarizeRemoteRows([
+      makeTodo({ uuid: 'a', date: '2026-11-16' }),
+      makeTodo({ uuid: 'b', date: '2026-10-15' }),
+      makeTodo({ uuid: 'c', date: '2026-11-01' }),
+      makeTodo({ uuid: 'd', date: '2026-11-02', deleted: true }),
+    ]);
+    eq(summary.liveCount, 3, '云端活跃条数必须排除墓碑（墓碑不会出现在列表里）');
+    eq(summary.dateMin, '2026-10-15', '日期范围起点必须是最早的活跃待办');
+    eq(summary.dateMax, '2026-11-16', '日期范围终点必须是最晚的活跃待办');
+
+    const empty = summarizeRemoteRows([]);
+    eq(empty.liveCount, 0, '云端空时活跃条数必须是 0');
+    eq(empty.dateMin, '', '云端空时日期范围必须是空串（界面据此不显示提示）');
+    eq(empty.dateMax, '', '云端空时日期范围必须是空串（界面据此不显示提示）');
+
+    const allTombstone = summarizeRemoteRows([
+      makeTodo({ uuid: 'e', deleted: true }),
+    ]);
+    eq(
+      allTombstone.liveCount,
+      0,
+      '全是墓碑时活跃条数必须是 0（否则界面会说「云端有 N 条」却一条都看不到）'
+    );
+  }
+
+  // ── 「不在当前查看的这一天」的判断（界面要靠它解释「列表为什么空着」）
+  {
+    const { isRemoteOutsideView } = await import('../src/sync/engine.ts');
+    eq(
+      isRemoteOutsideView('2026-10-15', '2026-11-16', '2026-11-26'),
+      true,
+      '云端日期区间在查看日之前时，必须判定为「不在这一天」'
+    );
+    eq(
+      isRemoteOutsideView('2026-10-15', '2026-11-16', '2026-11-01'),
+      false,
+      '查看日落在云端区间内时，不得判定为「不在这一天」'
+    );
+    eq(
+      isRemoteOutsideView('2026-10-15', '2026-11-16', '2026-11-16'),
+      false,
+      '查看日正好是区间终点时，不得判定为「不在这一天」（那天就有待办）'
+    );
+    eq(
+      isRemoteOutsideView('', '', '2026-11-26'),
+      false,
+      '云端没有日期范围时不得下判断（界面不该说「不在这一天」）'
+    );
+  }
+
   // ── 运行期：云端为空 → localNotUploaded = 本机待办数
   {
     resetLocal([
@@ -1753,11 +1811,32 @@ section('⑭ 拉取结果说清「远端 N 行」，云端为空时给出上传�
       refetched.detail.includes('远端 2 行'),
       `云端已有数据时必须报出远端行数，实际：${refetched.detail}`
     );
+    // 云端数据的条数与日期范围：界面靠它说明「数据在哪一天」
+    eq(
+      refetched.remoteLiveCount,
+      2,
+      '拉取后必须报出云端活跃待办条数（界面要说明数据落在哪一天）'
+    );
+    eq(
+      refetched.remoteDateMin,
+      '2026-11-01',
+      '拉取后必须报出云端待办的日期范围起点'
+    );
+    eq(
+      refetched.remoteDateMax,
+      '2026-11-01',
+      '拉取后必须报出云端待办的日期范围终点'
+    );
 
     // ── 登出后提示必须清掉（那时的「上传本机全部」按钮是禁用的）
     await engine.logout();
     const loggedOut = statuses[statuses.length - 1];
     eq(loggedOut.localNotUploaded, 0, '登出后「尚未上传」的提示必须清掉');
+    eq(
+      loggedOut.remoteLiveCount,
+      0,
+      '登出后「云端有 N 条」的提示必须清掉（会话没了，再说云端有数据是误导）'
+    );
 
     off();
     engine.dispose();

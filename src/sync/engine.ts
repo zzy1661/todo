@@ -147,6 +147,59 @@ export function describePull(
   return `${head} · ${parts.join('、')}`;
 }
 
+/**
+ * 汇总一次拉取里**云端活跃待办**的条数与日期范围。
+ *
+ * **为什么要这个**：界面显示的是「某一天」的待办，不是「全部待办」。
+ * 云端数据完全可能**全部落在别的日期**上，于是「同步成功」与「界面空空」
+ * 同时成立 —— 用户看到「已是最新 8 条」却什么都没看到，完全想不通。
+ * 把「云端有多少条、日期落在哪个区间」带出去，界面才能说清数据在哪。
+ *
+ * 只统计 `deleted = 0` 的行：墓碑不会出现在任何列表里（FR-SYNC-13），
+ * 把它们算进去会让「云端有 N 条」与「界面上能看到 N 条」对不上。
+ */
+export function summarizeRemoteRows(rows: RemoteTodo[]): {
+  liveCount: number;
+  dateMin: string;
+  dateMax: string;
+} {
+  const dates: string[] = [];
+  let liveCount = 0;
+  for (const row of rows) {
+    if (row.deleted) continue;
+    liveCount += 1;
+    if (typeof row.date === 'string' && row.date.length > 0) dates.push(row.date);
+  }
+  dates.sort();
+  return {
+    liveCount,
+    dateMin: dates[0] ?? '',
+    dateMax: dates[dates.length - 1] ?? '',
+  };
+}
+
+/**
+ * 云端数据的日期范围是否**不在**当前查看的这一天。
+ *
+ * **为什么要单独抽出来**：这是「界面空着」的第二个原因（第一个是「数据没同步过来」），
+ * 界面必须能区分并说出来。而它是个**纯判断**，抽出来才能被自检覆盖——
+ * 藏在 `.vue` 里的话，只有实机能验证。
+ *
+ * @param dateMin 云端活跃待办的日期范围起点（空串 = 云端没有带日期的待办）
+ * @param dateMax 云端活跃待办的日期范围终点
+ * @param viewDate 界面当前查看的日期（`YYYY-MM-DD`）
+ */
+export function isRemoteOutsideView(
+  dateMin: string,
+  dateMax: string,
+  viewDate: string
+): boolean {
+  // 没有日期范围可说（云端空 / 全是坏数据）→ 不下判断
+  if (!dateMin || !dateMax) return false;
+  // 区间之外（含端点之外）才叫「不在这一天」；落在区间内说明这天就有待办
+  return viewDate < dateMin || viewDate > dateMax;
+}
+
 export class SyncEngine {
   private readonly options: SyncEngineOptions;
   private readonly debounceMs: number;
@@ -412,9 +465,14 @@ export class SyncEngine {
           localNotUploaded = 0;
         }
       }
+      // 云端数据落在哪些日期：界面用它说明「数据到了，只是今天看不到」
+      const remote = summarizeRemoteRows(rows);
       this.markSuccess(describePull(reason, remoteCount, stats), {
         localNotUploaded,
         localTombstone: stats.skippedTombstone ?? 0,
+        remoteLiveCount: remote.liveCount,
+        remoteDateMin: remote.dateMin,
+        remoteDateMax: remote.dateMax,
       });
       this.busy = false;
       return stats;
@@ -523,6 +581,10 @@ export class SyncEngine {
         // 留着提示只会让人点不动）。
         localNotUploaded: 0,
         localTombstone: 0,
+        // 云端数据的条数与日期范围同样失效：会话没了，再说「云端有 N 条」是误导
+        remoteLiveCount: 0,
+        remoteDateMin: '',
+        remoteDateMax: '',
       });
     }
     if (token && this.options.config.enabled) {
