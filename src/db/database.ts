@@ -225,10 +225,16 @@ const TODOS_LIVE = `SELECT ${TODO_COLUMNS} FROM todos WHERE deleted = 0`;
  * 行注释会**吞掉该行剩下的全部内容**。本常量是**前缀**，后面还要接
  * `WHERE uuid = ?` 之类的条件——用 `--` 时拼出来的是
  * `SELECT … FROM todos -- sync-all-rows WHERE uuid = ?`，
- * **WHERE 整段落在注释里** ⇒ 语句没有占位符，却还要绑一个值 ⇒
- * SQLite 报 `column index out of range` ⇒ **桌面端每一次拉取都在第一条云端记录上炸**，
- * 数据**从来没有进过本机库** ⇒ 界面当然一条都不显示。
- * （浏览器路径不拼 SQL，所以 E2E 全绿也照样漏过去了。）
+ * **WHERE 整段落在注释里** ⇒ 查询变成「**查全部行**」。
+ *
+ * **后果在桌面驱动上不是报错，是静默算错**（这一点必须写准）：
+ * 桌面用的是 sqlx + SQLite，它**不报错**，只是把绑定值**静默忽略**、
+ * 过滤条件失效 ⇒ `applyRemoteTodos` 拿到的 `existing[0]` 是**另一条无关的行**
+ * ⇒ 每次合并判定都用错对象 ⇒ 云端的数据**永远合不进来**，而状态区报的是
+ * 「已是最新 N 条」。**浏览器路径不拼 SQL ⇒ 毫无症状**，
+ * 所以 E2E 与同步层断言全绿也照样漏了过去。
+ * （Node 侧的 `node:sqlite` 在同样情况下会**报错** `column index out of range`。）
+ *
  * 块注释不吞行尾，后缀条件照样生效；静态检查器认的也是 `sync-all-rows` 这个标记。
  */
 const TODOS_ALL = `SELECT ${TODO_COLUMNS} FROM todos /* sync-all-rows */`;
