@@ -3674,6 +3674,18 @@ SELECT id, uuid, title, … FROM todos -- sync-all-rows WHERE uuid = ?
 （`scripts/mac-capture-window.sh` 已明确区分这两种失败）。
 本节证据因此取自**数据库直读**与应用行为，不含界面截图。
 
+#### 13.44.6.2 v0.3.9 发版记录
+
+| 项 | 结果 |
+| --- | --- |
+| 提交 / tag | `7be692f` / `v0.3.9`（`b6f43af` 是随后的注释口径修正，不改行为，不单独发版） |
+| CI run | [45851425138](https://github.com/zzy1661/todo/actions/runs/45851425138) → **success**（**三个 job 全绿**：macOS 36 步 / Windows 36 步 / **verify-release 3 步**） |
+| 关键步骤 | **新增 `check-db-sync` 两端都过** ✅ · Rust **25 项**（含新增 `sync_sql_guard` 4 条）✅ · E2E 基线 6 passed ✅ · **E2E 同步套件 6 passed** ✅ · 两端出包 ✅ |
+| 自检 | `npm run check:unit` **12 / 12**（新增 `check-db-sync`） |
+| Release 资产 | **4 个齐全**：`ScheduleTodo-0.3.9-macos-arm64.dmg`（3 378 782 B）/ `.app.zip`（3 146 987 B）/ `windows-x64-setup.exe`（4 151 464 B）/ `windows-x64.msi`（5 177 344 B），**匿名可下载** |
+| 本机安装 | `/Applications/日程待办.app` = **0.3.9**，启动后**真的把云端 5 行拉进了本机库**（8 行 → 13 行） |
+| 全仓扫描 | 对 `src/**` 与 `src-tauri/src/**` 的**所有 SQL 串**做了一遍「占位符是否落在注释里」的扫描 ⇒ **没有第二处**（唯一命中是本节说明故障形态的注释） |
+
 #### 13.44.7 纪律更新
 
 - **「界面没数据」先分清是哪一层**：数据没进库 / 进了库但界面没刷新 / 界面过滤掉了。
