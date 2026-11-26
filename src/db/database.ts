@@ -218,8 +218,20 @@ const TODO_COLUMNS =
  */
 const TODOS_LIVE = `SELECT ${TODO_COLUMNS} FROM todos WHERE deleted = 0`;
 
-/** 同步网关专用：含墓碑的全量读取（**仅供 applyRemote / loadByUuids 使用**） */
-const TODOS_ALL = `SELECT ${TODO_COLUMNS} FROM todos -- sync-all-rows`;
+/**
+ * 同步网关专用：含墓碑的全量读取（**仅供 applyRemote / loadByUuids 使用**）
+ *
+ * **标记为什么必须是块注释 `/* … *\/` 而不是行注释 `-- …`**（2026-11-26 修）：
+ * 行注释会**吞掉该行剩下的全部内容**。本常量是**前缀**，后面还要接
+ * `WHERE uuid = ?` 之类的条件——用 `--` 时拼出来的是
+ * `SELECT … FROM todos -- sync-all-rows WHERE uuid = ?`，
+ * **WHERE 整段落在注释里** ⇒ 语句没有占位符，却还要绑一个值 ⇒
+ * SQLite 报 `column index out of range` ⇒ **桌面端每一次拉取都在第一条云端记录上炸**，
+ * 数据**从来没有进过本机库** ⇒ 界面当然一条都不显示。
+ * （浏览器路径不拼 SQL，所以 E2E 全绿也照样漏过去了。）
+ * 块注释不吞行尾，后缀条件照样生效；静态检查器认的也是 `sync-all-rows` 这个标记。
+ */
+const TODOS_ALL = `SELECT ${TODO_COLUMNS} FROM todos /* sync-all-rows */`;
 
 async function sqliteFetchTodos(): Promise<Todo[]> {
   const db = await getDb();

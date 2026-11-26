@@ -87,6 +87,39 @@ for (const match of functionBodies) {
   }
 }
 
+// ---- 同步网关的全量读取标记：必须是**块注释** -----------------------------
+
+// **为什么这条要单列**：标记 `sync-all-rows` 写在 `TODOS_ALL` 常量里，
+// 而 `TODOS_ALL` 是**前缀**，后面还要接 `WHERE uuid = ?` 之类的条件。
+//
+// 用**行注释** `--` 时，SQL 会变成：
+//   `SELECT … FROM todos -- sync-all-rows WHERE uuid = ?`
+// **WHERE 整段落进注释** ⇒ 查询变成「查全部行」，绑定值被**静默忽略**。
+//
+// 在桌面驱动（sqlx + SQLite）上这**不报错**，只是安静地算错：
+// `applyRemoteTodos` 拿到的 `existing[0]` 是**另一条无关的行**，
+// 于是每一次合并判定都用错了对象 ⇒ 云端的数据永远合不进来，
+// 状态区却报「已是最新 N 条」（2026-11-25 实机反馈的原话）。
+//
+// 块注释 `/* … */` 不吞行尾，后缀条件照样生效。
+const todosAllMatch = dbSource.match(/const TODOS_ALL\s*=\s*`([^`]*)`/);
+if (!todosAllMatch) {
+  problems.push('未找到 TODOS_ALL 常量（同步网关的全量读取入口）');
+} else {
+  const definition = todosAllMatch[1];
+  if (/--\s*sync-all-rows/.test(definition)) {
+    problems.push(
+      'TODOS_ALL 的 sync-all-rows 标记用了行注释 `--`：行注释会吞掉后面拼上的 WHERE 条件' +
+        '（查询变成「查全部行」、绑定值被静默忽略），必须改成块注释 /* sync-all-rows */'
+    );
+  }
+  if (!/\/\*\s*sync-all-rows\s*\*\//.test(definition)) {
+    problems.push(
+      'TODOS_ALL 缺少块注释形式的 sync-all-rows 标记：/* sync-all-rows */'
+    );
+  }
+}
+
 // ---- 结果 ------------------------------------------------------------------
 
 console.log(

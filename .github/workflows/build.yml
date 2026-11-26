@@ -101,6 +101,8 @@ jobs:
         run: node scripts/check-data-layer.mjs
       - name: Self-check · check-db-parity
         run: node scripts/check-db-parity.mjs
+      - name: Self-check · check-db-sync
+        run: node scripts/check-db-sync.mjs
       - name: Self-check · check-deleted-filter
         run: node scripts/check-deleted-filter.mjs
       - name: Self-check · check-bundle-config

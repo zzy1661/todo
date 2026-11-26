@@ -31,6 +31,7 @@ const CHECKS = [
   ['check-sync-extra', '同步补充：登出 / 断网降级 / 防抖时间线'],
   ['check-data-layer', '数据层：localStorage 路径'],
   ['check-db-parity', '双后端等价性对拍（需 node:sqlite，Windows 会明确跳过）'],
+  ['check-db-sync', 'SQLite 路径的同步网关真跑一遍（拉取 / 合并 / 复活 / 前端可见性）'],
   ['check-deleted-filter', '软删除过滤：所有读取路径都带 deleted = 0'],
   ['check-bundle-config', '打包配置：三份 conf 合规 + 平台中立 + 数据路径中立'],
   ['check-platform-portability', '平台可移植性：平台专有调用必须被 #[cfg] 保护'],
