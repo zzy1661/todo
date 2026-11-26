@@ -3683,6 +3683,8 @@ SELECT id, uuid, title, … FROM todos -- sync-all-rows WHERE uuid = ?
 | 关键步骤 | **新增 `check-db-sync` 两端都过** ✅ · Rust **25 项**（含新增 `sync_sql_guard` 4 条）✅ · E2E 基线 6 passed ✅ · **E2E 同步套件 6 passed** ✅ · 两端出包 ✅ |
 | 自检 | `npm run check:unit` **12 / 12**（新增 `check-db-sync`） |
 | Release 资产 | **4 个齐全**：`ScheduleTodo-0.3.9-macos-arm64.dmg`（3 378 782 B）/ `.app.zip`（3 146 987 B）/ `windows-x64-setup.exe`（4 151 464 B）/ `windows-x64.msi`（5 177 344 B），**匿名可下载** |
+| 资产 sha256（GitHub API 记录） | dmg `ca37f238…4ad07c` · app.zip `da49894a…c93ea5` · setup.exe `31733228…c9ba714f` · msi `11fa1886…b9aef0f` |
+| 匿名下载核对 | 不带任何凭据**逐个整包下载**，**大小与 sha256 与 GitHub 记录逐位吻合**（四个资产全过）。`file` 判定：setup.exe = `PE32 executable (GUI) … Nullsoft Installer self-extracting archive`；app.zip 内含完整 `.app` 结构（`Contents/MacOS/`、`_CodeSignature/CodeResources`、`Info.plist`） |
 | 本机安装 | `/Applications/日程待办.app` = **0.3.9**，启动后**真的把云端 5 行拉进了本机库**（8 行 → 13 行） |
 | 全仓扫描 | 对 `src/**` 与 `src-tauri/src/**` 的**所有 SQL 串**做了一遍「占位符是否落在注释里」的扫描 ⇒ **没有第二处**（唯一命中是本节说明故障形态的注释） |
 
