@@ -1,0 +1,257 @@
+# 跨平台审计清单（Windows / macOS）
+
+> 这份清单是本项目**判断跨平台风险的基线**。
+> 详细取证与逐条证据见 [`docs/test/ZACHTD-2-test-report.md`](./test/ZACHTD-2-test-report.md) §13.28（2026-11-22 全平台审计）。
+>
+> **用法**：新增任何跨平台相关代码后，对照本表逐项确认；
+> 改完跑 `npm run check:platform`（守护脚本，见文末）。
+
+## 为什么要有这份清单
+
+跨平台的问题有三个特性，使得「靠审阅发现」必然有漏：
+
+1. **编译期合法**——`/usr/bin/open` 只是个字符串字面量，交叉编译不会报错；
+2. **CI 抓不到**——CI 只验证「能出包」，不验证「双击有反应」「点了登录真能存进去」；
+3. **错法各不相同**——路径、编码、输入法、进程窗口、超时……每一类的表现都不一样。
+
+所以做法是：**穷尽分类 + 每类有断言守护**，而不是「想到一个修一个」。
+
+## ⚠️ 守护脚本能查什么、不能查什么
+
+`check-platform-portability.mjs` 只能判定**「这条调用是不是平台专有的、且被 `#[cfg]` 保护了」**。
+
+它**判定不了**「这条调用在该平台上**行为**是否正确」——后者只能靠实机或选对系统 API。
+v0.2.3 的教训正卡在这里：`cmd /C start` 是 Windows 专有的、被正确地 `#[cfg]` 保护了，
+守护脚本全绿，但实机上它**把 URL 当文件路径找**，报「找不到文件 'https://...'」。
+
+所以新增跨平台调用时的判断是：
+
+1. **先查有没有更标准的系统 API**（Windows 的 `ShellExecuteW`、macOS 的 `NSWorkspace`）——
+   优先用**官方插件**（如 `tauri-plugin-opener`）而不是自己拼命令；
+2. 自己拼命令时，必须问「这条命令在该平台上的**语义**对吗」，而不只是「它在不在」；
+3. 涉及行为的部分，只能靠实机验证——**但可以先把不依赖平台的部分抽成纯函数做单测**。
+
+## 一、运行时依赖
+
+| # | 检查项 | 结论 | 守护 |
+| --- | --- | --- | --- |
+| A1 | WebView2 Runtime 缺失 | ✅ 已修：建窗前预检 + 原生消息框 + 启动日志 | `src-tauri/src/startup.rs` |
+| A2 | WebView2 最低版本 | ⚠️ 未声明（即不检查）；`embedBootstrapper` 装的是最新版，暂不构成风险 | — |
+| A3 | 系统级凭据存储 | ✅ macOS 钥匙串 / Windows 凭据管理器（DPAPI）/ 其它平台明确不支持 | `src-tauri/src/lib.rs` |
+| A4 | SQLite 是否有外部依赖 | ✅ 无（`libsqlite3-sys` 静态编译） | — |
+
+## 二、路径与文件系统
+
+| # | 检查项 | 结论 | 守护 |
+| --- | --- | --- | --- |
+| B1 | 应用数据目录一致性 | ✅ Rust 侧用 `app_config_dir()`，日志侧用 `dirs::config_dir()`（与 Tauri 内部同一函数） | `check-bundle-config.mjs` 的字面量扫描 |
+| B2 | UTF-8 BOM | ✅ 配置读取剥除 BOM（Windows 记事本默认带 BOM，会让 `JSON.parse` 抛错） | `strip_bom()` + 单测 |
+| B3 | 路径分隔符 / 中文路径 | ✅ 无问题 | — |
+| B4 | 换行符 CRLF/LF | ✅ **已修（v0.3.0）**：仓库原本没锁换行符，而 `actions/checkout` 在 Windows 上把 `core.autocrlf` 设成 true → checkout 出来全是 CRLF；任何「按 `\n` 找边界」的代码与脚本在 Windows 上失配而 macOS 完全正常 | `.gitattributes`（`* text=auto eol=lf`）+ 脚本改成换行符无关 |
+| B5 | 文件锁 / 原子写 | ✅ 落盘失败有 try/catch；`fs::rename` 在 Windows 带 `MOVEFILE_REPLACE_EXISTING`，会覆盖而非失败 | — |
+| B6 | 目录权限 / 自动创建 | ✅ `create_dir_all` 兜底 | — |
+| B7 | **数据库文件跨版本 / 跨平台兼容** | ✅ **已修（v0.3.2）**：sqlx 用 `SHA-384(SQL 的字节)` 给迁移记账，对不上就拒绝迁移 → 应用起不来。而**内联字面量**的字节会被编译器归一化成 LF、**`include_str!` 读的文件**却原样嵌入 → 只有 v3 的 checksum 会随换行符变。已改为编译期归一化（`build.rs`）+ 既有库自动纠正（`migrate_repair.rs`，只改记账不动数据） | Rust 单测（SQL 不含 CR）+ Node 源码级断言 + `build.rs` 编译期断言，三层均注入回归验证 |
+
+## 三、进程与命令
+
+| # | 检查项 | 结论 | 守护 |
+| --- | --- | --- | --- |
+| C1 | macOS 专有命令（`security` 钥匙串） | ✅ 平台分派；**开浏览器已改用官方 opener 插件**，不再自己分派 | `check-platform-portability.mjs` |
+| C2 | ~~`cmd /C start` 的 URL 转义~~ | ✅ **已作废**：Windows 上 `start` 会把 URL 当**文件路径**去找（报「找不到文件」）。改用 opener 插件走 `ShellExecuteW` | — |
+| C3 | ~~Windows 上 spawn 闪黑色控制台窗口~~ | ✅ **已作废**：不再自己 spawn，opener 内部处理 | — |
+| C4 | 外部命令的 PATH 依赖 | ✅ **已修（v0.3.0）**：① `sqlite3` 命令行**只在 macOS 有**，windows-latest 镜像里没有 → 改走统一后端（有 Python 标准库退路）；② `npm` 在 Windows 上是 `npm.cmd`，`spawn` 不带 shell 时只找 `npm.exe` → ENOENT | `scripts/sqlite-backend.mjs`；守护规则 S1/S1b/S2 |
+| C5 | 平台专有调用缺少守护 | ✅ 已加守护脚本（13 条产品代码规则 + 3 条 scripts/ 外部命令规则） | `npm run check:platform` |
+| C6 | **验证脚本自身的跨平台风险** | ⚠️ **这是最容易漏的一层**：自检脚本在 Windows 上失败，会让 Windows job **在第一个失败脚本处中断**，后面的脚本**一次都跑不到**——于是「Windows 上没报错」不等于「Windows 上没问题」，而只等于「第一个失败点被修掉了」 | CI 自检**逐个脚本独立成 step**（10 个 step），失败点一眼可见；本机另做 CRLF / 缺命令 / 非 UTF-8 locale 的**全量仿真** |
+| C7 | 外部解释器的 locale 与编码 | ✅ **已修（v0.3.1）**：Windows 上 Python 的**标准输入默认按系统 ANSI 代码页解码**（cp936 / cp1252），不是 UTF-8 → Node 写的 UTF-8 字节被解成乱码/孤立代理字符 → SQLite 编码时报 `UnicodeEncodeError`。本机 macOS 的 locale 恰好是 UTF-8，**本地永远看不到** | 改为 `sys.stdin.buffer.read().decode('utf-8')` + `sys.stdout.buffer.write(...encode('utf-8'))`，**完全不依赖 locale**；自检第 ⑬ 组加**非 ASCII 往返**探针 |
+
+## 四、UI 与交互
+
+| # | 检查项 | 结论 | 守护 |
+| --- | --- | --- | --- |
+| D1 | 键盘绑定硬编码 `metaKey` | ✅ 无问题：只用 enter / space 语义键 | — |
+| D2 | **输入法 composition** | ✅ 已修：中文选词时也会派发 Enter，需判 `isComposing` | `TodoEditor` / `DailyMethodView` / `DailyMethodMini` |
+| D3 | 滚动与渐隐 | ✅ 两平台都有 `@scroll`；已设 `overscroll-behavior: contain` | — |
+| D4 | 字体栈 | ✅ 已含 `PingFang SC` / `Microsoft YaHei` / `Segoe UI` | — |
+| D5 | 高 DPI | ✅ Tauri 用逻辑像素，两平台一致 | — |
+| D6 | 窗口默认尺寸 | ⚠️ 遗留：1100×720 在 1366×768 屏上偏大（产品决策）；最小 900×600 已验证不溢出 | — |
+
+## 五、同步链路
+
+| # | 检查项 | 结论 | 守护 |
+| --- | --- | --- | --- |
+| E1 | 系统浏览器拉起 | ✅ 官方 `tauri-plugin-opener`（Windows `ShellExecuteW` / macOS `NSWorkspace` / Linux `xdg-open`） | — |
+| E2 | 会话存储 | ✅ 见 A3 | 守护脚本 |
+| E3 | **请求超时** | ✅ 已修：`fetch` 默认永不超时 → 挂住则 UI 永久停在「同步中」且走不到重试；现为 30s + `AbortController` | 自检第⑩组路径 |
+| E4 | 网络错误 vs HTTP 错误的分类 | ✅ 已加 `SyncNetworkError`：网络故障值得退避重试，HTTP 明确拒绝不值得 | `check-sync.mjs` |
+| E5 | OAuth 回环 HTTP 响应 | ✅ 标准 `HTTP/1.1 200 OK` + `Content-Length` | — |
+| E6 | 浏览器授权等待超时 | ✅ 180s | — |
+| E7 | 系统代理 / TLS 证书 | ✅ 用浏览器 `fetch`，自动走系统代理与证书库 | — |
+| E8 | **同步状态能否区分「云端空」与「本地已最新」** | ✅ **已修（v0.3.4 / v0.3.5）**：合并有三种结果（新增 / 覆盖本地 / **保持本地不变**），旧文案只报前两种，于是「云端 0 行」与「云端 N 行但本地已是最新」显示成**一模一样**的「新增 0 条、更新 0 条」。现在报出**远端行数**，并把跳过的**原因**拆开说（「已是最新 N 条」/「本地更新 N 条」/「**本地已删除 N 条**」），云端为空时提示「本机有 N 条待办尚未上传，点『上传本机全部』」 | 自检第 ⑭ 组（15 项断言） |
+| E9 | **「上传本机全部」上传的是哪台机器的待办** | ✅ **已修（v0.3.5）**：该按钮的解释原本只写在 **HTML 注释**里（界面上一个字都没有），用户自然理解成「把我的数据传上去」，实际传的是**这台机器**的待办 —— 跨设备场景下会「点了没用」。现在说明是**可见文字**：「上传的是这台机器上的待办；另一台机器上的数据，要在那一台点一次」 | `SyncPanel.vue` 常驻提示 |
+| E10 | **「全部待办也看不到」＝数据被本机的删除记录挡住** | ⚠️ **已定位（v0.3.7，2026-11-26）**：「全部待办」走 `TODOS_LIVE`（`deleted = 0`）、**不带日期条件**——所以「全部待办也空」只可能是**本机那几行是墓碑**。**墓碑终结**（BR-28 / OPEN-01：「已删条目不因任何非删除记录复活」）让「本机已删、云端还活着」的条目**永远拉不回来**，且界面上一条都不显示。**症状与 v0.3.4 的「日期分支」完全不同，但状态文案一模一样（「已是最新 N 条」）——只靠状态文案分不出来** | `check-sync.mjs` 第 ⑮ 组（13 项断言） |
+| E11 | **「上传本机全部」是否携带墓碑** | ⚠️ **已修（v0.3.7）**：原来上传 `loadAll()`（含墓碑）⇒ 墓碑上云 ⇒ **别的设备的活数据被当成「已删除」清掉**（数据丢失级）。现在只上传「还活着」的待办，删除记录的传播交给增量推送 | `check-sync.mjs` 第 ⑮ 组 + F10 |
+| E12 | **「永远拉不回来」的条目有没有出口** | ✅ **已补（v0.3.7）**：新增「找回」入口，把本机墓碑**复活**（`deleted 1 → 0`）→ 重新拉取 → 云端存活版本按 LWW 覆盖回来。**只影响本机、不广播**（别的设备上的删除依然有效）、**不物理删除行** | `check-sync.mjs` 第 ⑮ 组 + `database.ts` |
+
+## 六、构建与打包
+
+| # | 检查项 | 结论 | 守护 |
+| --- | --- | --- | --- |
+| F1 | 三份 conf 的平台中立 | ✅ 一个平台不写死另一端的产物形态 | `check-bundle-config.mjs`（54 条） |
+| F2 | WebView2 安装模式 | ✅ `embedBootstrapper`（`offlineInstaller` 会让 artifact 涨到 418MB，已实测放弃） | `check-bundle-config.mjs` |
+| F3 | tag 与 `tauri.conf.json` 版本号一致 | ✅ 两处同源（CI 用它命名 Release 资产） | 发版流程 |
+| F7 | **改版本号时不能批量正则替换** | ⚠️ **已踩坑（v0.3.1）**：用一条 `perl s/0\.3\.0/0.3.1/g` 改版本，把 **`src-tauri/Cargo.lock` 里依赖 `alloc-stdlib` 的版本号也改了** → registry 里没有这个版本 → **打包直接失败**（而且 `npm run tauri build \| tail` 会把退出码吃掉，看起来像成功）。**正确做法**：只改 `package.json` / `tauri.conf.json` / `Cargo.toml` 里**本包自己的** `version` 字段，`Cargo.lock` **交给 cargo 自己更新**（改完 `Cargo.toml` 后跑一次 `cargo metadata`）；改完必须 `git diff` 逐条核对 | 发版流程 |
+| F8 | **Rust 侧断言是否进 CI** | ✅ **已补（v0.3.2）**：此前 16 个 Node 自检脚本进了 CI，**Rust 侧的断言（迁移只增不改、OAuth 回环、会话上限、凭据上限…）却从未跑过 CI** ——「本地跑过」不等于「有防护」，而 v0.3.2 这个故障恰恰是 Rust 侧的问题 | workflow 新增 `cargo test --release` 步骤（置于 `Build frontend` 之后，因 `generate_context!` 要嵌入前端产物） |
+| F4 | NSIS / WiX 语言与安装模式 | ✅ `currentUser` + `SimpChinese`/`English`，允许中文安装路径 | — |
+| F5 | 代码签名 | ⚠️ 遗留：CI 产物未签名 → Windows SmartScreen 拦截；本期无证书不做签名 | — |
+| F6 | CI 的 Windows 步骤真出包 | ✅ 真跑 `npx tauri build` + `if-no-files-found: error` | CI 本身 |
+| F9 | **发布通道必须能重试、且能核对资产齐全** | ⚠️ **已踩坑（v0.3.5，2026-11-25）**：两个 matrix job 并发创建同一个 Release，第三方 action（`softprops/action-gh-release`）只对 422 `already_exists` 有兜底、**对 GitHub API 的 500 没有**——实测 Windows 侧创建 Release 时**连返 3 次 500**，它的内部重试只有 4 秒、3 次 → 「Too many retries」→ **Windows 资产全丢**；同一次运行 macOS job 因 cargo test 失败没走到发布 ⇒ **v0.3.5 一个资产都没有**（前一个能用的版本停在 v0.3.4）。另有 `fail_on_unmatched_files: false` 让「少挂一个文件」静默通过 ⇒ v0.3.0 / v0.3.2 只挂上 2 个 macOS 资产也没人发现。**改法**：① 自己用 `gh release upload` / `gh release create` 发布并**退避重试 ≥ 3 次**；② **产物缺失直接失败**，不再静默少挂；③ 新增 `verify-release` job，**核对四个资产都在**，少一个就是红的 | `check-bundle-config.mjs`（发布通道 12 条断言，每条都用「故意注入回归」验证过会亮） |
+| F10 | **「上传本机全部」不得携带墓碑** | ⚠️ **已踩坑（v0.3.7，2026-11-26）**：该按钮原来上传 `loadAll()`（**含 `deleted = 1` 的删除记录**）⇒ 墓碑上云 ⇒ 别的设备拉到它就把那边的**活数据当成「已删除」清掉**（`tombstone-wins`）⇒ **真实数据在所有设备上消失**（数据丢失级）；且换账号登录会把旧账号的删除历史带到新账号下。**改法**：只上传「还活着」的待办；**删除记录的传播交给增量推送**（用户真的删了某条时）——那条路径不受影响 | `check-sync.mjs` 第 ⑮ 组（13 项断言） |
+| F11 | **界面文案不得含 Markdown 标记** | ⚠️ **已踩坑（v0.3.7，2026-11-26）**：Vue 模板**不解析 Markdown**，正文里写了「撤销**本机**的删除记录」→ 界面上**星号原样露出来**。编译期查不出（`vue-tsc` 只管类型）、单测也测不到（断言的是引擎产出的文案，不是模板正文）⇒ **只能靠机械断言** | `scripts/check-ui-text.mjs`（新，已进 `npm run check:unit` 与 CI） |
+| F12 | **CI 里靠 cwd 推断目标的命令必须显式传参** | ⚠️ **已踩坑（v0.3.8，2026-11-26）**：`gh` 默认从**当前目录的 git remote** 推断仓库。`verify-release` job **没有 checkout** ⇒ 目录不是 git 仓库 ⇒ `gh release view` 报「not a git repository」，错误又被 `2>/dev/null \|\| true` 吞掉 ⇒ **连续 30 轮误报「四个资产全缺」**、job 判红，而**四个资产当时早已上线且匿名可下载**。**同一个 `gh` 在有 checkout 的 build job 里好使** ⇒ 这类差异**编译期查不出、本地也不会复现**（本地在仓库目录里跑，一切正常） | `check-bundle-config.mjs`（发布通道 68 条断言，含「所有 gh release 调用都带 `-R "$GITHUB_REPOSITORY"`」） |
+| F13 | **SQL 里的标记注释不得吞掉后面的条件** | ⚠️ **已踩坑（v0.3.9，2026-11-26）**：`TODOS_ALL = 'SELECT … FROM todos -- sync-all-rows'` 里的 **`--` 是行注释**，而它是**前缀**，后面要接 `WHERE uuid = ?` ⇒ **`WHERE` 整段落进注释** ⇒ 查询变成「查全部行」。**在桌面驱动（sqlx + SQLite）上这不报错**，只是**静默地拿错数据算** ⇒ 云端数据永远合不进来，状态区却报「已是最新 N 条」。**浏览器路径不拼 SQL ⇒ 毫无症状；Node 路径会报错 ⇒ 能抓到；只有出货的桌面路径会静默出错** ⇒ 躲过了六轮版本 | `check-deleted-filter.mjs`（标记必须是块注释） + `scripts/check-db-sync.mjs`（真实 SQLite 路径真跑） + `src-tauri/tests/sync_sql_guard.rs`（桌面驱动 4 条断言） |
+| F14 | **窄面板里的中文不得断在词中间** | ⚠️ **潜在坑（v0.3.10，2026-11-27）**：同步面板宽 **232px**、字号 11px，而**中文可以在任意字符间断行** ⇒ 「云端 8 条 · 10月15日~11月16日 · 不在 11月26日」会被折成「… · 不」/「在 11月26日」，读起来像两句话。**macOS 与 Windows 的字体度量不同 ⇒ 同一段文案在两端的折行位置不一样**，所以「在 macOS 上看着对」不能推出「Windows 上也对」。**改法**：日期区间与「不在 X」各用 `white-space: nowrap` 锁住，「不在 X」另起一行 ⇒ 两端折行位置固定 | E2E **S7**（断言云端摘要三段文案）+ **S8**（动作反馈退场）；本轮 macOS 实拍见 `docs/test/` §13.45。**Windows 侧的折行效果仍需实机确认**（Windows 无本机环境，见本文档既有口径） |
+
+## 已确认的跨平台机制（源码级，供以后查阅）
+
+| 机制 | 结论 | 依据 |
+| --- | --- | --- |
+| **打开 URL** | Windows 走 `ShellExecuteExW`、macOS 走 `NSWorkspace`、Linux 走 `xdg-open` | `tauri-plugin-opener` → `open` crate 5.4.5 `that_detached()` |
+| **Rust 侧调用插件要不要 capability** | **不要**——ACL 只拦前端 JS 的 invoke 路径 | Tauri 2.12.5 的 `resolve_access` 只出现在 `webview/mod.rs`；opener 的 Rust API 直接调 `crate::open::open`，不经过 `run_plugin_api` |
+| **WebCrypto 在 Tauri 自定义协议下可用吗** | 可用——Windows 上是 `http://tauri.localhost`，Chromium 把 `*.localhost` 视为 secure context | `tauri/src/protocol/asset.rs`；`crypto.randomUUID` 另有 `getRandomValues` 降级（不依赖 secure context） |
+| **`fs::rename` 在 Windows 上会失败吗** | 不会——Rust 的实现带 `MOVEFILE_REPLACE_EXISTING`，是「覆盖」而非「失败」 | Rust `std::fs` 的 Windows 实现 |
+| **前端有 XSS 面吗** | 没有——全部走 Vue 插值（自动转义），无 `v-html` / `innerHTML` / `eval` | `grep` 全量扫描 |
+
+## 遗留边界（明确不改，只记录）
+
+1. **WebView2 最低版本未声明**——不声明即不检查；装的是最新版，暂不构成风险。
+2. **窗口默认尺寸偏大**——属默认值的产品决策，改小牺牲日常体验；最小尺寸已验证。
+3. **CI 产物未签名**——本期无证书不做签名；README 写明 SmartScreen 放行方式。
+4. **SQLite 位于 `%APPDATA%` 漫游目录**——域漫游环境下可能被同步到多机引发锁冲突；
+   改它属**架构变更**（PRD 的数据目录契约）。
+5. **Windows 的真实登录流程未实机验证**——本机无 Windows 环境；
+   CI 只能证明「能编译」，证明不了「调用序列对」。
+
+## Rust 侧的守护（此前完全没进 CI）
+
+```bash
+cargo test --manifest-path src-tauri/Cargo.toml
+```
+
+Rust 侧承载着一批**只有它能断言**的契约：迁移只增不改、迁移 SQL 的平台无关性、
+OAuth 回环、会话 blob 上限与 BOM 剥离、凭据上限对齐 Windows 常量……
+
+**这些断言此前只在本地跑** —— 和「16 个自检脚本一个都不进 CI」是同一类问题。
+现在 workflow 里有 `cargo test --release` 步骤。
+
+> 迁移 SQL 的平台无关性有三层守护，任何一层被绕过都会让 checksum 再次跨平台不一致：
+> **源码级**（`lib.rs` 不得直接 include 源文件）、**运行期**（SQL 不得含 CR）、
+> **编译期**（`build.rs` 断言归一化产物无 CR）。
+
+## 「数据文件」也是跨平台契约
+
+代码能跑不等于**旧版本留下的数据文件**能被新版本认出来。
+
+v0.3.2 之前，Windows 上「旧包建的库」因为迁移 checksum 跨平台不一致而**打不开**——
+这不是「代码在 Windows 上有 bug」，而是「数据文件在两个平台之间不兼容」。
+处理这类问题时要记住：
+
+1. **不能一句「删库重装」打发**——用户的本地待办是真实资产；
+2. 修复既有数据时，**判定条件要比「看起来像」严格**：
+   本实现要求「差异恰好等于换行符造成的」**且**「有 schema 证据」，
+   否则一律不碰、让原始错误暴露出来；
+3. **宁可让用户看到准确的报错**，也不要用一个善意的猜测把真问题盖掉。
+
+## 守护脚本
+
+```bash
+npm run check:platform
+```
+
+**第一部分：产品代码**（扫 `src/` 与 `src-tauri/src/`）
+判定**平台专有调用必须落在带平台限定的 `#[cfg(...)]` 分支内**。
+13 条规则覆盖：macOS 的 `/usr/bin/`、`osascript`、`security`；Linux 的 `xdg-open`；
+Windows 的 `powershell`、`cmd.exe`、`cmd` 进程、`cmd /C` 参数、
+`CredWriteW`/`CredReadW`/`CredDeleteW`/`CredFree`、`MessageBoxW`、`FormatMessageW`、
+`GetLastError`、`CommandExt`。
+
+**第二部分：scripts/ 的外部命令依赖**（扫 `scripts/*.mjs`）
+这类问题在产品代码里没有，但**同样只在另一端炸**：
+
+| 规则 | 内容 | 对应的真实故障 |
+| --- | --- | --- |
+| S1 | 不得直接 `spawn/exec` 字面量 `'npm'` | Windows 上 npm 是 `npm.cmd` → ENOENT |
+| S1b | 用了 `npmCmd` 就必须真的写 `.cmd` 分支 | 换了个写法，坑还在 |
+| S2 | 除 `scripts/sqlite-backend.mjs` 外不得直接调 `'sqlite3'` | windows-latest 镜像没有 sqlite3.exe → ENOENT |
+
+**第三部分：Rust 侧的外部命令依赖**（扫 `src-tauri/src/` **与 `src-tauri/tests/`**）
+
+| 规则 | 内容 | 对应的真实故障 |
+| --- | --- | --- |
+| R1 | Rust 侧（含**测试**）不得调用只在单一平台存在的命令（`sqlite3`） | `tests/migration_guard.rs` 用 `sqlite3` 命令行跑真实 SQL，注释写着「macOS 自带」却无平台分支 → **Windows 上必然失败** |
+
+**第四部分：Rust 测试的临时文件名唯一性**（扫 `src-tauri/tests/`）
+
+| 规则 | 内容 | 对应的真实故障 |
+| --- | --- | --- |
+| R2 | 测试里用 `as_nanos()` / `as_millis()` 造临时文件名时，**必须有原子计数器**（`AtomicU64` 等） | `temp_db_path()` 只拿纳秒时间戳做后缀 → **不保证唯一**（时钟粒度可能粗到微秒级）→ `cargo test` 并行跑时两个测试撞名 → 后启动者 `remove_file` 删掉了另一个**已打开**的库 → SQLite 报 `SQLITE_READONLY_DBMOVED`（attempt to write a readonly database） |
+
+> **光有 `process::id()` 不算**：并行测试在**同一个进程**里跑，pid 是同一个。
+> 真正保证「同进程内不撞名」的只有原子计数器。
+>
+> 这个故障特别难查的原因是：**v0.3.4 还是全绿的**，Rust 代码一个字没改，
+> 它只是**偶发**（两端时钟粒度不同 → 撞名概率不同），且错误信息
+> （readonly database）完全不像「两个测试撞名」。
+
+> **`tests/` 也要扫**：产品代码守得再严，测试里的平台假设一样会让 CI 在另一端红。
+> 这条规则是 2026-11-23 补 `cargo test` 进 CI 后**第一次跑**就逼出来的。
+
+**脚本本身是用「故意注入回归」验证的**：每个缺陷都是靠注入一个真实回归逼出来的，
+产品代码部分共修过 5 轮（cfg 嵌套括号解析、越过 item 边界、链式调用缩进、局部 const 误判、
+顶层与嵌套 item 未区分、只覆盖字符串 token 漏掉 API 名），当前 **7 个注入点全部判红，
+且还原后无误报**；scripts/ 部分 3 条规则（S1 / S1b / S2）同样逐条注入验证过。
+
+> 改这个脚本时，请一并重跑注入回归矩阵——否则很容易把守护改成一个**永远绿**的摆设。
+
+## 验证脚本的跨平台验证（比守护脚本更靠后的一层）
+
+守护脚本只能证明「写法合规」，证明不了「在另一个平台上真能跑」。所以还要做**仿真**：
+
+| 仿真 | 怎么造 | 证明什么 |
+| --- | --- | --- |
+| **CRLF checkout** | 把仓库整份复制一份，所有文本文件转成 CRLF，在副本上跑全部 10 个自检 | Windows 上 `core.autocrlf=true` 的真实效果 |
+| **缺 sqlite3 CLI** | 在 PATH 前面放一个退非零的 `sqlite3` 桩 | Windows runner 镜像的真实条件 |
+| **缺 node:sqlite** | 把 `import('node:sqlite')` 换成导入一个不存在的模块 | Node 官方说明 `node:sqlite` 不支持 Windows |
+| **非 UTF-8 locale** | `PYTHONIOENCODING=cp936` | Windows 上 Python 的 stdin/stdout 默认按系统 ANSI 代码页解码 |
+| **拨动时钟** | `E2E_NOW=2026-12-27 npx playwright test`（fixtures 里 `RUN_START` 读它，浏览器时钟同步钉住） | 测试**按日历/按时刻**触发的缺陷：同一个提交，今天绿、某一天必红 |
+
+四种仿真可以叠加。**每一个都必须实际跑一遍，不能靠推断**——
+v0.2.7 那次「修 `node:sqlite`」就是**推断**出来的（当时日志要登录才能看），
+结果真正的第一个失败点在三个脚本之前。
+
+> **「拨动时钟」这一条是 2026-11-26 补上的**：E2E 用例 2 里 `emptyDay = D(5)`
+> 找「空的一天」，却撞上了同一用例刚在「下个月 1 号」建的待办 ——
+> **今天离月底 5 天时 `D(5)` 正是下个月 1 号**。
+> 本机（UTC+8，11-26）命中而 CI（UTC，11-25）还没命中，
+> 于是**从 2026-11-26 16:00 UTC 起 CI 也会开始红**。
+> 修法不是换一个偏移量，而是**从「测试确定没建过待办」的候选里挑**并显式断言。
+> 现在固定在 **6 个日历位置**各跑一遍（`2026-11-27 / 2026-12-27 / 2027-01-27 /
+> 2027-02-24 / 2026-03-01 / 2026-10-31`）全部 6 passed。
+>
+> **通用教训**：只跑一次绿的测试**不算**验证。要主动把时间拨到多个位置跑，
+> 否则它会在某一天突然变红，而且**没人知道是哪个提交引入的**。
+
+## 「拿不到 CI 日志」不是无解
+
+此前几轮只能靠推断，是因为 GitHub 未认证（`gh` 未登录），step 日志与 artifact 都要登录才能取。
+
+但**推 tag / push 是成功的** —— 说明凭据就在本机。`git config credential.helper` 若是
+`osxkeychain`（或 `cache`），就可以：
+
+```bash
+TOKEN=$(printf 'protocol=https\nhost=github.com\n\n' | git credential fill | sed -n 's/^password=//p')
+curl -sL -H "Authorization: Bearer $TOKEN" \
+  "https://api.github.com/repos/<owner>/<repo>/actions/jobs/<job_id>/logs" -o job.log
+```
+
+拿到 job id 用匿名就能读的 `GET /repos/<owner>/<repo>/actions/runs/<run_id>/jobs`。
+**先把这条用上，再考虑推断**——v0.3.1 的 Windows 失败（Python 编码）就是这样一次定位的。

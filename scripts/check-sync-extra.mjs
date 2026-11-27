@@ -182,7 +182,11 @@ function buildEngine(stub, { sessionStore }) {
     sessionStore,
     local: {
       loadByUuids: (uuids) => db.fetchTodoSyncRows(uuids),
+      // `loadAll` 是 LocalTodoGateway 接口的一部分：引擎在「云端为空」时要用它
+      // 数出本机还有多少条待办没上云，好给出「点上传本机全部」的指引。
+      loadAll: () => db.fetchTodoSyncRows(null),
       applyRemote: (rows) => db.applyRemoteTodos(rows),
+      reviveTombstones: (uuids) => db.reviveTombstones(uuids),
     },
     oauth: createOAuthLauncher(),
     clock,

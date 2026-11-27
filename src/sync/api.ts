@@ -22,6 +22,24 @@ export class SyncHttpError extends Error {
 }
 
 /**
+ * 网络层故障：超时、连接被拒、DNS 解析失败等（**不是 HTTP 错误**）。
+ *
+ * 单独成类的原因：引擎的退避重试策略要能区分
+ * 「服务器明确拒绝（4xx/5xx，重试无意义）」与
+ * 「网络暂时不通（值得退避后重试）」。
+ */
+export class SyncNetworkError extends Error {
+  /** 是否是超时（超时给用户的文案要更明确） */
+  readonly timedOut: boolean;
+
+  constructor(message: string, timedOut = false) {
+    super(message);
+    this.name = 'SyncNetworkError';
+    this.timedOut = timedOut;
+  }
+}
+
+/**
  * PostgREST 的「表不在 schema cache 里」：`404` + `PGRST205`。
  *
  * 这不是网络故障而是**部署缺失** —— 项目的 `supabase/schema.sql` 还没在
@@ -57,6 +75,14 @@ export interface SyncApiOptions {
   anonKey: string;
   /** 注入点：检查脚本可换成记账用的 fetch（FR-SYNC-15） */
   fetchImpl?: typeof fetch;
+  /**
+   * 单次请求的超时（毫秒），默认 `DEFAULT_REQUEST_TIMEOUT_MS`。
+   *
+   * 做成**构造选项**而不是方法参数：超时是「这个 API 实例」的属性，
+   * 每个请求都一样；做成选项才能在自检脚本里覆盖成很小的值，
+   * 真的验证「挂住的请求会被中止」而不是空等 30 秒。
+   */
+  requestTimeoutMs?: number;
 }
 
 /** 云端行 → 领域行（0/1 → 布尔，缺列兜底，绝不抛错打断整次拉取） */
@@ -109,28 +135,63 @@ const PULL_COLUMNS = [
   'deleted',
 ].join(',');
 
+/**
+ * 单次 HTTP 请求的默认超时。
+ *
+ * 为什么必须有：`fetch` **默认永不超时**。若网络被防火墙拦截、代理挂起、
+ * 或服务端 accept 了连接却不响应，请求会永远 pending ——
+ * 表现是同步状态永远停在「同步中」，也不会走到失败重试。
+ * 这是跨平台一致的问题（Windows 防火墙 / 公司代理更容易触发）。
+ */
+const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
+
 export class SupabaseRestApi implements SyncApiLike {
   private readonly baseUrl: string;
   private readonly anonKey: string;
   private readonly fetchImpl: typeof fetch;
+  private readonly requestTimeoutMs: number;
 
   constructor(options: SyncApiOptions) {
     this.baseUrl = options.baseUrl.replace(/\/+$/, '');
     this.anonKey = options.anonKey;
     this.fetchImpl = options.fetchImpl ?? ((input, init) => fetch(input, init));
+    this.requestTimeoutMs = options.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
   }
 
   private async request(
     path: string,
-    init: RequestInit & { accessToken?: string } = {}
+    init: RequestInit & { accessToken?: string; timeoutMs?: number } = {}
   ): Promise<Response> {
-    const { accessToken, ...rest } = init;
+    const { accessToken, timeoutMs = this.requestTimeoutMs, ...rest } = init;
     const headers: Record<string, string> = {
       apikey: this.anonKey,
       ...(rest.headers as Record<string, string> | undefined),
     };
     if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
-    const response = await this.fetchImpl(`${this.baseUrl}${path}`, { ...rest, headers });
+
+    // 超时：用 AbortController 而不是 `AbortSignal.timeout`——
+    // 后者在部分运行环境（老 WebView、Node 旧版本）不存在，且**没有可注入的时钟**，
+    // 没法在自检脚本里用假时钟验证「超时真的会触发」。
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    let response: Response;
+    try {
+      response = await this.fetchImpl(`${this.baseUrl}${path}`, {
+        ...rest,
+        headers,
+        signal: controller.signal,
+      });
+    } catch (error) {
+      // 超时被 abort 时，给一句能看懂的错误（原始信息是 "The operation was aborted"）
+      if (controller.signal.aborted) {
+        throw new SyncNetworkError(`请求超时（${timeoutMs} ms）: ${path}`, true);
+      }
+      // 其它网络故障（连接被拒 / DNS 失败 / TLS 失败）也归到网络错误，
+      // 便于引擎区分「可退避重试」与「HTTP 明确拒绝」。
+      throw new SyncNetworkError(`网络请求失败: ${path}（${String(error)}）`);
+    } finally {
+      clearTimeout(timer);
+    }
     if (!response.ok) {
       let body = '';
       try {

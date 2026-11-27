@@ -4,6 +4,49 @@ import { localTimestamp, nowMs } from '../sync/clock.ts';
 import { emitLocalTodoChange } from '../sync/events.ts';
 import type { LocalTodoRow, MergeStats, RemoteTodo } from '../sync/types.ts';
 import { decideMerge } from '../sync/merge.ts';
+import type { MergeDecision } from '../sync/merge.ts';
+
+/**
+ * 记一次「跳过」，并按原因细分。
+ *
+ * 三种「保持本地不变」的原因对用户含义完全不同（见 `MergeStats` 的说明）：
+ * 「两边一样」「本地更新」「本地是墓碑」——界面若只说「已是最新 N 条」，
+ * 用户看到空空的列表会完全想不通数据去哪了。
+ *
+ * 第四种是「云端行缺必填字段」——那不是合并结果，而是**坏数据**，也得说出来。
+ * 四个计数器之和恒等于 `skipped`。
+ */
+function countSkipReason(
+  stats: MergeStats,
+  reason: MergeDecision['reason'] | 'invalid-row'
+): void {
+  switch (reason) {
+    case 'equal':
+      stats.skippedEqual = (stats.skippedEqual ?? 0) + 1;
+      break;
+    case 'lww-local':
+      stats.skippedLocalNewer = (stats.skippedLocalNewer ?? 0) + 1;
+      break;
+    case 'tombstone-terminal':
+      stats.skippedTombstone = (stats.skippedTombstone ?? 0) + 1;
+      break;
+    default:
+      stats.skippedInvalid = (stats.skippedInvalid ?? 0) + 1;
+      break;
+  }
+}
+
+/**
+ * 记一条「**可找回**」的条目：本机是墓碑（已删除），但云端同 uuid 的版本还活着。
+ *
+ * **为什么要单独记**：墓碑终结（OPEN-01）让这类条目**永远拉不回来**，
+ * 界面（`deleted = 0`）上连「全部待办」都看不到它们。
+ * 不把这批 uuid 报出去，用户只会看到「已是最新 N 条」+ 空列表，完全想不通。
+ * 报出去之后，界面才能给出**显式的本地找回入口**。
+ */
+function countRecoverable(stats: MergeStats, uuid: string): void {
+  stats.recoverableUuids = [...(stats.recoverableUuids ?? []), uuid];
+}
 
 /**
  * 数据访问层：SQLite（桌面版）与 localStorage（浏览器 / E2E）双实现。
@@ -175,8 +218,26 @@ const TODO_COLUMNS =
  */
 const TODOS_LIVE = `SELECT ${TODO_COLUMNS} FROM todos WHERE deleted = 0`;
 
-/** 同步网关专用：含墓碑的全量读取（**仅供 applyRemote / loadByUuids 使用**） */
-const TODOS_ALL = `SELECT ${TODO_COLUMNS} FROM todos -- sync-all-rows`;
+/**
+ * 同步网关专用：含墓碑的全量读取（**仅供 applyRemote / loadByUuids 使用**）
+ *
+ * **标记为什么必须是块注释 `/* … *\/` 而不是行注释 `-- …`**（2026-11-26 修）：
+ * 行注释会**吞掉该行剩下的全部内容**。本常量是**前缀**，后面还要接
+ * `WHERE uuid = ?` 之类的条件——用 `--` 时拼出来的是
+ * `SELECT … FROM todos -- sync-all-rows WHERE uuid = ?`，
+ * **WHERE 整段落在注释里** ⇒ 查询变成「**查全部行**」。
+ *
+ * **后果在桌面驱动上不是报错，是静默算错**（这一点必须写准）：
+ * 桌面用的是 sqlx + SQLite，它**不报错**，只是把绑定值**静默忽略**、
+ * 过滤条件失效 ⇒ `applyRemoteTodos` 拿到的 `existing[0]` 是**另一条无关的行**
+ * ⇒ 每次合并判定都用错对象 ⇒ 云端的数据**永远合不进来**，而状态区报的是
+ * 「已是最新 N 条」。**浏览器路径不拼 SQL ⇒ 毫无症状**，
+ * 所以 E2E 与同步层断言全绿也照样漏了过去。
+ * （Node 侧的 `node:sqlite` 在同样情况下会**报错** `column index out of range`。）
+ *
+ * 块注释不吞行尾，后缀条件照样生效；静态检查器认的也是 `sync-all-rows` 这个标记。
+ */
+const TODOS_ALL = `SELECT ${TODO_COLUMNS} FROM todos /* sync-all-rows */`;
 
 async function sqliteFetchTodos(): Promise<Todo[]> {
   const db = await getDb();
@@ -316,8 +377,11 @@ async function sqliteApplyRemoteTodos(rows: RemoteTodo[]): Promise<MergeStats> {
     const existing = await db.select<TodoRow[]>(`${TODOS_ALL} WHERE uuid = ?`, [remote.uuid]);
     const local = existing.length > 0 ? toSyncRow(existing[0]) : null;
     const decision = decideMerge(local, remote);
+    // 可找回：本机是墓碑、云端同 uuid 还活着 → 墓碑终结会永久挡住它
+    if (local && local.deleted && !remote.deleted) countRecoverable(stats, remote.uuid);
     if (decision.action === 'keep') {
       stats.skipped += 1;
+      countSkipReason(stats, decision.reason);
       continue;
     }
     if (decision.action === 'insert') {
@@ -359,6 +423,28 @@ async function sqliteApplyRemoteTodos(rows: RemoteTodo[]): Promise<MergeStats> {
     emitLocalTodoChange({ uuid: remote.uuid, kind: 'merge' });
   }
   return stats;
+}
+
+/**
+ * 复活本机的墓碑行（`deleted = 1` → `0`）：撤销**这台机器上**的删除记录。
+ *
+ * **为什么不是物理删除**：NEG-03 要求删除一律走软删除（`scripts/check-deleted-filter.mjs`
+ * 明令禁止 `DELETE FROM todos`）。而且这里要的恰恰是**反删除**——
+ * 用户的真实意图是「把被误删的条目找回来」，不是「再删一次」。
+ *
+ * **为什么不发事件**：复活是**本机**的动作，不能广播。
+ * 发事件会让它进推送队列 → 云端的删除记录被覆盖 → 别的设备上的删除语义被破坏。
+ * 这里刻意**不调** `emitLocalTodoChange`。
+ */
+async function sqliteReviveTombstones(uuids: string[]): Promise<number> {
+  if (uuids.length === 0) return 0;
+  const db = await getDb();
+  const placeholders = uuids.map(() => '?').join(', ');
+  const result = await db.execute(
+    `UPDATE todos SET deleted = 0 WHERE deleted = 1 AND uuid IN (${placeholders})`,
+    uuids
+  );
+  return result.rowsAffected ?? 0;
 }
 
 async function sqliteFetchDailyPicks(): Promise<DailyPick[]> {
@@ -566,14 +652,18 @@ async function localApplyRemoteTodos(rows: RemoteTodo[]): Promise<MergeStats> {
     const index = todos.findIndex((t) => t.uuid === remote.uuid);
     const local = index === -1 ? null : todos[index];
     const decision = decideMerge(local, remote);
+    // 可找回：本机是墓碑、云端同 uuid 还活着 → 墓碑终结会永久挡住它
+    if (local && local.deleted && !remote.deleted) countRecoverable(stats, remote.uuid);
     if (decision.action === 'keep') {
       stats.skipped += 1;
+      countSkipReason(stats, decision.reason);
       continue;
     }
     if (decision.action === 'insert') {
       if (!remote.title) {
         // 云端行缺必填字段：跳过而不是写一条空行，避免污染本地列表
         stats.skipped += 1;
+        countSkipReason(stats, 'invalid-row');
         continue;
       }
       const maxId = todos.reduce((max, t) => Math.max(max, t.id), 0);
@@ -618,6 +708,27 @@ async function localFetchDailyPicks(): Promise<DailyPick[]> {
   return [...readJson<DailyPick[]>(LS_DAILY, [])].sort((a, b) =>
     a.date < b.date ? -1 : a.date > b.date ? 1 : 0
   );
+}
+
+/**
+ * 复活本机的墓碑行（localStorage 版，与 SQLite 版语义一致，FR-DB-04）。
+ *
+ * 同样**不发事件**：复活只影响本机，不能广播（见 SQLite 版的说明）。
+ */
+async function localReviveTombstones(uuids: string[]): Promise<number> {
+  if (uuids.length === 0) return 0;
+  const todos = readAllLocalTodos();
+  const targets = new Set(uuids);
+  let revived = 0;
+  const next = todos.map((t) => {
+    if (t.deleted && targets.has(t.uuid)) {
+      revived += 1;
+      return { ...t, deleted: false };
+    }
+    return t;
+  });
+  if (revived > 0) writeLocalTodos(next);
+  return revived;
 }
 
 async function localFetchDailyPick(date: string): Promise<DailyPick | null> {
@@ -697,6 +808,16 @@ export function fetchTodoSyncRows(uuids: string[] | null): Promise<LocalTodoRow[
 /** 同步网关：应用远端记录（LWW + 墓碑终结，规则见 `src/sync/merge.ts`） */
 export function applyRemoteTodos(rows: RemoteTodo[]): Promise<MergeStats> {
   return isTauriEnv() ? sqliteApplyRemoteTodos(rows) : localApplyRemoteTodos(rows);
+}
+
+/**
+ * 同步网关：**复活**指定的本机墓碑行（撤销本机的删除记录），返回实际复活条数。
+ *
+ * 只影响本机，且**不触发推送**（见两侧实现的说明）。
+ * 供「找回被删除的条目」入口使用——否则这类条目会被墓碑终结永久挡住。
+ */
+export function reviveTombstones(uuids: string[]): Promise<number> {
+  return isTauriEnv() ? sqliteReviveTombstones(uuids) : localReviveTombstones(uuids);
 }
 
 /** 全部每日推送记录，按日期升序 */

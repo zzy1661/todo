@@ -1,0 +1,29 @@
+# 统一换行符：仓库内一律 LF。
+#
+# 为什么必须锁：
+#
+# GitHub Actions 的 `actions/checkout` 在 **Windows 上会把 `core.autocrlf` 设为 true**，
+# 于是 checkout 出来的文本文件全是 **CRLF**。任何「按 `\n` 找边界 / 按行尾判断」的
+# 代码与自检脚本都会在 Windows 上失配，而 macOS 上完全正常——
+# 这类差异**本地永远看不到**，只有 CI 的 Windows job 能暴露。
+#
+# 2026-11-22 就踩过：`scripts/check-cases-negative.mjs` 用 `indexOf('  {\n')`
+# 定位方法块边界，CRLF 下匹配不到 → Windows job 失败而 macOS 通过。
+# 当时既修了那一处（改成换行符无关），也加了本文件从根源消除整类问题。
+#
+# 二进制文件不参与换行转换：
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webm binary
+*.mp4 binary
+*.ico binary
+*.icns binary
+*.dmg binary
+*.zip binary
+*.exe binary
+*.msi binary
+
+# 其余按文本处理，签出时统一为 LF
+* text=auto eol=lf

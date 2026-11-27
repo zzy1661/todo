@@ -253,6 +253,14 @@ export async function createMockSupabase(options = {}) {
     },
     close: () =>
       new Promise((resolve) => {
+        // **必须销毁已建立的 keep-alive 连接**。
+        //
+        // `server.close()` 只停止接受新连接，**不销毁已经建立的连接**；
+        // 而 Node 的 `fetch`（undici）会复用连接池里的连接。
+        // 于是「服务端已关、客户端还复用那条连接」→ 请求发出去没人响应 →
+        // 一直挂到客户端超时（2026-11-22：Windows 上表现为 30 秒请求超时，
+        // 正好是 `DEFAULT_REQUEST_TIMEOUT_MS`；macOS 上因时序不同没触发）。
+        server.closeAllConnections?.();
         server.close(() => resolve());
       }),
   };

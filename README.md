@@ -24,14 +24,14 @@
 
 | 资产名（Release 里就是这个名字） | 平台 | 说明 |
 | --- | --- | --- |
-| `ScheduleTodo-0.1.0-macos-arm64.dmg` | macOS（Apple Silicon，最低 12.0） | 双击挂载，把「日程待办」拖进 Applications |
-| `ScheduleTodo-0.1.0-macos-arm64.app.zip` | macOS | `.app` 的 zip 副本，不想挂载 dmg 时直接解压用 |
-| `ScheduleTodo-0.1.0-windows-x64-setup.exe` | Windows x64 | NSIS 安装包（`installMode: currentUser`，不需管理员权限） |
-| `ScheduleTodo-0.1.0-windows-x64.msi` | Windows x64 | MSI 包（WiX `zh-CN`） |
+| `ScheduleTodo-0.3.5-macos-arm64.dmg` | macOS（Apple Silicon，最低 12.0） | 双击挂载，把「日程待办」拖进 Applications |
+| `ScheduleTodo-0.3.5-macos-arm64.app.zip` | macOS | `.app` 的 zip 副本，不想挂载 dmg 时直接解压用 |
+| `ScheduleTodo-0.3.5-windows-x64-setup.exe` | Windows x64 | NSIS 安装包（`installMode: currentUser`，不需管理员权限） |
+| `ScheduleTodo-0.3.5-windows-x64.msi` | Windows x64 | MSI 包（WiX `zh-CN`） |
 
 **资产名是 ASCII 的**：应用本身仍叫「日程待办」，但发布资产统一改名为 `ScheduleTodo-<版本>-<平台>`，
 避免中文文件名在 Release 资产 URL 里被百分号编码后、第三方下载器出现乱码。
-本机 `npm run tauri build` 出的仍是 `日程待办_0.1.0_aarch64.dmg`（见「一、1」），**只有 CI 发布出去的资产被改名**。
+本机 `npm run tauri build` 出的仍是 `日程待办_0.3.5_aarch64.dmg`（见「一、1」），**只有 CI 发布出去的资产被改名**。
 
 **首次打开仍需放行**（资产本身没做签名/公证，属预期）：
 
@@ -50,7 +50,7 @@
 
 ### 1. 安装
 
-1. 打开 `日程待办_0.1.0_aarch64.dmg`；
+1. 打开 `日程待办_0.3.5_aarch64.dmg`；
 2. 把「日程待办」拖到左侧的 **Applications**（即 `/Applications`）；
 3. 在「启动台」或「应用程序」里点开「日程待办」。
 
@@ -60,7 +60,7 @@
 **产物怎么来**（仓库里**不含**安装包，`src-tauri/target/` 被 `.gitignore` 排除）：
 
 - 本机构建：`npm ci` → `npm run tauri build`，产物落在
-  `src-tauri/target/release/bundle/macos/日程待办.app` 与 `.../bundle/dmg/日程待办_0.1.0_aarch64.dmg`；
+  `src-tauri/target/release/bundle/macos/日程待办.app` 与 `.../bundle/dmg/日程待办_0.3.5_aarch64.dmg`；
 - CI 产物：`.github/workflows/build.yml` 的 `build` job（push `master` / `release/**` 或手动
   `workflow_dispatch`）跑完后，下载 artifact `todo-macos`，内容与上者同构；
 - **正式分发**：打 `v*` tag 后同样跑一遍，产物改 ASCII 名后挂成 **Release 资产**，
@@ -158,9 +158,12 @@ localStorage 降级实现（`todo_local_db` / `todo_local_daily_db`），上层 
 > Windows 步骤真的执行了 `npx tauri build` 并上传产物），产物 artifact **`todo-windows`（5.36 MB）**
 > 可在仓库 Actions 页下载。本机只验证了配置合法性与前端跨平台性。
 >
-> **Windows 上同步入口不可用**：会话存储（`/usr/bin/security` 钥匙串）与浏览器拉起
-> （`/usr/bin/open`）都是 macOS 实现，Windows 上登录必然失败、状态区停在「未登录」；
-> 本地功能不受影响。Windows 只交付**可构建能力**，不是「可用的同步端」。
+> **Windows 上同步已可用（v0.2.1 起）**：会话存储在 Windows 上走**凭据管理器**
+> （Credential Manager，凭 DPAPI 加密，与 macOS 钥匙串同一等级别），浏览器拉起走 `cmd /C start`。
+> OAuth 往返的三步（回环监听 / 系统浏览器 / 换取 token）在两台上都能走通。
+> **仍未验证**：Windows 侧的真实登录流程**未经实机验证**（本机无 Windows 环境）——
+> 代码按 Credential Manager 的标准用法实现，CI 证明它能编译，但「点了登录真的能存进去」要靠实机复跑确认。
+> **Linux 等其余平台**仍无系统密钥串实现，同步不可用。
 
 ### 1. 平台配置的组织方式
 
@@ -168,11 +171,35 @@ localStorage 降级实现（`todo_local_db` / `todo_local_daily_db`），上层 
 | --- | --- |
 | `src-tauri/tauri.conf.json` | 平台中立基线：`identifier` / `productName` / 窗口 / SQL 预加载 / 图标集合；**不含**任何一端的产物形态 |
 | `src-tauri/tauri.macos.conf.json` | macOS overlay：`targets: ["app","dmg"]`、`minimumSystemVersion: "12.0"`、`hardenedRuntime: false`、DMG 布局 |
-| `src-tauri/tauri.windows.conf.json` | Windows overlay：`targets: ["nsis","msi"]`、`nsis.installMode: currentUser`（装到用户目录，允许中文安装路径）、`nsis.languages: ["SimpChinese","English"]`、`wix.language: ["zh-CN"]`、WebView2 引导安装 |
+| `src-tauri/tauri.windows.conf.json` | Windows overlay：`targets: ["nsis","msi"]`、`nsis.installMode: currentUser`（装到用户目录，允许中文安装路径）、`nsis.languages: ["SimpChinese","English"]`、`wix.language: ["zh-CN"]`、**WebView2 引导程序内嵌**（`embedBootstrapper`，+~1.8MB） |
 
 Tauri 会按构建平台**自动合并**对应的 overlay，不需要手动 `--config`。
 
-### 2. 在 Windows 上构建
+### 2. 安装后「双击 exe 没反应」怎么排查
+
+Windows 的 release 构建是 `windows_subsystem = "windows"`，**没有控制台**——
+所以任何静默失败在用户看来都只是「点了没反应」。本项目为此做了三层兜底：
+
+| 症状 | 原因 | 处理 |
+| --- | --- | --- |
+| 双击后**完全没有窗口**，也没有任何弹窗 | ① **SmartScreen 拦截**：CI 产物**未做代码签名**，Windows 11 会弹「Windows 已保护你的电脑」，点「更多信息」→「仍要运行」；② **缺 WebView2 Runtime**：界面靠它渲染，缺了就启动即退 | 装 WebView2：<https://developer.microsoft.com/microsoft-edge/webview2/>（安装包已内嵌引导程序，装的时候会自动补装；也可手动装） |
+| 弹出一个**错误对话框**（红色叹号） | 应用启动失败，但**现在会告诉你原因** | 按对话框里的提示处理；完整信息在日志里 |
+| 仍然打不开 | 需要看日志 | 打开 `%APPDATA%\com.poisson.todo\startup.log`（每次启动都会追加，包括「WebView2 就绪 / 缺失」） |
+
+**兜底机制**（`src-tauri/src/startup.rs`）：
+
+- **panic hook**：任何 panic / abort 都先写进 `startup.log`，再弹原生消息框（`MessageBoxW`）；
+- **WebView2 预检**：在创建窗口**之前**先探一次运行时，缺失就弹窗说明「本应用依赖 WebView2，
+  请到微软官网下载安装」并附下载地址——而不是静默退出；
+- **启动日志**：每次启动写一行启动标记 + WebView2 版本，出问题时有据可查。
+
+命令行跑一次也能直接看到错误输出（比双击更直接）：
+
+```powershell
+& "$env:LOCALAPPDATA\Programs\日程待办\日程待办.exe"
+```
+
+### 3. 在 Windows 上构建
 
 ```powershell
 npm ci
@@ -185,7 +212,7 @@ npx tauri build              # 出 NSIS .exe 与 MSI .msi
 产物在 `src-tauri\target\release\bundle\nsis\*.exe` 与 `...\bundle\msi\*.msi`。
 前置条件：Node 22、Rust stable（MSVC toolchain）、WebView2（Win10 1803+ 通常已内置）。
 
-### 3. CI 入口
+### 4. CI 入口
 
 `.github/workflows/build.yml`：matrix = `macos-latest` + `windows-latest`，两条 job 走同一套步骤
 （`npm ci` → `npm run build` → 装 Playwright Chromium → `npx playwright test` → `npx tauri build`
@@ -201,6 +228,8 @@ Windows job 真的执行 `npx tauri build`，不是占位。
 
 ```bash
 node scripts/check-bundle-config.mjs   # 三份 conf 合并 + schema + 平台中立 + 数据路径中立 + workflow 结构断言
+npm run check:platform                  # 平台可移植性：平台专有调用必须被 #[cfg(...)] 保护
+                                         # 完整清单见 docs/cross-platform-audit.md
 ```
 
 ---
@@ -274,6 +303,7 @@ node scripts/check-remote-schema.mjs   # 表就绪 → ✓；未部署 → ✗ �
 ### 4. 同步规则（一眼看完）
 
 - 触发：任意数据变更后 **5 秒防抖**推送一次，窗口内的多次改动合并；启动时拉取一次，登录成功后立即再拉一次。
+- **定时同步：每 2 天自动做一轮**（拉一次云端 + 推一次本地待推条目），见下方 §5。
 - 冲突：`last-write-wins`（`updated_at_ms` 大者胜；同毫秒按 `uuid` 字典序，结果与到达顺序无关）；
   落败值只丢弃，**不回写云端**。
 - 删除：软删除（`deleted = 1`）；**墓碑终结**——已删条目不会被任何非删除记录复活。
@@ -292,10 +322,30 @@ node scripts/check-remote-schema.mjs   # 表就绪 → ✓；未部署 → ✗ �
   legacy JWT 的唯一命中是 `scripts/check-sync.mjs` 的**负向夹具**（签名段为字面量 `sig`），
   不是可用凭据；管理员角色密钥属于 legacy JWT，被同一正则覆盖，运行期还会被白名单拒绝。
 
-### 5. 自证命令
+### 5. 每 2 天自动同步
+
+登录之后，同步层除了「变更驱动」的即时推送，还会**每 2 天自动跑一轮完整同步**
+（拉一次云端 + 推一次本地待推条目），即使这两天里你什么都没改。
+
+| 项 | 口径 |
+| --- | --- |
+| 默认周期 | **2 天**；可在 `sync.config.json` 里用 `autoSyncDays` 改（`0` = 关闭定时同步，只保留变更驱动同步） |
+| 状态区 | 报告「每 2 天自动同步」这一周期；**周期不再常驻显示在面板上**，改由「立即重试」按钮的悬停说明承载（2026-11-27 面板收敛，见 AC-71） |
+| 跨重启 | 周期**按墙上时间延续**：关掉应用几天后再打开，节拍不会重置 |
+| 过期补做 | 应用关着的时间超过了一个周期，下次启动会**立刻补做一轮**（这次启动仍只拉一次云端，不重复打云端） |
+| 失败重试 | 与推送同一套退避阶梯 **1s → 2s → 4s → 8s → 16s**；不阻塞界面，失败只反映在状态区 |
+| 未登录 / 未配置 | **不排期、不发任何请求**——定时器根本不会挂上（与「零云端请求」红线一致） |
+| 登出 | 立刻停掉定时器，之后不会有任何定时请求 |
+
+节拍锚点落在应用数据目录的 `sync.state.json`（**只有时间戳，没有凭据**，不进钥匙串）。
+之所以不落 SQLite：`todos` / `daily_picks` 两表固定、迁移只增不改（BR-07 / BR-08），不新增第三张表。
+
+改动 `autoSyncDays` 后重启应用即生效；删掉 `sync.state.json` 可让周期重新起算。
+
+### 6. 自证命令
 
 ```bash
-node scripts/check-sync.mjs            # 本地 stub：防抖 / 拉取合并 / LWW / 墓碑 / 401 / PGRST205 + v3 迁移结构
+node scripts/check-sync.mjs            # 本地 stub：防抖/拉取/LWW/墓碑/401/PGRST205/2 天定时同步 + v3 迁移结构
 node scripts/check-deleted-filter.mjs  # 软删除静态断言
 node scripts/check-remote-schema.mjs   # 真实项目只读探测：public.todos 是否已部署
 npx playwright test -c playwright.sync.config.ts   # 同步 E2E（零云端请求 / 无登录拦截 / 状态区）
@@ -324,12 +374,12 @@ npx playwright test -c playwright.sync.config.ts   # 同步 E2E（零云端请�
 ## 校验脚本
 
 ```bash
-node scripts/check-cases.mjs         # 内容库校验（CFL-07 口径）：总数 65 / 分类 17·17·12·7·12
+node scripts/check-cases.mjs         # 内容库校验（CFL-07 口径）：总数 146 / 分类 17·17·12·7·12·81
 node scripts/check-permutation.mjs   # 推送确定性比对：7 个抽样日期 + 落库与「换一条」规则
 node scripts/check-data-layer.mjs    # 数据层 localStorage 路径行为自检（9 组断言）
 node scripts/check-db-parity.mjs     # 双后端等价性对拍：同一操作序列下两条后端结果一致
 node scripts/check-bundle-config.mjs # S6 打包配置自证：三份 conf 合并 + schema + workflow 结构（44 条断言）
-node scripts/check-sync.mjs          # S10 同步自检：防抖/拉取/LWW/墓碑/401 五组路径 + v3 迁移结构（78 条断言，含密钥白名单负向断言）
+node scripts/check-sync.mjs          # S10 同步自检：防抖/拉取/LWW/墓碑/401/2 天定时同步九组路径 + v3 迁移结构（134 条断言，含密钥白名单负向断言）
 node scripts/check-deleted-filter.mjs # S10 软删除静态断言：FROM todos 未带 deleted = 0 即失败
 node scripts/check-s2-ui.mjs         # S2 界面自证：外壳/日历/当日面板，截图落 docs/evidence/s2/
 node scripts/check-s3-ui.mjs         # S3 界面自证：每日工作法七区块/渐隐/换一条/往期/方法库，截图落 docs/evidence/s3/
@@ -367,7 +417,7 @@ E2E_NOW=2026-11-15 npx playwright test   # 把浏览器时钟固定到指定日�
 | --- | --- | --- |
 | 1 · 应用加载 | `e2e/todo.spec.ts` | 外壳与导航、42 格月历（周日起始）、今天/补位格/选中态、当日空态与「今天」按钮 |
 | 2 · 完整链路 | `e2e/todo.spec.ts` | 编辑器造数 → 圆点与 `+` → 优先级循环 → 完成率 33/100/67% → 跨月补位格与数据加载 |
-| 3 · 每日工作法 | `e2e/todo.spec.ts` | 确定性推送（对照独立参考实现）、换一条、往期 7 天、65 条方法库、预览不落库、`5w2h` 内滚动与渐隐、小卡片刷新 |
+| 3 · 每日工作法 | `e2e/todo.spec.ts` | 确定性推送（对照独立参考实现）、换一条、往期 7 天、146 条方法库、预览不落库、`5w2h` 内滚动与渐隐、小卡片刷新 |
 | 4 · 全部待办 | `e2e/todo.spec.ts` | 跨日期分组与 ` · 今天`、组内 `已完成/总数`、筛选同步、与当日面板筛选独立、清库后的中性空态 |
 | 5 · 条目与编辑器 | `e2e/todo.spec.ts` | 行内四元素、菜单按日期分支、三种关闭条件（点外部/Esc/滚动）、贴边翻转、编辑器空标题禁用与回车提交 |
 | 6 · 巡览 | `e2e/tour.spec.ts` | 自包含造数，逐页 14 张截图 + 1 段连续录屏，落 `screenshots/` `videos/` |
@@ -383,7 +433,7 @@ src/
 ├─ App.vue                     模块切换（currentModule）+ 编辑器状态 + 日历页两栏
 ├─ types/index.ts              唯一类型来源
 ├─ styles/main.css             设计 token + 全局重置 + macOS 兼容层
-├─ data/methods.ts             65 条内容库（原样搬运，零改动）
+├─ data/methods.ts             146 条内容库（原 65 条原样 + classic 81 条）
 ├─ db/database.ts              数据层：SQLite / localStorage 双实现
 ├─ sync/                       同步核心（全部依赖注入，可在 Node stub 上真跑）
 │  ├─ engine.ts                防抖推送 / 拉取合并 / 重试退避 / 401 重登
@@ -401,7 +451,7 @@ src/
    ├─ layout/SyncPanel.vue     C-16 同步状态与登录区（v-show 收起，不丢会话）
    ├─ layout/navItems.ts       导航注册表（新增模块只改这里 + App 分支 + 新组件）
    ├─ calendar/CalendarView.vue  42 格月历（data-date / data-outside、四态、圆点 + `+`）
-   ├─ daily/DailyMethodView.vue  每日工作法模块（顶栏步进 / 主卡片 / 往期 7 天 / 65 条方法库）
+   ├─ daily/DailyMethodView.vue  每日工作法模块（顶栏步进 / 主卡片 / 往期 7 天 / 146 条方法库）
    ├─ daily/MethodCard.vue       主卡片七区块 + `.mc-inner` 内滚动 + `.mc-fade` 底部渐隐
    ├─ daily/DailyMethodMini.vue  日历页内的工作法小卡片
    └─ todo/
@@ -488,7 +538,7 @@ v1 / v2 **逐字未动**；v3 只对 `todos` 做 `ADD COLUMN` + 回填 + 建索�
 | 系统菜单栏 | 框架默认英文（Q-01），见「一、3」 |
 | Windows 产物 | **已在 GitHub Actions 跑通**：`windows-latest` job 2026-11-01 实跑成功（真执行 `npx tauri build` + 上传产物），artifact **`todo-windows`（5.36 MB）** 可在 Actions 下载；**但产物未在本机、也未在任何 Windows 机器上运行过**（本机无交叉编译） |
 | Release 发布 | tag 触发 + `permissions: contents: write` + `softprops/action-gh-release` 已配好；**当前尚未打 tag，Releases 页为空**。发布资产名统一为 ASCII（`ScheduleTodo-<版本>-<平台>`），**应用名仍是「日程待办」** |
-| Windows 上的同步 | **不可用**：会话存储（`/usr/bin/security` 钥匙串）与浏览器拉起（`/usr/bin/open`）都是 macOS 实现，Windows 上登录必失败、状态区停在「未登录」；本地功能不受影响。Windows 只交付**可构建能力** |
+| Windows 上的同步 | **v0.2.1 起可用**：会话存储走**凭据管理器**（DPAPI 加密）、浏览器拉起走 `cmd /C start`，OAuth 往返两台都能走通。**但未经实机验证**——本机无 Windows 环境，CI 只证明能编译，真实登录流程需实机复跑确认 |
 | 桌面人工 checklist | M-01 ~ M-14 的执行情况见 `docs/verification/mac-desktop.md`；**桌面像素级项由人类实机人工验收确认（无自动化截图）**，受 TCC 权限限制而仍缺自动取证的项保留原判定与复现命令 |
 | 同步（可选） | 逻辑已交付并用本地 stub 验证；**真实 Supabase 读写 / GitHub OAuth 往返 / 云侧 RLS 隔离已于 2026-11-01 实测通过**（RLS 用等价判据，**未用第二个账号实测「A token 读 B 行」**；已登录状态区的像素截图仍未取），见「五、同步（可选）」 |
 | 待推改动不会自动补推 | 退出应用时未到 5 秒防抖窗口的改动、以及未登录期间产生的改动，**只留在本地库**：启动只做拉取、不扫描待推队列，因此不会补推——**只有该行下次被编辑时才会重新排队上云**（OPEN-02 默认口径） |

@@ -13,6 +13,8 @@
  *    会因此静默放行，等于把管理员密钥放进客户端（AC-67）。
  */
 
+import { DEFAULT_AUTO_SYNC_DAYS, normalizeAutoSyncDays } from './autoSync.ts';
+
 export interface SyncConfig {
   enabled: boolean;
   /** Supabase base URL，末尾不带斜杠 */
@@ -20,6 +22,11 @@ export interface SyncConfig {
   anonKey: string;
   /** 配置来源，仅用于状态提示与排障（绝不包含 key 内容） */
   source: string;
+  /**
+   * 定时同步周期（天）。默认 2 天（FR-SYNC-17）；0 表示关闭定时同步。
+   * 缺省即 2 天 —— 用户提的需求是「每 2 天同步」，默认值必须就是这个。
+   */
+  autoSyncDays: number;
 }
 
 export const DISABLED_CONFIG: SyncConfig = {
@@ -27,6 +34,7 @@ export const DISABLED_CONFIG: SyncConfig = {
   baseUrl: '',
   anonKey: '',
   source: 'none',
+  autoSyncDays: DEFAULT_AUTO_SYNC_DAYS,
 };
 
 export interface SyncConfigParseResult {
@@ -72,8 +80,8 @@ function isAcceptableAnonKey(key: string): boolean {
 /**
  * 校验并归一化配置。
  *
- * 接受 `{ enabled, supabaseUrl | baseUrl, anonKey }`；`enabled` 缺省为 true
- * （只要 url + key 齐全），显式 `false` 优先。
+ * 接受 `{ enabled, supabaseUrl | baseUrl, anonKey, autoSyncDays }`；
+ * `enabled` 缺省为 true（只要 url + key 齐全），显式 `false` 优先。
  */
 export function parseSyncConfig(
   raw: unknown,
@@ -87,32 +95,41 @@ export function parseSyncConfig(
   const rawKey = record.anonKey ?? record.anon_key ?? record.key;
   const baseUrl = typeof rawUrl === 'string' ? rawUrl.trim().replace(/\/+$/, '') : '';
   const anonKey = typeof rawKey === 'string' ? rawKey.trim() : '';
+  // 周期天数：缺省 2 天；非法值回落到默认而不是静默关闭（见 normalizeAutoSyncDays）
+  const autoSyncDays = normalizeAutoSyncDays(record.autoSyncDays);
 
   if (record.enabled === false) {
-    return { config: { ...DISABLED_CONFIG, source, baseUrl, anonKey }, reason: '配置已禁用' };
+    return {
+      config: { ...DISABLED_CONFIG, source, baseUrl, anonKey, autoSyncDays },
+      reason: '配置已禁用',
+    };
   }
   if (!baseUrl || !anonKey) {
-    return { config: { ...DISABLED_CONFIG, source }, reason: '缺少 base URL 或 anon key' };
+    return { config: { ...DISABLED_CONFIG, source, autoSyncDays }, reason: '缺少 base URL 或 anon key' };
   }
   if (!/^https?:\/\/[^/\s]+/.test(baseUrl)) {
-    return { config: { ...DISABLED_CONFIG, source }, reason: 'base URL 不是合法地址' };
+    return { config: { ...DISABLED_CONFIG, source, autoSyncDays }, reason: 'base URL 不是合法地址' };
   }
   // 白名单：只接受 anon 角色的 legacy JWT 或可发布（publishable）密钥前缀；
   // 非 JWT（含新版服务端密钥）读不出角色，按拒绝处理（AC-67）
   if (!isAcceptableAnonKey(anonKey)) {
     return {
-      config: { ...DISABLED_CONFIG, source },
+      config: { ...DISABLED_CONFIG, source, autoSyncDays },
       // 提示里引用同一个常量，保证文案与放行规则不会漂移
       reason: `只接受 anon 角色的 JWT 或 ${PUBLISHABLE_PREFIX} 前缀的密钥`,
     };
   }
   return {
-    config: { enabled: true, baseUrl, anonKey, source },
+    config: { enabled: true, baseUrl, anonKey, source, autoSyncDays },
     reason: '',
   };
 }
 
-/** 从进程环境读配置（Node 检查脚本 / 开发期用；打包产物不含 key） */
+/**
+ * 从进程环境读配置（Node 检查脚本 / 开发期用；打包产物不含 key）。
+ *
+ * `SUPABASE_AUTO_SYNC_DAYS` 可覆盖周期天数（检查脚本用它验证「关闭定时同步」分支）。
+ */
 export function configFromEnv(
   env: Record<string, string | undefined>
 ): SyncConfigParseResult {
@@ -121,5 +138,13 @@ export function configFromEnv(
   if (!url || !key) {
     return { config: { ...DISABLED_CONFIG, source: 'env' }, reason: '未设置 SUPABASE_URL / SUPABASE_ANON_KEY' };
   }
-  return parseSyncConfig({ supabaseUrl: url, anonKey: key }, 'env');
+  const days = env.SUPABASE_AUTO_SYNC_DAYS;
+  return parseSyncConfig(
+    {
+      supabaseUrl: url,
+      anonKey: key,
+      ...(days === undefined ? {} : { autoSyncDays: Number(days) }),
+    },
+    'env'
+  );
 }

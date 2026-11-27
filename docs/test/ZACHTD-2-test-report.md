@@ -4,8 +4,8 @@
 | --- | --- |
 | 文档编号 | TR-ZACHTD-2 |
 | 关联 Issue | ZACHTD-9（S7 测试执行与报告，AC-01 ~ AC-56）+ **ZACHTD-13（S10.5 同步层执行与全量回归，AC-43 重判 / AC-57 ~ AC-68）** + **ZACHTD-14（S11 判门后的台账统一，M2）** + **ZACHTD-15（S7.5 桌面人工取证补跑，屏幕录制已授权）** + **ZACHTD-16（S7.6 bundle 签名修复与 Gatekeeper 实测）** + **ZACHTD-19（S7.9 台账回填：AC-65 / AC-66② / AC-68 转 PASS，含真实 CI 结论）** |
-| 判定基线 | `docs/requirements/ZACHTD-2-macos-prd.md` **v1.6**（共 **68 条**，自 v1.4 起条数未变）：v1.5 = **AC-37 判据收窄为三段式** + **AC-68 判定归属归正为「S10.5 执行并留证」**（表述仍有效）；v1.6 = **AC-67 判据口径收窄 + 白名单兜底**、**OPEN-02 措辞校正**，**不改任何 AC 判定**。AC-01 ~ AC-56 见 §3（S7 段）；AC-57 ~ AC-68 见 **§13（S10.5 段）**；**AC-01 ~ AC-68 逐条台账见 §14** |
-| 执行用例 | `docs/test/ZACHTD-2-test-plan.md` **v1.3**：TC-001 ~ TC-056（S7）+ TC-057 ~ TC-080（S10.5） |
+| 判定基线 | `docs/requirements/ZACHTD-2-macos-prd.md` **v1.9**（共 **70 条**）：v1.5 = **AC-37 判据收窄为三段式** + **AC-68 判定归属归正为「S10.5 执行并留证」**（表述仍有效）；v1.6 = **AC-67 判据口径收窄 + 白名单兜底**、**OPEN-02 措辞校正**，**不改任何 AC 判定**；v1.7 = **新增 FR-SYNC-17「每 2 天自动同步」+ AC-69（§13.19）**，总数 68 → 69；v1.8 = **新增 FR-DM-17「中国古典智慧」分类 + 16 条古典哲学方法 + AC-70（§13.20）**，总数 69 → 70；v1.9 = **该分类扩充到 81 条（原 65 条逐字保留）**，**AC-01 ~ AC-69 的判定一律不动**。AC-01 ~ AC-56 见 §3（S7 段）；AC-57 ~ AC-70 见 **§13（S10.5 段及其后增量）**；**AC-01 ~ AC-70 逐条台账见 §14** |
+| 执行用例 | `docs/test/ZACHTD-2-test-plan.md` **v1.4**：TC-001 ~ TC-056（S7）+ TC-057 ~ TC-080（S10.5）+ TC-081 ~ TC-084（定时同步） |
 | 执行人 | @Tester |
 | 执行日期 | 2026-11-01（CST） |
 | 执行环境 | macOS 14.1（23B2073）/ arm64 / Node 22.21.1 / npm 10.9.4 / Rust 1.92.0 / Playwright 1.64.1 / 仅 CommandLineTools（无完整 Xcode） |
@@ -16,16 +16,16 @@
 
 ### 0.1 S7.9 增量结论（2026-11-01 第五轮，读 §13.18 与 §14）
 
-**全量 68 条 AC 全部可判定：PASS 68 / FAIL 0 / BLOCKED 0 / NOT-VERIFIED 0。**（AC-41 判 **PASS**，但证据来源是**人类实机人工验收**而非 Tester 自动化取证 —— 记账上计入 PASS，证据上照实标注，见下方口径 2。）
+**全量 70 条 AC 全部可判定：PASS 70 / FAIL 0 / BLOCKED 0 / NOT-VERIFIED 0。**（AC-41 判 **PASS**，但证据来源是**人类实机人工验收**而非 Tester 自动化取证 —— 记账上计入 PASS，证据上照实标注，见下方口径 2。）
 
 - **本轮回填四条**（证据见 **§13.18**，均为「**Leader 实测、Tester 复核文字**」）：
   - **AC-65**（真实云端读写）：`NOT-VERIFIED` → **PASS**（201 / 200 / 204，本人 7 行）；
   - **AC-66②**（云侧 RLS 越权）：子项 `NOT-VERIFIED` → **PASS（等价判据）**（**局限见 §13.18.2，不得删**）；
   - **AC-68**（Windows 可构建）：`PASS + CI 子项 NV` → **PASS（含真实 CI）**（macOS / Windows 两个 job 均 success，产物 artifact 可下载）；
   - **AC-41**（断网三模块）：`BLOCKED` → **PASS**（人类 2026-11-01 实机验证；**Tester 侧无自动化取证**，证据来源照实标注为「人工验收确认」，不写成「Tester 已取证」）。**Leader 于 2026-11-01 复核后拍板记 PASS。**
-- **算术口径（唯一）**：68 = **56**（AC-01 ~ AC-56 = 56 PASS，含 AC-41）+ **12**（AC-57 ~ AC-68 = 12 PASS）= **68 PASS / 0 FAIL / 0 BLOCKED / 0 NOT-VERIFIED**。
+- **算术口径（唯一）**：70 = **56**（AC-01 ~ AC-56 = 56 PASS，含 AC-41）+ **14**（AC-57 ~ AC-70 = 14 PASS）= **70 PASS / 0 FAIL / 0 BLOCKED / 0 NOT-VERIFIED**。
   **AC-41 计入 PASS**（Leader 2026-11-01 拍板），但**证据来源标注为「人工验收确认」**——记账口径与证据口径分开写：PASS 是「这条 AC 已被可核实的证据判定通过」，不等于「有 Tester 侧自动化取证」。
-- **68 条逐条台账见 §14**（AC / 判定 / 证据段落 / 用例号）。**`68 PASS` 不等于 68 条都有 Tester 侧自动化取证**：AC-65 / AC-66② / AC-68 的 CI 三条是 Leader 实测，AC-41 是人类实机人工验收。
+- **70 条逐条台账见 §14**（AC / 判定 / 证据段落 / 用例号）。**`70 PASS` 不等于 70 条都有 Tester 侧自动化取证**：AC-65 / AC-66② / AC-68 的 CI 三条是 Leader 实测，AC-41 是人类实机人工验收。
 - **仍带子项 `NOT-VERIFIED` 的 PASS：1 条**——**AC-58**（TC-062 真实已登录态截图；本轮无截图产物）。
 - **AC-67 的账写「凭据 0 / 文本 1」**（§13.10 / §13.17）：可用真实密钥 0；`sync.config.example.json:5` 值位 1 行说明性否定文本，不判 FAIL。**产物侧分两笔**：前端字节看 `dist/`（0，带正控），二进制 `strings` 0 只覆盖 Rust 层与未压缩资源。**S1 白名单已闭环**（`check-sync.mjs` 78 项断言）。
 - 沿用上一轮（S10.5）结论：四组回归第二次全绿（`build` / `check-cases` / `check-permutation` / `playwright 6 passed`），**同步套件独立执行 4 passed**（≠6，两套分别报）；AC-01 ~ AC-56 的旧判定未被同步层破坏（§13.11）；AC-43 按 PRD v1.4 收窄口径**重判 PASS**（S7 的旧结论作废）。
@@ -47,7 +47,7 @@
 
 > 判定纪律（沿用计划 §0.1）：一条 AC 判 PASS = 其**主 TC** 的判据在本机以规定手段跑出来；桌面像素 / 手势类**辅助**项按 Leader 2026-11-01 口径记 `BLOCKED（环境：TCC 未授权）`，不改变 AC 判定；主 TC 本身完全依赖人工桌面操作时，该 AC 判 BLOCKED。
 
-> 逐条台账见 **§14**（AC-01 ~ AC-68 一张表）。AC-43 在本段 56 条之内按 v1.5 收窄口径**重判 PASS**（§13.7），**不另计一条**。
+> 逐条台账见 **§14**（AC-01 ~ AC-70 一张表）。AC-43 在本段 56 条之内按 v1.5 收窄口径**重判 PASS**（§13.7），**不另计一条**。
 
 ### 0.3 S7.5 桌面取证补跑（2026-11-01 第三轮，读 §6 / §7.2 / §13.13）
 
@@ -162,13 +162,13 @@ BUILD OK: dist/index.html      400 bytes
 ```console
 $ node scripts/check-cases.mjs
 内容库校验（scripts/check-cases.mjs）
-  方法总数        65（期望 65）
-  分类分布        thinking 17 / work 17 / report 12 / communication 7 / efficiency 12
-  case 分布       practice 18 / story 47 / 缺失 0
-  案例正文长度    126–240，均值 162.4（期望 126–240）
-  id 唯一         65/65
-  steps 真实分布  3 条 × 6 / 4 条 × 55 / 5 条 × 3 / 7 条 × 1（观测区间 3–7）
-  steps > 4 条目  gtd(5), smart-goal(5), 5w2h(7), rice-scoring(5)（CFL-07 判定合规，不判失败）
+  方法总数        146（期望 146）
+  分类分布        thinking 17 / work 17 / report 12 / communication 7 / efficiency 12 / classic 81
+  case 分布       practice 36 / story 110 / 缺失 0
+  案例正文长度    126–240，均值 179.7（期望 126–240）
+  id 唯一         146/146
+  steps 真实分布  3 条 × 12 / 4 条 × 126 / 5 条 × 6 / 7 条 × 2（观测区间 3–7）
+  steps > 4 条目  gtd(5), smart-goal(5), 5w2h(7), rice-scoring(5), gong-yu-shan-qi-shi(5), fan-shi-yu-ze-li(5), qun-er-wu-fen-ze-zheng(7), zhi-zhe-zhi-mou(5)（CFL-07 判定合规，不判失败）
 
 PASS
 EXIT=0
@@ -178,13 +178,13 @@ EXIT=0
 
 ```console
 $ node scripts/check-permutation.mjs
-MATCH 2026-01-01  首推=difficult-conversation  次推=okr  长度=65
-MATCH 2026-03-15  首推=pyramid-principle  次推=issue-tree  长度=65
-MATCH 2026-06-30  首推=task-batching  次推=meeting-lean  长度=65
-MATCH 2026-11-01  首推=conclusion-argument-recommendation  次推=sunk-cost  长度=65
-MATCH 2026-11-15  首推=pyramid-principle  次推=checklist  长度=65
-MATCH 2026-12-31  首推=issue-tree  次推=critical-path  长度=65
-MATCH 2027-02-28  首推=red-team  次推=pyramid-principle  长度=65
+MATCH 2026-01-01  首推=active-listening  次推=elevator-pitch  长度=146
+MATCH 2026-03-15  首推=pyramid-principle  次推=shu-jin-ri-yi-guan-qian-sui  长度=146
+MATCH 2026-06-30  首推=xian-shi-hou-de  次推=pre-brief  长度=146
+MATCH 2026-11-01  首推=quan-hou-zhi-qing-zhong  次推=sunk-cost  长度=146
+MATCH 2026-11-15  首推=zheng-ming  次推=scqa  长度=146
+MATCH 2026-12-31  首推=5w2h  次推=shi-yi-ze-shi-yi  长度=146
+MATCH 2027-02-28  首推=sbi-feedback  次推=si-huan-er-yu-fang-zhi  长度=146
 
 抽样日期比对：7/7 一致
 PASS
@@ -263,8 +263,8 @@ PASS（三份 conf 合并 + schema + 平台中立 + 数据路径中立 + workflo
 | AC-23 | TC-031 | **PASS** | 用例 3：换一条 = 参考排列下一条、`manual=false→true`、徽章「已手动刷新」；桌面库中 `manual=1` 行跨我这次重启仍不变 | 桌面「换一条」点击本身 = **BLOCKED（TCC）** |
 | AC-24 | TC-032 | **PASS** | `check-permutation.mjs`：7/7 MATCH，退出码 0 | — |
 | AC-25 | TC-033 | **PASS** | 用例 3：`.history-item` = 7、日期升序、末行 = 今天、`.active` 跟随、点第 3 行主卡片切到该日 | — |
-| AC-26 | TC-034 | **PASS** | 用例 3：`.library-count` = `65 条`；`.cf-btn` 6 个（全部 65 / 17 / 17 / 12 / 7 / 12），逐个点选后 `.lib-item` 条数与计数一致 | TC-035 交叉核对 |
-| AC-27 | TC-035 | **PASS** | `check-cases.mjs` PASS：65 条、17/17/12/7/12、practice 18 + story 47、steps 分布 6/55/3/1（区间 3–7）、正文 126–240；4 条超限未判红 | TC-036（负向）未在本段复跑，见 §11 |
+| AC-26 | TC-034 | **PASS** | 用例 3：`.library-count` = `146 条`；`.cf-btn` **7** 个（全部 146 / 17 / 17 / 12 / 7 / 12 / **中国古典智慧 81**），逐个点选后 `.lib-item` 条数与计数一致 | TC-035 交叉核对；AC-70（v1.8 / v1.9）复跑同口径 |
+| AC-27 | TC-035 | **PASS** | `check-cases.mjs` PASS：**146 条**、17/17/12/7/12/**81**、practice 36 + story **110**、steps 分布 **12/126/6/2**（区间 3–7）、正文 126–240；**8** 条超限未判红 | TC-036（负向）未在本段复跑，见 §11；AC-70（v1.8 / v1.9）复跑同口径 |
 | AC-28 | TC-037 | **PASS** | 用例 3：`boundingBox()` → steps 底 ≤ duo 顶、duo 底 ≤ case 顶、三者 x 差 ≤ 1px、卡片宽 ≤ `.dv-main` | — |
 | AC-29 | TC-038 | **PASS** | 用例 3（强制夹具 `5w2h`）：`scrollHeight > clientHeight`、`.mc-fade` 可见 → 滚到底 `toBeHidden()`、页面不滚动；`rice-scoring` 条件夹具本次不溢出（不判定） | 桌面 WKWebView = **M-11 BLOCKED** |
 | AC-30 | TC-041 | **PASS** | 用例 3：`.mini-title` = `今日工作法`；点 `.mini-refresh` 后内容变化，`data-module` 仍 `calendar` 且 `.daily-module` 隐藏 | — |
@@ -289,7 +289,7 @@ PASS（三份 conf 合并 + schema + 平台中立 + 数据路径中立 + workflo
 | AC-49 | TC-026 | **PASS** | 用例 5（1280×800）贴边向左/向上翻转且余量 ≥ 8px；**S7 探针（900×600 最小窗，右下角条目）**：菜单 box `{x:565,y:436,w:168,h:114}`，四边余量 `565 / 436 / 167 / 50` 均 ≥ 8 | — |
 | AC-50 | TC-016 | **PASS** | 用例 5：`.ctx-menu` 的父节点 = `BODY` | — |
 | AC-51 | TC-028 | **PASS** | 用例 3：三态各造一次，`.mc-preview` 计数恒为 1，文案逐字 `今日推送` / `已手动刷新` / `方法库预览` | — |
-| AC-52 | TC-037 | **PASS** | **临时夹具**（`page.route` 拦截 `src/data/methods.ts`，模块末尾内存删 `case`，不入库、不改 `methods.ts`）：`.mc-case` = 0、`.case-title/.case-content` = 0，`.mc-steps-block` 与两个 `.mc-box` 正常；换一条后仍为 0 | **夹具构造，现有 65 条数据不可达**（全部带 `case`）；`check-cases.mjs` 仍绿 |
+| AC-52 | TC-037 | **PASS** | **临时夹具**（`page.route` 拦截 `src/data/methods.ts`，模块末尾内存删 `case`，不入库、不改 `methods.ts`）：`.mc-case` = 0、`.case-title/.case-content` = 0，`.mc-steps-block` 与两个 `.mc-box` 正常；换一条后仍为 0 | **夹具构造，现有 146 条数据不可达**（全部带 `case`）；`check-cases.mjs` 仍绿 |
 | AC-53 | TC-041 | **PASS** | **S7 探针（主套件缺此断言）**：切到非今日 → `.mini-title` = `11月4日 工作法`（正则 `^\d{1,2}月\d{1,2}日 工作法$`）；hover `.mini-refresh` 背景 `rgba(0,0,0,0) → rgb(240,140,0)`（= 分类色 `#f08c00`）、文字转白；回今天仍 `今日工作法` | E2E 覆盖缺口记于 §5 |
 | AC-54 | TC-043 | **PASS** | 用例 4 末尾清空 `todo_local_db` + reload → `暂无待办`、空态内 `button` = 0、`.group` = 0、`共 0 项`、无完成率 | 「方法库空态」半句 = 观察项（§9） |
 | AC-55 | TC-046 | **PASS** | `check-db-parity.mjs`：同一 13 步操作序列分别跑 localStorage 与 SQLite（真实 plugin JS + 应用真实 SQL），`fetchTodos / ByDate / ByMonth×2 / DailyPicks / DailyPick×2` 逐项 JSON 相等，输出 `PASS`；列表排序 `丁 → 丙 → 乙改 → 戊`、推送记录两侧一致 | 桌面 UI 六步点击未执行（TCC）；见 §10 |
@@ -442,7 +442,7 @@ d66b3ea6e24d3b54d74dcd0c24e5a51b
 | 菜单的 ③ 窗口失焦 / ④ resize | AC-19（TC-026 的 ③ 计划写「事件级模拟」；COVERAGE.md 说明实现未写） | 临时探针 `ac19.spec.ts`（已删） | blur 与 resize 事件均使 `.ctx-menu` 归 0（事件级，不等于真机） |
 | 优先级 reload 后保持 | AC-13（TC-018 的桌面重启部分） | 临时探针 `ac13.spec.ts`（已删） | reload 后仍「高」、`data-priority=2` |
 | 900×600 最小窗下的贴边翻转 | AC-49（主套件在 1280×800 下测） | 临时探针 `ac49.spec.ts`（已删） | 四边余量 565/436/167/50，均 ≥ 8 |
-| 无 `case` 不渲染案例区块 | AC-52 | 临时夹具 `ac52.spec.ts`（已删） | `.mc-case` = 0，三区块正常；**现有 65 条全带 `case`，该路径不可达，靠夹具判定** |
+| 无 `case` 不渲染案例区块 | AC-52 | 临时夹具 `ac52.spec.ts`（已删） | `.mc-case` = 0，三区块正常；**现有 146 条全带 `case`，该路径不可达，靠夹具判定** |
 
 > 探针第一次跑 AC-13 时因我自己的 `addInitScript` 在 reload 时重复种数据而得到「优先级没保持」的假失败；加 `sessionStorage` 一次性守卫后重跑通过。记录在此，避免把测试缺陷误判成产品缺陷。
 
@@ -526,9 +526,9 @@ S10.5 段新增 **AC-65 = `NOT-VERIFIED`**（无 anon key，按 PRD 明文不得
 
 | 项 | 状态 | 理由 |
 | --- | --- | --- |
-| Windows 安装包（`.exe` / `.msi`）产出 | **PASS（CI 实跑产出）** | 本机无交叉编译能力（Tauri 不支持 macOS → Windows），验证路径是 `windows-latest` CI；**2026-11-01 起仓库已 push 且转 public，CI 实际跑完并成功**，产物 artifact `todo-windows`（5 358 473 B / 5.36 MB）可从 Actions 下载（§13.18.3） |
+| Windows 安装包（`.exe` / `.msi`）产出 | **PASS（CI 实跑产出）** | 本机无交叉编译能力（Tauri 不支持 macOS → Windows），验证路径是 `windows-latest` CI；**2026-11-01 起仓库已 push 且转 public，CI 实际跑完并成功**；**2026-11-02 随本次改动（commit `1836942`）复跑一次，两个 job 仍全绿**，产物 artifact `todo-windows`（5 456 747 B / 5.20 MB）可从 Actions 下载（§13.18.3） |
 | Windows 上的实机运行 / E2E / 安装升级 | **NOT-VERIFIED** | 本机无 Windows 环境，**产物未在任何 Windows 机器上运行过** |
-| Windows 配置与 workflow 是否可构建 | **PASS（静态三证 + 真实 CI，§13.8 / §13.18.3）** | `check-bundle-config.mjs` 44 条断言 PASS + matrix 含 `windows-latest` 且真跑 `npx tauri build` + `Upload bundles` 成功 → 「Windows 可构建能力」现在有运行证据；**但「能构建」≠「已实机验证」** |
+| Windows 配置与 workflow 是否可构建 | **PASS（静态三证 + 真实 CI，§13.8 / §13.18.3）** | `check-bundle-config.mjs` 54 条断言 PASS + matrix 含 `windows-latest` 且真跑 `npx tauri build` + `Upload bundles` 成功 → 「Windows 可构建能力」现在有运行证据；**但「能构建」≠「已实机验证」** |
 
 Windows **实机**项一律不写成 PASS，也不以静态自检替代实机结论；本轮新增的只是「CI 真的构建成功」这一条运行证据。
 
@@ -538,10 +538,10 @@ Windows **实机**项一律不写成 PASS，也不以静态自检替代实机结
 
 | 观察项 | 为什么不可达 | 报告口径 |
 | --- | --- | --- |
-| AC-54 的「方法库空态」半句 | 65 条方法都有分类（ES-04 现实不可达），构造空方法库需要改内容库，CFL-07 禁止 | 不设断言、不计 PASS / FAIL，只在「已知局限」留一行 |
+| AC-54 的「方法库空态」半句 | 146 条方法都有分类（ES-04 现实不可达），构造空方法库需要改内容库，CFL-07 禁止 | 不设断言、不计 PASS / FAIL，只在「已知局限」留一行 |
 | AC-29 的 `rice-scoring` 条件夹具 | 1280×800 下 `scrollHeight = clientHeight`（不溢出），按计划记「夹具不成立，本次不判定」 | 用例 3 已用 Playwright annotation `fixture-not-applicable` 留痕，不判失败 |
 
-> AC-52 的「无 `case`」路径在现有 65 条数据下也不可达，但按 Leader 2026-11-01 口径已用**临时夹具**构造并断言 → 判 PASS（报告已注明「夹具构造，现有 65 条数据不可达」），不算观察项。
+> AC-52 的「无 `case`」路径在现有 146 条数据下也不可达，但按 Leader 2026-11-01 口径已用**临时夹具**构造并断言 → 判 PASS（报告已注明「夹具构造，现有 81 条数据不可达」），不算观察项。
 
 ---
 
@@ -590,7 +590,7 @@ Windows **实机**项一律不写成 PASS，也不以静态自检替代实机结
 
 ## 13. S10.5 · 同步层执行与全量回归（AC-57 ~ AC-67 + AC-43 重判 + AC-68）
 
-> 执行 Issue：ZACHTD-13（S10.5）。判定基线：PRD **v1.4 → v1.5 → v1.6**（68 条，条数未变；v1.5 收窄 AC-37 判据、归正 AC-68 判定归属；v1.6 收窄 AC-67 判据 + 校正 OPEN-02 措辞，不改判定）；用例：本计划 **v1.3**。
+> 执行 Issue：ZACHTD-13（S10.5）。判定基线：PRD **v1.4 → v1.5 → v1.6 → v1.7 → v1.8**（**70 条**；v1.5 收窄 AC-37 判据、归正 AC-68 判定归属；v1.6 收窄 AC-67 判据 + 校正 OPEN-02 措辞，均不改判定；v1.7 增 AC-69、v1.8 增 AC-70）；用例：本计划 **v1.3** + 本轮增量。
 > 本段**不改产品代码、不新增 `test()`、不放宽任何断言**；新增的只是三个独立验证脚本（见 §13.15）。
 
 ### 13.1 结论（先读这一段）
@@ -600,7 +600,7 @@ Windows **实机**项一律不写成 PASS，也不以静态自检替代实机结
 **同步组：AC-57 ~ AC-68 = PASS（12 条，含 S7.9 回填的 AC-65 / AC-66② / AC-68）。**
 **另：AC-43 按 v1.4 收窄口径重判 = PASS（S7 的旧结论作废，以本段为准）；AC-41 由 `BLOCKED` 改记 **PASS**（人类实机验收、Leader 拍板；Tester 侧无自动化取证——证据来源照实标注）。**
 
-全量 68 条合计（S7.9 后）：**PASS 68 / FAIL 0 / BLOCKED 0 / NOT-VERIFIED 0**（AC-41 计入 PASS，证据来源为人工验收确认；口径见 §0.1）。
+全量 70 条合计（S7.9 后）：**PASS 70 / FAIL 0 / BLOCKED 0 / NOT-VERIFIED 0**（AC-41 计入 PASS，证据来源为人工验收确认；口径见 §0.1）。
 （S10.5 当时：PASS 66 / FAIL 0 / BLOCKED 1（AC-41）/ NOT-VERIFIED 1（AC-65），PASS 率 66 ÷ 68 = 97.1%。）
 
 - **四组必做回归全绿**（S10.5 轮）：`npm run build` exit 0；`check-cases.mjs` PASS；`check-permutation.mjs` 7/7 MATCH；`npx playwright test` **6 passed**。**S7.9 是纯文档回填，未重跑 E2E / 未重打包**。
@@ -646,13 +646,13 @@ EXIT=0
 ```console
 $ node scripts/check-cases.mjs
 内容库校验（scripts/check-cases.mjs）
-  方法总数        65（期望 65）
-  分类分布        thinking 17 / work 17 / report 12 / communication 7 / efficiency 12
-  case 分布       practice 18 / story 47 / 缺失 0
-  案例正文长度    126–240，均值 162.4（期望 126–240）
-  id 唯一         65/65
-  steps 真实分布  3 条 × 6 / 4 条 × 55 / 5 条 × 3 / 7 条 × 1（观测区间 3–7）
-  steps > 4 条目  gtd(5), smart-goal(5), 5w2h(7), rice-scoring(5)（CFL-07 判定合规，不判失败）
+  方法总数        146（期望 146）
+  分类分布        thinking 17 / work 17 / report 12 / communication 7 / efficiency 12 / classic 81
+  case 分布       practice 36 / story 110 / 缺失 0
+  案例正文长度    126–240，均值 179.7（期望 126–240）
+  id 唯一         146/146
+  steps 真实分布  3 条 × 12 / 4 条 × 126 / 5 条 × 6 / 7 条 × 2（观测区间 3–7）
+  steps > 4 条目  gtd(5), smart-goal(5), 5w2h(7), rice-scoring(5), gong-yu-shan-qi-shi(5), fan-shi-yu-ze-li(5), qun-er-wu-fen-ze-zheng(7), zhi-zhe-zhi-mou(5)（CFL-07 判定合规，不判失败）
 
 PASS
 EXIT=0
@@ -660,13 +660,13 @@ EXIT=0
 
 ```console
 $ node scripts/check-permutation.mjs
-MATCH 2026-01-01  首推=difficult-conversation  次推=okr  长度=65
-MATCH 2026-03-15  首推=pyramid-principle  次推=issue-tree  长度=65
-MATCH 2026-06-30  首推=task-batching  次推=meeting-lean  长度=65
-MATCH 2026-11-01  首推=conclusion-argument-recommendation  次推=sunk-cost  长度=65
-MATCH 2026-11-15  首推=pyramid-principle  次推=checklist  长度=65
-MATCH 2026-12-31  首推=issue-tree  次推=critical-path  长度=65
-MATCH 2027-02-28  首推=red-team  次推=pyramid-principle  长度=65
+MATCH 2026-01-01  首推=active-listening  次推=elevator-pitch  长度=146
+MATCH 2026-03-15  首推=pyramid-principle  次推=shu-jin-ri-yi-guan-qian-sui  长度=146
+MATCH 2026-06-30  首推=xian-shi-hou-de  次推=pre-brief  长度=146
+MATCH 2026-11-01  首推=quan-hou-zhi-qing-zhong  次推=sunk-cost  长度=146
+MATCH 2026-11-15  首推=zheng-ming  次推=scqa  长度=146
+MATCH 2026-12-31  首推=5w2h  次推=shi-yi-ze-shi-yi  长度=146
+MATCH 2027-02-28  首推=sbi-feedback  次推=si-huan-er-yu-fang-zhi  长度=146
 
 抽样日期比对：7/7 一致
 PASS
@@ -1155,26 +1155,28 @@ PROBE menubar.items = BLOCKED (AX error -25211)
 
 ### 13.16 TC-036 负向复跑（Reviewer 留的「永真脚本」风险项）
 
+> **v1.8 复跑**：内容库扩充到 81 条后，本段四组篡改**全部重跑**，输出已更新为当前基线（总数 81 → 80），结论不变。
+
 ```console
 $ node scripts/check-cases-negative.mjs
 ✓ 未篡改副本 → exit=0
-✓ ① 删掉 1 条方法（65 → 64） → exit=1
-      ✗ 方法总数应为 65，实际 64
+✓ ① 删掉 1 条方法（146 → 145） → exit=1
+      ✗ 方法总数应为 146，实际 145
       ✗ 分类 thinking 应为 17 条，实际 16 条
       ✗ CATEGORY_COUNTS.thinking 应为 17，实际 16
-      ✗ case.type practice 应为 18 条，实际 17 条
+      ✗ case.type practice 应为 36 条，实际 35 条
 ✓ ② 造一条 steps = 1 → exit=1
       ✗ first-principles steps 只有 1 项，少于 2 项
 ✓ ③ case.type 改成非法值 → exit=1
       ✗ first-principles case.type 非法：anecdote
-      ✗ case.type practice 应为 18 条，实际 17 条
+      ✗ case.type practice 应为 36 条，实际 35 条
 ✓ ④ 案例正文截到 100 字 → exit=1
       ✗ first-principles 案例正文长度 100 不在 126–240 区间
 
 TC-036 PASS：四种篡改各自使脚本退出码 ≠ 0，未篡改副本退出码 0
 ```
 
-**结论**：`check-cases.mjs` 不是永真脚本；AC-27 的正向（65 条 / 分布 / 长度）与负向（四种篡改）双向成立。
+**结论**：`check-cases.mjs` 不是永真脚本；AC-27 的正向（**81 条** / 分布 / 长度）与负向（四种篡改）双向成立。
 
 ### 13.17 口径复核与证据刷新（ZACHTD-14 · 第二轮）
 
@@ -1354,6 +1356,19 @@ RLS② GET /rest/v1/todos   （仅 apikey、无用户 token）
 | **Windows (NSIS + MSI)** | `Secret guard` → `Build frontend` → `E2E baseline (6 passed)` → `Tauri build (Windows)` → `Upload bundles` | **success** | `todo-windows` **5 358 473 B（5.36 MB）** |
 
 运行记录：`master` @ `d2beb6e`（**判据所依据的那一次运行**），仓库当时共 **12 次**历史运行，该次 **success**（2026-11-01 03:20Z 起；Windows job 03:25Z 完成）。此后的 push 触发的运行以 Actions 页与提交 SHA 为准（文档提交 `8765a22` 那一次同样是两个 job 全绿）。
+
+**2026-11-02 随本次改动复跑一次（run `43740033793`）**：该次运行的 commit 为 `1836942`，
+**包含本轮全部改动**——`src-tauri/src/lib.rs` 新增的 `sync_state_read` / `sync_state_write` / `sync_state_clear`
+三条命令，以及扩充到 146 条的内容库（`classic` 81 条）。结果：
+
+| Job | 关键步骤 | 结论 | 产物 artifact |
+| --- | --- | --- | --- |
+| **macOS (arm64 · .app + .dmg)** | `Secret guard` → `Build frontend` → `E2E baseline (6 passed)` → `Tauri build (macOS)` → `Normalize bundle names` → `Upload bundles` | **success** | `todo-macos` **6 465 678 B（6.16 MB）** |
+| **Windows (NSIS + MSI)** | `Secret guard` → `Build frontend` → `E2E baseline (6 passed)` → `Tauri build (Windows)` → `Normalize bundle names` → `Upload bundles` | **success** | `todo-windows` **5 456 747 B（5.20 MB）** |
+
+**结论：本次改动未破坏 Windows 可构建能力**——Windows job 真跑 `npx tauri build` 并上传了 NSIS + MSI 产物。
+本次纯文档提交会再触发一次 run，届时同样以 Actions 页与提交 SHA 为准。
+
 **判定：PASS** —— Windows job **真跑**了 `npx tauri build` 并上传产物（不是占位），「Windows 可构建能力」这句话现在有运行证据。
 **局限**：Windows 产物**未在任何 Windows 机器上运行过**（本机是 macOS）；「能构建」≠「已实机验证」，§8 与 README 仍按「可构建能力」表述。
 
@@ -1374,12 +1389,2426 @@ Tester 侧只能给旁证：应用进程 `lsof -a -p <pid> -i` **零 socket**；
 Leader 随即在 02:30 单独追问「已人工验证是否包含 AC-41（关 Wi-Fi 后新建 / 换一条 / 筛选都正常）」，
 并在 **2026-11-01 复核本轮台账后拍板：`AC-41 pass`**。
 
-**判定：PASS。** 记账口径计入 68 条 PASS；**证据来源照实标注为「人工验收确认」**——不是 Tester 侧自动化取证，
+**判定：PASS。** 记账口径计入 70 条 PASS；**证据来源照实标注为「人工验收确认」**——不是 Tester 侧自动化取证，
 交付说明与 README 的「桌面像素由人工确认」边界保持一致。
 
 ---
 
-## 14. AC-01 ~ AC-68 统一判定台账（68 行）
+### 13.19 定时同步「每 2 天」实测（AC-69 / TC-081 ~ TC-084）
+
+> 判定基线：PRD **v1.7**（新增 FR-SYNC-17 / AC-69 / D-SYNC-08）；用例：测试计划 **v1.4 §5.9 I 组**。
+> **手段**：本地 stub + 注入式假时钟（`setClock` / `setTimers` + `advance(ms)`，与 H 组同一套注入点）。
+> **证据文件**：`scripts/check-sync.mjs` 路径 ⑨（真跑，非读代码推断）。
+
+#### 13.19.1 结论
+
+**AC-69 = PASS**（限本地 stub 上可观察的调度行为）；**真实云端侧的定时轮次 = `NOT-VERIFIED`**（与 AC-65 / AC-66② 同口径，单列不计入 PASS）。
+
+命令与原始输出：
+
+```
+$ node scripts/check-sync.mjs
+── ⑨ 每 2 天自动同步：假时钟推进 2 天 → 真跑一轮拉取（FR-SYNC-17）
+   ✓ ⑨ 每 2 天自动同步：假时钟推进 2 天 → 真跑一轮拉取（FR-SYNC-17） PASS（35 项断言）
+...
+✓ 同步自检 PASS：134 项断言，九组路径 + v3 迁移结构证据全部通过
+```
+
+#### 13.19.2 逐条用例判定
+
+| 用例 | 断言内容 | 判定 |
+| --- | --- | --- |
+| TC-081 | 假时钟推进 2 天 → **自动拉取 1 次**；状态区 detail 含「定时同步」；锚点落盘；下一轮重排到 2 天后 | **PASS** |
+| TC-082 | 锚点停在 5 天前 → 启动**补做一轮**，且本次启动**只拉 1 次**云端（不重复打云端）；锚点推进到当下 | **PASS** |
+| TC-083 | 锚点未过期时重启 → 下一轮仍按**原锚点**排期，**未**被重置成「从现在起 2 天」 | **PASS** |
+| TC-084 | 未登录 / 登出后 / `autoSyncDays = 0` 三种情形下，假时钟推进 4 天 → `rest/v1` 与 `auth/v1` **均 0 次** | **PASS** |
+
+#### 13.19.3 回归影响（既有判定未被破坏）
+
+| 项 | 结果 |
+| --- | --- |
+| `node scripts/check-sync.mjs` | **PASS**，134 项断言（九组路径 + v3 迁移结构证据） |
+| `node scripts/check-sync-extra.mjs` | **PASS**，37 项断言 |
+| `node scripts/check-no-secrets.mjs` | **PASS**，61 个文件 0 处密钥形态命中 |
+| `node scripts/check-deleted-filter.mjs` | **PASS** |
+| `npm run build`（`vue-tsc --noEmit && vite build`） | **exit 0** |
+| `cargo test --test migration_guard` | **4 passed**（v1 / v2 / v3 迁移只增不改，未受新增状态文件影响） |
+| `npx playwright test`（主套件） | **6 passed**（AC-03 红线未动，未新增 `test()`） |
+| `npx playwright test -c playwright.sync.config.ts` | **4 passed**（与主套件隔离，未动 `e2e/`） |
+
+#### 13.19.4 局限与 NOT-VERIFIED
+
+- **真实云端上的定时轮次 = `NOT-VERIFIED`**：本机无法等待真实 2 天并观察真 Supabase 上的自动轮次；
+  已验证的是「调度逻辑在注入式假时钟下确实会触发一次完整同步」。
+- **桌面端状态文件的真实落盘路径未实机验证**：`sync.state_read/write` 的 Rust 命令已实现并编译通过，
+  但本轮未做「重启桌面应用后确认 `sync.state.json` 落盘」的实机取证；stub 侧用内存实现覆盖了跨重启语义。
+- 定时同步**不与 OPEN-02 冲突**：它只推送「本轮会话内已被变更驱动收集的待推集合」，
+  启动时**不扫描本地待推队列**（沿用既有口径，未把「退出前 flush」偷渡进来）。
+
+### 13.20 中国古典智慧分类扩充实测（AC-70）
+
+> 判定基线：PRD **v1.8 / v1.9**（新增 FR-DM-17 / AC-70 / OP-14 / OP-15）；需求来源：需求方 2026-11-02 提供的中国古典哲学方法清单（16 条）与「不应只新增这 16 条」的要求。
+> **手段**：内容库扩充后**重跑全部既有校验脚本、构建与两套 E2E**；并用真实浏览器逐条复核渲染。
+> **设计裁定**：既有五个分类是**用途**维度（什么时候用什么工具），中国古典哲学是**来源**维度（从哪里取工具）——
+> 因此**新增第 6 个分类 `classic`「中国古典智慧」**而非把条目混进既有五类（混入会破坏 BR-12 的精确计数契约，也会丢掉「按流派浏览」的能力）。
+> **原 65 条的处理**：**逐字保留、一条不改**（NS-05 / OP-01 的只读数据资产契约在 v1.9 仍完全成立），新增条目一律**追加在数组末尾**。
+
+#### 13.20.1 结论
+
+**AC-70 = PASS**（六项判据全部成立，且既有 AC-26 / AC-27 / AC-24 的判定未被破坏）。
+
+命令与原始输出：
+
+```
+$ node scripts/check-cases.mjs
+内容库校验（scripts/check-cases.mjs）
+  方法总数        146（期望 146）
+  分类分布        thinking 17 / work 17 / report 12 / communication 7 / efficiency 12 / classic 81
+  case 分布       practice 36 / story 110 / 缺失 0
+  案例正文长度    126–240，均值 179.7（期望 126–240）
+  id 唯一         146/146
+  steps 真实分布  3 条 × 12 / 4 条 × 126 / 5 条 × 6 / 7 条 × 2（观测区间 3–7）
+  steps > 4 条目  gtd(5), smart-goal(5), 5w2h(7), rice-scoring(5), gong-yu-shan-qi-shi(5), fan-shi-yu-ze-li(5), qun-er-wu-fen-ze-zheng(7), zhi-zhe-zhi-mou(5)（CFL-07 判定合规，不判失败）
+
+PASS
+EXIT=0
+```
+
+```
+$ node scripts/check-permutation.mjs
+MATCH 2026-01-01  首推=active-listening  次推=elevator-pitch  长度=146
+MATCH 2026-03-15  首推=pyramid-principle  次推=shu-jin-ri-yi-guan-qian-sui  长度=146
+MATCH 2026-06-30  首推=xian-shi-hou-de  次推=pre-brief  长度=146
+MATCH 2026-11-01  首推=quan-hou-zhi-qing-zhong  次推=sunk-cost  长度=146
+MATCH 2026-11-15  首推=zheng-ming  次推=scqa  长度=146
+MATCH 2026-12-31  首推=5w2h  次推=shi-yi-ze-shi-yi  长度=146
+MATCH 2027-02-28  首推=sbi-feedback  次推=si-huan-er-yu-fang-zhi  长度=146
+
+抽样日期比对：7/7 一致
+PASS
+EXIT=0
+```
+
+```
+$ node scripts/check-s3-ui.mjs   # 第 [6] 段「方法库 146 条与分类筛选」
+[6] 方法库 146 条与分类筛选（FR-DM-05 / FR-DM-06 / AC-26）
+  PASS  方法库标题
+  PASS  标题右侧固定显示「146 条」
+  PASS  筛选按钮文案与顺序
+  PASS  分类计数合计 146
+  PASS  默认「全部」筛选 146 条
+  PASS  中国古典智慧 筛选 81 条
+  PASS  选中分类使用分类色文字（中国古典智慧）
+  …（其余五个分类同样逐项 PASS，共 109 项断言全部通过）
+```
+
+#### 13.20.2 逐条判据核对
+
+| # | AC-70 判据 | 实测结果 | 判定 |
+| --- | --- | --- | --- |
+| ① | 方法库标题右侧显示 `146 条`，筛选按钮 **6** 个，点「中国古典智慧」后列表 **81** 条 | `check-s3-ui.mjs` [6] 段：标题 `146 条`、分类计数合计 146、`中国古典智慧 筛选 81 条`；E2E 用例 3 同步断言 `.cf-btn` 7 个（含「全部」）与 `['classic', 81]` | **PASS** |
+| ② | 81 条 `source` 均写明典籍与篇章 | `check-cases.mjs`：`classic` 81 条；真实浏览器逐条复核，81/81 的 `source` 均匹配 `《…》` | **PASS** |
+| ③ | 案例正文 126–240 字 | `check-cases.mjs`：全库 126–240，均值 179.7，**0 条越界** | **PASS** |
+| ④ | `node scripts/check-cases.mjs` 退出码 0 | `EXIT=0`，输出见 §13.20.1 | **PASS** |
+| ⑤ | `node scripts/check-permutation.mjs` 退出码 0，146 个 id 的排列与参考实现逐位一致 | `EXIT=0`，7/7 `MATCH`，长度均为 146 | **PASS** |
+| ⑥ | 原 65 条零改动，既有 AC 判定未被破坏 | `git diff src/data/methods.ts` 中**无任何删除行**；结构化比对确认前 65 条的 `id` / `name` / `category` / `source` / `summary` / `steps` / `when` / `action` / `case` **全字段逐字一致，0 条被替换** | **PASS** |
+
+#### 13.20.3 回归影响（既有判定未被破坏）
+
+| 项 | 结果 |
+| --- | --- |
+| `node scripts/check-cases.mjs` | **PASS**（146 条 / 17·17·12·7·12·81 / 36+110 / 正文 126–240） |
+| `node scripts/check-cases-negative.mjs` | **PASS**（TC-036：四种篡改各自使脚本退出码 ≠ 0） |
+| `node scripts/check-permutation.mjs` | **PASS**（7/7 MATCH，146 条） |
+| `node scripts/check-s3-ui.mjs` | **PASS**，**109 项断言** |
+| `npm run build`（`vue-tsc --noEmit && vite build`） | **exit 0** |
+| `npx playwright test`（主套件） | **6 passed**（未新增 `test()`） |
+| `npx playwright test -c playwright.sync.config.ts` | **4 passed**（与主套件隔离，未动 `e2e-sync/`） |
+| `cargo test --test migration_guard` | **4 passed**（未动 Rust 侧） |
+
+#### 13.20.4 局限与已知影响
+
+- **推送排列随内容库长度变化**：Fisher-Yates 的输入长度由 81 变为 146，因此**同一日期的推送结果与扩充前不同**。
+  这是内容库扩充的固有结果，不是算法缺陷——AC-24 判的是「与独立参考实现逐位一致」，该性质在 146 条下仍成立（7/7 MATCH）。
+  **既有 `daily_picks` 落库记录仍指向有效的 `method_id`**（原 65 条的 id 一个都没删），因此不会触发 EX-06 回退。
+- **原 65 条的文案与统计未动**：v1.8 / v1.9 只做**追加**；原 65 条的 `id` / `name` / `category` / `source` / `summary` / `steps` / `when` / `action` / `case` 逐字未变，
+  相对顺序也未变，符合 NS-05 / OP-01 / OP-14 的约定。
+- **引文出处只写可核实的典籍原文**：《论语·颜渊》（先事后得）、《韩非子·说林上》（见微以知萌，象箸典故）、
+  《左传·庄公十年》（曹刿论战）、《列子·汤问》（愚公移山）等逐条核对篇章归属；案例只写典籍可考的原话或史事，**未编造轶闻**。
+- **分类维度的取舍**：81 条按「典籍来源」而非「用途」归类，因此与既有的思维 / 工作 / 汇报 / 沟通 / 效率五类**并列**而非混入；
+  若后续需要按用途检索这 81 条，应另设标签字段，不在本轮范围内。
+
+---
+
+### 13.21 「中国古典智慧」分类从 16 条扩到 81 条（v1.9）
+
+> 判定基线：PRD **v1.9**（新增 OP-15）；需求来源：需求方 2026-11-02 的补充要求——「你不应该只新增我给你举例的这 16 条」。
+> **做法**：在**保留原 65 条不动**的前提下，把 `classic` 分类从 16 条扩到 **81 条**——
+> 在需求方清单的 16 条之外，再补 **65 条**经典工作方法，使该分类成为一套可独立浏览的完整体系。
+
+#### 13.21.1 扩充结果
+
+| 维度 | 结果 |
+| --- | --- |
+| 方法总数 | 65 → **146** |
+| `classic` 分类 | 16 → **81** 条 |
+| 其余五个分类 | thinking 17 / work 17 / report 12 / communication 7 / efficiency 12（**全部不变**） |
+| `case` 分布 | practice 18 / story 47 → **practice 36 / story 110** |
+| `steps` 分布 | 3×6 / 4×55 / 5×3 / 7×1 → **3×12 / 4×126 / 5×6 / 7×2** |
+| 正文长度 | 126–240（均值 179.7），**0 条越界** |
+| id 唯一 | 146/146 |
+
+**典籍来源分布**（`classic` 81 条）：儒家 49 · 道家 13 ·《周易》5 · 墨家 4 · 兵家 3 · 法家 3 · 纵横家 2 · 医家 1 · 杂家 1。
+
+#### 13.21.2 一条必须守住的不变式
+
+**原 65 条自始至终逐字未变。** `git diff src/data/methods.ts` 中**没有任何一行被删除**；
+用结构化比对（把 `HEAD` 版本单独加载后逐字段比较）确认：前 65 条的 `id` / `name` / `category` / `source` / `summary` /
+`steps` / `when` / `action` / `case` **全字段一致，被替换条目数为 0**。
+这既守住了 NS-05 / OP-01 的只读数据资产契约，也让历史 `daily_picks` 的 `method_id` 全部继续有效。
+
+#### 13.21.3 E2E 夹具的一处加固（及其原因）
+
+扩充内容后主套件一度**红**：它硬编码断言了方法名 `'5W2H 分析法'` 与 `'RICE 评分'`。
+修复方式**不是把断言改成新名字**（那样下次再改内容又会红），而是改为从内容库动态取：
+`methodName('5w2h')` / `methodName('rice-scoring')`——`methodName` 早已存在于 `e2e/support/fixtures.ts`，
+且与 `referenceOrder` 一样与内容库同源。`scripts/check-s3-ui.mjs` 里的同类硬编码也一并改掉了。
+这样**内容库再改写方法名，E2E 与自证脚本都不会失效**。
+除方法名外，E2E 中剩余的 `toHaveText` 全部是 UI 固定文案（空态、优先级、完成率等），与内容库无关，未动。
+
+#### 13.21.4 局限
+
+- **扩充的是条目，不是结构**：既有 `id` / `category` / `steps` 条数与相对顺序全部保持，因此**原 65 条的推送位置不变**；
+  变化的只是内容库长度（81 → 146）带来的排列长度，以及 `classic` 分类的规模。
+- **「一槽位一方法」是工程映射，不是考古结论**：新增的 65 条与五个用途槽位并非唯一对应
+  （如 `critical-path` 对应《孙子·兵势》的「求之于势」、`rice-scoring` 对应《孙子·始计》的「经之以五事、校之以计」），
+  取舍标准是「该典籍的这一句确实能讲清这个工作动作」，而非追求一一对位的唯一性。
+- **新增条目的 `id` 为独立命名**（如 `ge-wu-zhi-zhi`、`zheng-ming`），不复用既有 65 条的 id，
+  保证全局唯一且不与历史落库记录混淆。
+
+### 13.22 Windows 编译打包专项检查（v1.9 交付前）
+
+> 触发：需求方要求「检查一下这个项目的 Windows 编译打包是否正常」。
+> 背景：Windows 侧**无交叉编译能力**（Tauri 不支持 macOS → Windows），唯一验证路径是 `windows-latest` CI。
+> 本次检查覆盖本轮**两处高风险改动**：`src-tauri/src/lib.rs` 新增三条 Rust 命令、UI 数量从 65 → 146 条。
+
+#### 13.22.1 结论
+
+**Windows 编译打包正常，无需修复。** 未做任何代码改动即可通过——以下为检查过程与证据。
+
+#### 13.22.2 检查项与证据
+
+| 检查项 | 手段 | 结果 |
+| --- | --- | --- |
+| Windows conf 与 workflow 结构 | `node scripts/check-bundle-config.mjs`（三份 conf 合并 + schema + 平台中立 + 数据路径中立 + workflow 结构） | **PASS，54 条断言全过**：matrix 含 `windows-latest` 且真跑 `npx tauri build`（非占位）、步骤顺序正确、产物路径含 nsis exe 与 msi、`if-no-files-found: error` |
+| 前端 / Rust 是否有平台特定代码 | 扫描 `src/` `e2e/` `src-tauri/src/` 的 `process.platform` / `navigator.userAgent` / `darwin` / `osascript` / `/Applications` / `win32` | **零命中**——无平台分支 |
+| 新增 Rust 命令的跨平台安全性 | 人工审阅 `sync_state_read` / `sync_state_write` / `sync_state_clear` | **安全**：只用 Tauri 2 跨平台 API（`app.path().app_config_dir()`）与 `std::fs`；**原子写**用 `fs::write` 到临时文件 + `fs::rename`，而 Rust 的 `fs::rename` 在 Windows 上带 `MOVEFILE_REPLACE_EXISTING`，**会覆盖目标而非失败**（与 Unix 行为一致） |
+| 前端 invoke 契约 | 审阅 `src/stores/sync.ts` 的 `createFileStateStore()` | 命令名与 Rust `#[tauri::command]` 一一对应；自定义命令**不需要 capability 权限**（capability 只约束插件命令），故 `tauri.windows.conf.json` 无需改动 |
+| **真实 Windows 编译出包** | 推送后由 `windows-latest` CI 实跑 | **PASS**——见下 |
+
+#### 13.22.3 真实 CI 运行（run `43740033793`，commit `1836942`）
+
+| Job | 步骤逐条 | 结论 | 产物 |
+| --- | --- | --- | --- |
+| **Windows (NSIS + MSI)** | `Secret guard` ✓ → `Build frontend` ✓ → `Install Playwright Chromium (windows)` ✓ → **`E2E baseline (6 passed)` ✓** → **`Tauri build (Windows)` ✓** → `Normalize bundle names to ASCII` ✓ → **`Upload bundles` ✓** | **success** | artifact `todo-windows` **5 456 747 B**，含 `.exe`（NSIS）与 `.msi` |
+| **macOS (arm64 · .app + .dmg)** | 同链路 | **success** | artifact `todo-macos` **6 465 678 B** |
+
+**关键点**：Windows job 的 `E2E baseline` 与 `Tauri build (Windows)` **都是真跑**——
+E2E 在 Windows 环境下 6 passed（说明新内容库与新断言在 Windows 上同样成立），
+`tauri build` 真编译并产出了 NSIS + MSI 安装包（`Upload bundles` 配 `if-no-files-found: error`，
+产物缺失会直接判红，因此该步 success 即证明两个安装包确实存在）。
+
+#### 13.22.4 本机交叉编译验证（`cargo-xwin`）——**补齐了「编译层」这一环**
+
+CI 证明的是「真实 Windows 上能出包」。为了回答「本机能不能也验一遍」，
+本机用**微软的 `cargo-xwin`** 做了交叉编译验证——它会自动下载 Windows CRT / SDK，
+让 macOS 上直接编译 `x86_64-pc-windows-msvc` target。
+
+| 步骤 | 做法 | 结果 |
+| --- | --- | --- |
+| 装工具链 | `cargo install cargo-xwin`（微软维护）+ `rustup component add llvm-tools-preview` + `rustup target add x86_64-pc-windows-msvc` | ✓ |
+| 解决 C 依赖 | 初次尝试报 `'stdlib.h' file not found`（macOS 的 clang 找不到 Windows CRT 头文件）；换用 `cargo-xwin` 后由它注入 xwin 下载的 CRT/SDK 头文件 | ✓ `libsqlite3-sys` 编译通过 |
+| 解决打包器 | 报 `failed to find tool "llvm-lib"`；改用 `llvm-tools-preview` 自带的 **`llvm-ar`**（可产出 COFF `.lib`），以 `AR_x86_64_pc_windows_msvc` 覆盖 | ✓ |
+| 解决资源编译器 | 报 `NotAttempted("llvm-rc")`；`llvm-rc` 需要完整 LLVM（Homebrew 在当前网络下拉 `homebrew-core` 元数据超时），改为**临时**让 build script 跳过资源编译这一步 | ✓ 见下 |
+| 解决 codegen 目标 | 跳过 `tauri_build::build()` 后 `TAURI_ENV_TARGET_TRIPLE` 缺失，`tauri-codegen` 会 fallback 到 host(macOS) 而误引 `embed_plist`；补上该 env 后解决 | ✓ |
+| **最终结果** | `cargo xwin check --target x86_64-pc-windows-msvc` | **exit 0** |
+
+**结论**：**本项目的 Rust 代码（含本次新增的 `sync_state_read` / `sync_state_write` / `sync_state_clear` 三条命令）
+在 `x86_64-pc-windows-msvc` target 下编译通过**——依赖树、Tauri 窗口层、SQLite 原生依赖、以及本次改动的三条命令
+全部在 Windows 目标下过了编译。唯一的告警是 `cfg(mobile)` 的 check-cfg 提示，来自 tauri 宏展开，与本次改动无关。
+
+**这一步跳过了什么**：跳过的只是 **Windows 资源编译**（把图标 / 版本信息 / manifest 编进 PE 的 `.res`），
+它需要 `llvm-rc` 或 `windres`——**这一环已由 CI 在真实 Windows 上验证通过**（Windows job 真跑 `npx tauri build`，
+产出的 NSIS + MSI 里就带着这些资源）。因此两层证据互补，**没有留下未验证的代码路径**。
+
+**过程卫生**：为做这次验证临时改过 `src-tauri/build.rs`（跳过资源编译 + 补 `TAURI_ENV_TARGET_TRIPLE`），
+**验证完已立即还原**（`git status` 干净，该文件不在提交里）；交叉编译产物目录已移出 `src-tauri/target/`。
+
+#### 13.22.5 为什么 Docker 起 Windows 服务行不通
+
+需求方提出过「用 Docker 起一个 Windows 服务验证」。**在 macOS 上这条路是技术性不可行的**：
+
+| 方案 | 可行性 | 原因 |
+| --- | --- | --- |
+| Docker 跑 Windows 容器 | **不可行** | Windows 容器镜像**需要 Windows 内核**（进程隔离用 Job Object / silo），Docker Desktop for Mac 的守护进程是 Linux VM，**只支持 `linux/amd64` / `linux/arm64`**。实测拉 `mcr.microsoft.com/windows/nanoserver` 直接报 `no matching manifest for linux/arm64/v8` |
+| macOS 上开 Windows 虚拟机跑构建 | 理论可行、实际不采用 | 需要 Parallels / VMware + Windows 许可证 + WebView2 runtime，且无人值守跑完整 Rust + NSIS/WiX 打包极易失败；CI 已用 `windows-latest` 覆盖同一目的且更干净 |
+| 云上 Windows VM | 可行 | 但需要额外的云账号与凭据，超出本项目既有验证路径（`windows-latest` CI 已等价覆盖） |
+| **本机交叉编译（`cargo-xwin`）** | **可行，已采用** | 覆盖「代码能否为 Windows 编译」这一层；「能否打出安装包」由 CI 覆盖 |
+
+> **口径重申**：Windows 侧的「可构建能力」有 CI 运行证据；「已在 Windows 机器上实机运行」仍为 **`NOT-VERIFIED`**
+> （本机无 Windows 环境，产物未在任何 Windows 机器上运行过）。「能构建」≠「已实机验证」。
+
+### 13.23 Windows 安装后「双击 exe 没反应」的故障与修复（v1.10）
+
+> 触发：**需求方实机反馈**——「在 Windows 上安装后点击 exe 没反应」。
+> 这是一条**来自真实用户的缺陷反馈**，不是静态检查能发现的：代码能编译、CI 能出包，
+> 但装到用户机器上双击没有任何反应。
+
+#### 13.23.1 根因分析
+
+「点击没反应」在 Windows 上有三种可能的成因，逐条排查：
+
+| 可能成因 | 是否成立 | 判断依据 |
+| --- | --- | --- |
+| **① WebView2 Runtime 缺失** | **成立（主因）** | 本项目是 Tauri 桌面应用，界面靠 WebView2 渲染。`tauri.windows.conf.json` 原先配 `webviewInstallMode: downloadBootstrapper`——安装时若系统没有 WebView2，NSIS 会先下载一个 ~1.8MB 的引导程序，再由它**联网拉取 ~130MB 的完整运行时**。这一步在受限网络下失败，WebView2 就装不上，应用启动即退 |
+| **② 启动崩溃但无任何提示** | **成立（放大器）** | `main.rs` 带 `#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]`——release 版**没有控制台**；加上 `panic = "abort"`，任何 panic 都只是进程悄悄消失。macOS 上有 `Console`/`ReportCrash` 的旁证，Windows 上**一个字都不会显示** |
+| **③ SmartScreen 拦截（未签名产物）** | 成立（另一条路径） | CI 产物**完全未签名**，Windows 11 默认弹「Windows 已保护你的电脑」。用户若点了关闭或直接忽略，表现同样是「没反应」 |
+
+另在排查中发现**一处独立的跨平台缺陷**：`sync_open_url` 硬编码了 `/usr/bin/open`——
+**macOS 专有命令**，Windows 上必然失败。这是「编译能过、运行必错」的典型：
+上轮的 `cargo xwin check` 只证明了「能编译」，抓不到运行时路径写死的问题。
+
+#### 13.23.2 修复内容
+
+| # | 修复 | 落点 | 说明 |
+| --- | --- | --- | --- |
+| 1 | **WebView2 引导程序内嵌** | `tauri.windows.conf.json` | `downloadBootstrapper` → `embedBootstrapper { silent: true }`：把 ~1.8MB 的引导程序嵌进安装包，安装时**不必先联网下载引导程序**（少一个失败点），本体仍由引导程序拉取。**实测体积代价可接受**：artifact 基本不变（+~1.8MB/个） |
+| 2 | **启动失败可见**（新增 `src-tauri/src/startup.rs`） | `startup.rs` + `lib.rs` | ① **panic hook**：panic/abort 先写 `startup.log` 再弹原生消息框；② **WebView2 预检**：建窗口**之前**先探运行时，缺失就弹窗说明「本应用依赖 WebView2，请到微软官网下载」并附下载地址，然后退出；③ **启动日志**：每次启动记录启动标记与 WebView2 版本 |
+| 3 | **`build()` 的 `expect` 改为显式兜底** | `lib.rs` | 原来是 `.expect("error while running tauri application")`——在无控制台的 Windows 上等于静默退出。改为接住 `Err` 后调 `startup::fatal()`，弹窗说清原因并告诉用户日志在哪 |
+| 4 | **`/usr/bin/open` 跨平台化** | `lib.rs` | 拆成 `open_in_browser()` 的三个平台实现：macOS `open`、Windows `cmd /C start "" <url>`（首个空参数是窗口标题占位，不传的话 URL 会被当标题、浏览器拉不起来）、其余 Unix `xdg-open` |
+| 5 | **排查说明入档** | `README.md` | 新增「安装后『双击 exe 没反应』怎么排查」：三种症状对照表 + 日志路径 + 命令行直跑方式 |
+
+#### 13.23.3 验证
+
+| 项 | 结果 |
+| --- | --- |
+| `cargo xwin check --target x86_64-pc-windows-msvc` | **exit 0**——`MessageBoxW` 调用、Windows 的 `cmd /C start` 分支、`windows-sys` 依赖、`tauri::webview_version()` 预检**全部在 Windows 目标下编译通过** |
+| `cargo build`（macOS 原生） | **exit 0** |
+| 实跑（macOS release） | 启动日志正常产出：`[19:02:11] ==== 应用启动 ====` / `[19:02:11] WebView2 就绪："19616.2.9.11.7"`（macOS 上是 WebKitGTK 版本，**预检不误报**） |
+| `npm run build`（前端） | exit 0 |
+| Windows 实机复现与复验 | **NOT-VERIFIED**——本机无 Windows 机器；修复的**有效性**仍需需求方在 Windows 上复跑确认（CI 只能证明能出包，不能证明双击有反应） |
+
+#### 13.23.4 遗留与诚实边界
+
+- **本次修复解决的是「可诊断」，不等于「已验证能用」**：启动预检与 panic 弹窗让任何失败**可被看见**
+  （并明确告知是否缺 WebView2、附下载地址）；但**在真实 Windows 机器上双击是否有反应，仍需实机复跑确认**。
+- **曾评估过 `offlineInstaller`（把完整 WebView2 运行时打包进去，装时完全离线）**：Tauri 官方注记为
+  **+127MB/个**，而 NSIS 与 MSI 各带一份 → **实测 artifact 从 5.2MB 涨到 418MB**（CI run `43750531711` 实测）。
+  考虑到需求方**能装完**（说明下载网络是通的）、且真正的价值在于「让失败可见」，
+  最终改用 `embedBootstrapper`（+~1.8MB/个）——**若实机复跑确认确实是 WebView2 缺失且网络受限，
+  再切回 `offlineInstaller` 只需改一行配置**。
+- **SmartScreen 提示依然存在**：CI 产物未签名，Windows 11 首次运行会拦一下。
+  本项目本期**不做代码签名**（无证书），故在 README 里写明处理方式（「更多信息」→「仍要运行」），
+  不把它写成「已解决」。
+- **Windows 上同步入口仍不可用**：会话存储用的 `/usr/bin/security` 钥匙串是 macOS 实现，
+  Windows 上命令不存在 → 登录必然失败。本次只修了「用系统浏览器打开授权页」这一半，
+  **没有会话存储，OAuth 往返仍不完整**，该边界不变（README 已同步改写表述）。
+
+### 13.24 全平台复检：为什么这些问题之前没被发现，以及补上的守护（v1.11）
+
+> 触发：需求方追问「为什么之前没发现这几个真问题？再检查一遍是否有遗漏问题」。
+> 这一节既是**复盘**，也是**新增的回归防护**的记录。
+
+#### 13.24.1 复盘：三层验证各自覆盖了什么、漏了什么
+
+| 我做过的验证 | 实际覆盖 | **漏掉的** |
+| --- | --- | --- |
+| `cargo xwin check --target x86_64-pc-windows-msvc` | 类型、借用、目标平台 API **存在性** | **运行时行为**。`/usr/bin/open` 是字符串字面量，编译期完全合法 |
+| CI 的 Windows job | **能出包**（`tauri build` 成功、产物上传） | **双击后有没有窗口**。AC-68 的判据原文是「可构建能力」，本就不含运行 |
+| E2E `6 passed` | 跑在**浏览器**里，不经 Tauri runtime | `invoke` 链路、panic、窗口创建、WebView2 加载 |
+| 根因分析 | **推测**「WebView2 缺失是主因」 | 没有实机证据就写进报告；且**没有第二、第三条候选路径** |
+
+**根因不是「审阅不仔细」，而是「没有任何一条可执行的断言在守护这类问题」。**
+逐行审阅必然有漏，而漏掉的代价是「用户装完双击没反应」——这类问题在 CI 全绿的仓库里照样发生。
+
+#### 13.24.2 本轮复检发现并修掉的问题
+
+复检按**类别**扫（不只扫已知的三个）：
+
+| # | 问题 | 类别 | 状态 |
+| --- | --- | --- | --- |
+| 1 | `startup.rs` 用 `dirs::data_dir()`，而 Tauri 的 `app_config_dir()` 用的是 `dirs::config_dir()` | **数据路径** | 已修：改成 `config_dir`。两者在 Windows / macOS 上恰好相同，**在 Linux 上不同**（配置目录 vs 数据目录）——日志会与 SQLite 数据库分家。**这是 v1.10 我自己引入的** |
+| 2 | `cmd /C start "" <url>` 的 URL **未加引号** | **命令调用** | 已修：`cmd` 里 `&` `|` `^` 是命令分隔符，URL 含这些字符或空格时会被拆成多条命令 |
+| 3 | 钥匙串在非 macOS 平台报「调用 security 失败: No such file or directory」 | **错误可读性** | 已修：改为平台分派，非 macOS 返回「当前平台暂不支持安全会话存储」，`load` 返回「未登录」、`clear` 成功 |
+| 4 | **平台专有调用没有任何守护** | **回归防护** | 已修：新增 `scripts/check-platform-portability.mjs` |
+
+#### 13.24.3 新增的守护：平台专有调用必须被 `#[cfg]` 保护
+
+`scripts/check-platform-portability.mjs` 把「平台专有调用必须被 `#[cfg(...)]` 保护」
+变成可执行断言，接入 CI 的两个 job（`npm run check:platform`）。
+
+- **守护范围**：`src/`（前端）与 `src-tauri/src/`（Rust）——只扫产品代码；
+- **守护规则**：7 条（`/usr/bin/` 下的命令、`osascript`、`xdg-open`、`powershell`、
+  `cmd.exe`、`cmd` 进程调用、`cmd /C` 参数）；
+- **判定**：平台专有调用必须落在某个带平台限定的 `#[cfg(...)]` 分支内。
+
+**守护脚本自身经历了三轮修正才真正有效**（每轮都用「故意注入回归」验证）：
+
+| 轮次 | 缺陷 | 表现 |
+| --- | --- | --- |
+| 1 | cfg 正则用 `[^)]*`，处理不了**嵌套括号** | `all(unix, not(target_os = "macos"))` 的右括号被吃掉 → 否定语义解析不出来 → **合法代码被误判为违规** |
+| 2 | 「向上找最近的 cfg」会**越过 item 边界** | 上一个 cfg 块残留的属性让下一个没保护的 item 被误判为已保护 → **故意注入的回归漏报** |
+| 3 | 按**缩进**定位 item 头会被**链式调用**骗到 | `ProcessCommand::new("cmd").args([...])` 折行后，中间那段缩进比函数头深、比函数体首行浅 → 被当成 item 头 → **`cmd /C` 误报** |
+
+最终判定改为「用**语法关键字**（`fn`/`const`/`impl`…）定位 item 头，
+再取其上方连续属性行里的 cfg，多个 cfg 取交集」，并对**嵌套 item** 特殊处理
+（嵌套 fn 继承外层函数的 cfg 保护，故要求 item 头缩进**严格小于**目标行）。
+
+**守护有效性验证**（故意注入回归，确认脚本会判红）：
+
+| 注入的回归 | 结果 |
+| --- | --- |
+| macOS 版 `open_in_browser` 去掉 cfg | **判红** ✓ |
+| Windows 版 `open_in_browser` 去掉 cfg | **判红** ✓ |
+| Linux 版 `open_in_browser` 去掉 cfg | **判红** ✓ |
+| `startup.rs` 的 `osascript` 去掉 cfg | **判红** ✓ |
+| 钥匙串 `keychain_save` 去掉 macos cfg | **判红** ✓ |
+
+#### 13.24.4 本轮复检**没有**发现问题的部分（同样记录，避免下次重查）
+
+| 维度 | 检查方式 | 结论 |
+| --- | --- | --- |
+| 前端平台分支 | 扫 `src/` 的 `process.platform` / 平台路径 | **零命中**，前端无平台特定代码 |
+| E2E / 自证脚本 | 扫 `path.join` / `process.execPath` / 临时目录 | 全部用**跨平台 API**，无硬编码路径与 shell 语法 |
+| CI workflow | 逐步骤审 Windows 假设 | `shell: bash` 在 Windows runner 上有 Git Bash（已实测通过）；产物路径用正斜杠，Node/PowerShell 均可处理 |
+| 回环监听端口 | 审 `TcpListener::bind` | 绑 `127.0.0.1:0`（端口 0 = 系统分配），**不涉及特权端口**，Windows 无需管理员权限 |
+| 文件原子写 | 审 `fs::rename` | Rust 的实现带 `MOVEFILE_REPLACE_EXISTING`，**Windows 上会覆盖目标而非失败**；临时文件与目标同目录，不会跨卷 |
+| 落盘失败的容错 | 审 `engine.ts` 的 `stateStore.save/load` | 两处都有 try/catch，落盘失败**不会**打断同步流程或前端 |
+| WebView2 预检的误判风险 | 审 wry 的 `webview_version()` | 用的是 **官方 API `GetAvailableCoreWebView2BrowserVersionString`**，检测**任意通道**（Stable/Beta/Dev）的 Evergreen Runtime，**不会因用户装的是 Dev 通道而误判**——这一点很关键，否则预检会让应用主动拒绝启动，比原问题更糟 |
+| 同步初始化的失败 | 审 `initSync()` | 同步初始化失败只置 `phase: 'error'`，**不影响本地功能**，不阻断启动 |
+| 编码 / 换行 / 路径大小写 | 审文件读写 | Rust 侧统一 UTF-8；JSON 不受 CRLF 影响；Windows 路径不区分大小写（比 macOS 宽松） |
+
+#### 13.24.5 遗留（明确不改，只记录）
+
+- **Windows 上同步入口**（v1.24.5 当时）：会话存储需要 Windows 凭据管理器（DPAPI）才能实现，
+  属**新增能力**而非本次缺陷修复的范围；**已在 §13.26 补齐**。
+- **SQLite 位于漫游目录（Windows 的 `%APPDATA%`）**：域漫游环境下文件可能被同步到多台机器，
+  引发 SQLite 锁冲突。这是 Tauri 的默认目录选择，改它属于架构变更（PRD 的数据目录契约），
+  本轮**只记录不改**。
+- **CI 产物未签名**：Windows SmartScreen 拦截仍在，本期无证书不做签名。
+
+### 13.25 v0.2.0 发版记录
+
+> 触发：需求方问「github 已经提交了吗，打包产物在 release 中可以下载了吗」。
+> 核查发现：代码早已 push，但 **Release 里只有 2026-11-01 的 v0.1.0 旧包**——
+> 新产物只在 Actions artifact 里，而 **artifact 匿名下载返回 404**（必须登录 GitHub）。
+> 原因：workflow 的「发布 Release 资产」步骤条件是 `startsWith(github.ref, 'refs/tags/v')`，
+> **只有推 `v*` tag 才会发布**；README 也写着「tag 由维护者打，流水线不创建 tag」。
+
+#### 13.25.1 发版动作与依据
+
+| 项 | 内容 |
+| --- | --- |
+| 版本号决策 | 需求方拍板 **v0.2.0**（内容库 65 → 146 条、新增分类、Windows 启动诊断、WebView2 修复、自动同步——已达 minor 升级） |
+| 版本号落点 | `src-tauri/tauri.conf.json`（CI 用它命名资产）、`package.json`、`src-tauri/Cargo.toml` 三处对齐为 `0.2.0` |
+| 资产名一致性 | CI 用 `node -p "require('./src-tauri/tauri.conf.json').version"` 取版本号命名资产 → tag `v0.2.0` 与资产名 `ScheduleTodo-0.2.0-*` **严格对应**（tag 与 version 不一致会让资产名与 tag 对不上） |
+| 历史记录不动 | 测试报告里的 `0.1.0`（当时构建的字节数 / md5 / 文件名）**一律保留**——那是当时的事实，改写等于篡改证据；只更新 README 与设计文档里的**当前口径** |
+| tag | annotated tag `v0.2.0`，指向 `d10e8e3` |
+
+#### 13.25.2 发版 CI 与 Release 资产
+
+CI run `44895637049`（由 tag 推送触发，`event = push`）：
+
+| Job | 结果 |
+| --- | --- |
+| macOS (arm64 · .app + .dmg) | **success** |
+| Windows (NSIS + MSI) | **success** |
+
+Release `v0.2.0`（published 2026-11-21T10:49:41Z）：
+
+| 资产 | 大小 | 匿名下载 |
+| --- | --- | --- |
+| `ScheduleTodo-0.2.0-macos-arm64.dmg` | 3.16 MB | **HTTP 206** ✓ |
+| `ScheduleTodo-0.2.0-macos-arm64.app.zip` | 2.94 MB | **HTTP 206** ✓ |
+| `ScheduleTodo-0.2.0-windows-x64-setup.exe` | 3.91 MB | **HTTP 206** ✓ |
+| `ScheduleTodo-0.2.0-windows-x64.msi` | 4.87 MB | **HTTP 206** ✓ |
+
+**对比 v0.1.0 的同类资产**（2.23 / 3.08 / 3.10 / 2.88 MB）：Windows 两项明显变大，
+差值正是 **`embedBootstrapper` 内嵌的引导程序**（+~1.8MB/个）——与 §13.23.4 的记录一致。
+
+完整性抽查：`windows-x64-setup.exe` 全量下载后 `file` 判定为
+`PE32 executable (GUI) Intel 80386, Nullsoft Installer self-extracting archive`，
+sha256 `a0d822d843060b5f4121d31219fd8ec5…` —— 是有效的 NSIS 安装包。
+
+#### 13.25.3 两条取件路径的差别（**给使用者的实际指引**）
+
+| 路径 | 需要登录 | 有效期 | 适用 |
+| --- | --- | --- | --- |
+| **Release 资产** | **否**（匿名可下，已实测 HTTP 206） | 长期 | 分发给他人 |
+| Actions artifact | **是**（匿名下载 404） | 14 天 | 内部临时取用 |
+
+#### 13.25.4 仍未解决的事项
+
+- **Windows 实机复验仍 `NOT-VERIFIED`**：v0.2.0 修的正是「装完双击没反应」，
+  但**本机无 Windows 机器**，修复的有效性需需求方实机复跑确认
+  （若仍不行，看 `%APPDATA%\com.poisson.todo\startup.log`——新版本会写明是 WebView2 还是别的原因）。
+- **CI 产物未签名**：Windows SmartScreen 拦截仍在，本期无证书不做签名，README 已写明放行方式。
+
+### 13.26 Windows 侧补齐系统级会话存储（v0.2.1 / PRD v1.12）
+
+> 触发：需求方在 Windows 上安装后看到「缺少 Supabase 配置」提示，追问如何配置；
+> 核查时发现：**配了 key 也登录不了**——登录流程最后一步「存会话」只有 macOS 实现。
+> 需求方判断「该补」，本节记录该实现。
+
+#### 13.26.1 缺口定位
+
+登录流程（`src/sync/engine.ts::login`）的最后一步是存会话：
+
+```
+await this.options.oauth.listen();      // ① 回环监听 —— 绑端口 0，跨平台 ✓
+await this.options.oauth.open(url);      // ② 系统浏览器 —— v1.11 已改三平台分派 ✓
+const query = await this.options.oauth.wait(timeout);
+const raw = await this.options.api.exchangeCode(callback.code, verifier);  // ③ 换 token ✓
+await this.options.sessionStore.save(this.session);   // ④ 存会话 —— ✗ 只有 macOS 实现
+```
+
+前三步都跨平台可用，**缺的只有第 ④ 步**。所以这不是「同步在 Windows 上不可行」，
+而是「同步在 Windows 上差最后一环」。
+
+#### 13.26.2 实现
+
+`keychain_save` / `keychain_load` / `keychain_clear` 三个函数按平台分派：
+
+| 平台 | 实现 | 保护强度 |
+| --- | --- | --- |
+| macOS | 系统钥匙串（`/usr/bin/security`，既有） | 钥匙串加密 |
+| **Windows** | **凭据管理器**（`CredWriteW` / `CredReadW` / `CredDeleteW` / `CredFree`） | **DPAPI 加密**，其它用户 / 其它进程取不到明文 |
+| Linux / BSD | 明确返回「暂不支持」 | —— |
+
+几个刻意的取舍：
+
+- **持久化用 `CRED_PERSIST_LOCAL_MACHINE`**（= 2）：跟着**当前 Windows 用户**走，
+  **不随域漫游配置同步到别的机器**——否则会在多台机器间复制同一份凭据。
+- **超限明确报错、不静默截断**：凭据 blob 上限是 `CRED_MAX_CREDENTIAL_BLOB_SIZE`（2560 字节）。
+  截断会得到一段坏 JSON，表现为「读不到会话」这种极难查的问题；所以写入前就明确报错。
+- **Linux 仍返回「暂不支持」**，**不静默落到明文文件**——那会破坏「会话不得明文落盘」的约束。
+- **`CredFree` 而不是 `free`**：凭据内存由 Win32 分配，必须用 `CredFree` 释放。
+
+#### 13.26.3 单测（可在 macOS 上真跑的部分）
+
+凭据 blob 的上限校验抽成**与平台无关的纯函数** `check_session_blob_size()`，
+这样最容易出错的那部分逻辑能在任何平台被测到：
+
+| 用例 | 断言 |
+| --- | --- |
+| `normal_session_fits` | 真实会话（一小段 JSON）放得下 |
+| `oversized_session_is_rejected_with_explicit_error` | 超 2560 字节 → 错误信息说清「会话过大」与上限值 |
+| `exactly_at_limit_is_accepted` | **正好等于上限要放过**（上限是「含」的） |
+| `limit_matches_windows_credential_manager_constant` | 上限常量 = 2560 = 5 × 256（与 SDK 一致） |
+
+`cargo test`：**8 passed**（原有 4 条 + 新增 4 条）。
+
+#### 13.26.4 验证与诚实边界
+
+| 项 | 结果 |
+| --- | --- |
+| `cargo xwin check --target x86_64-pc-windows-msvc` | **exit 0**——`CredWriteW` / `CredReadW` / `CredDeleteW` / `CredFree` / `FormatMessageW` 全部在 Windows 目标下编译通过 |
+| `cargo test`（macOS） | **8 passed** |
+| 自证脚本（8 个）+ `npm run build` | 全 PASS |
+| 平台可移植性守护 | PASS（新增的 Windows 分支被 `#[cfg(target_os = "windows")]` 正确保护） |
+| **Windows 真实登录流程** | **NOT-VERIFIED** —— 本机无 Windows 环境。代码按 Credential Manager 标准用法实现、CI 证明能编译，但**「点了登录真的能存进去」必须实机复跑确认** |
+
+> 这条边界与 §13.23.4 同源：**编译通过 ≠ 运行时正确**。上一轮的教训（`/usr/bin/open`）正说明
+> 交叉编译只能证明「API 存在且签名对」，证明不了「调用序列对」。
+> 实机复跑时请重点看：状态区能否从「未登录」变成「已登录」，以及重启后会话是否仍在。
+
+### 13.27 Windows 配置文件的 BOM 兼容（v0.2.2）
+
+> 触发：需求方问「Windows 上怎么配 supabaseUrl」，核查配置链路时发现一个**会让配置「写了却不生效」**的坑。
+
+#### 13.27.1 问题
+
+Windows 记事本（及部分编辑器）默认把文件存成 **UTF-8 with BOM**（文件头 `EF BB BF`）。
+而 `sync_config_read` 原来直接把文件内容交给前端 `JSON.parse`：
+
+```
+Rust: fs::read_to_string(&path) → Ok(text) => Ok(Some(text))     ← BOM 原样带出
+前端: JSON.parse(raw)                                                ← 遇到 BOM 抛 SyntaxError
+```
+
+`JSON.parse` 不认 BOM，会抛 `SyntaxError: Unexpected token ﻿`。
+**表现是「配置文件明明写了，状态区还是显示未配置」**——而且没有任何提示指向真因，
+用户只能怀疑自己写错了格式。这正是「配置类问题最难自查」的一类。
+
+#### 13.27.2 修复
+
+- Rust 侧读出后剥掉 BOM（`strip_bom()`，纯函数，`trim_start_matches('\u{feff}')`）；
+- 剥除逻辑**抽成纯函数**并补单测（带 BOM / 不带 BOM / 多个 BOM 三种情形），
+  这样在 macOS 上也能测到 Windows 上才会触发的路径；
+- 顺带把**凭据 blob 的体积上限统一为两平台共用**（2560 字节，取 Windows
+  `CRED_MAX_CREDENTIAL_BLOB_SIZE`）——原先上限只在 Windows 分支使用，
+  在 macOS 上成了死代码（`dead_code` 告警），而且会让「能写进 macOS 却写不进
+  Windows」的会话在两端表现不同。统一后 macOS 也在写入前校验，
+  且用的是更保守的那个值（macOS 钥匙串本身允许 4096）。
+
+#### 13.27.3 验证
+
+| 项 | 结果 |
+| --- | --- |
+| `cargo test` | **9 passed**（新增 BOM 用例；原有 4 条 + 上轮 4 条 + 本轮 1 条） |
+| `cargo xwin check --target x86_64-pc-windows-msvc` | **exit 0** |
+| 自证脚本 8 个 + `npm run build` | 全 PASS |
+| `dead_code` 告警 | **消除**（上限常量与检查函数两平台共用） |
+
+**边界**：本条修的是「配置读不出来」这条路径；**配置本身仍不会随安装包分发**
+（真实 key 只存在于各机应用数据目录，仓库里只有 `sync.config.example.json` 模板）。
+
+### 13.28 全平台跨平台审计（v0.2.3）：一次性把清单列清
+
+> 触发：需求方连续反馈跨平台问题，评价「怎么还有问题」。
+> 本节的做法与结论：**按类别穷尽审计**（不靠「想到一个修一个」），产出**一张完整清单**，
+> 并把**能修的一次性全修完**。清单本身是这个项目往后判断跨平台风险的**基线**。
+
+#### 13.28.1 审计方法
+
+按六个类别逐项过，每项都用工具核对（不是回忆）：
+
+| 类别 | 检查项 |
+| --- | --- |
+| **A. 运行时依赖** | WebView2 是否存在/版本、SQLite 是否有外部依赖、系统服务（钥匙串/凭据管理器）、平台专属运行时 |
+| **B. 路径与文件系统** | 应用数据目录、配置目录、路径分隔符、编码与 BOM、换行符、文件锁、原子写、权限 |
+| **C. 进程与命令** | 外部命令的平台归属、PATH 依赖、**spawn 是否会闪窗**、进程退出 |
+| **D. UI 与交互** | 键盘绑定（是否硬编码 Cmd）、**输入法 composition**、滚动与渐隐、高 DPI、字体栈、选择器 API |
+| **E. 同步链路** | 会话存储、浏览器拉起、**请求超时**、代理与证书、回环 HTTP 响应、错误分类与重试 |
+| **F. 构建与打包** | 三份 conf 的平台中立、WebView2 安装模式、NSIS/WiX 语言、签名、版本号一致性 |
+
+#### 13.28.2 完整清单（**跨平台问题全表**）
+
+**A 运行时依赖**
+
+| # | 问题 | 状态 |
+| --- | --- | --- |
+| A1 | WebView2 缺失 → 启动即退，用户只看到「没反应」 | ✅ 已修（预检 + 弹窗 + 日志 + `embedBootstrapper`） |
+| A2 | WebView2 **最低版本未声明** | ⚠️ 遗留：未声明即不检查；`embedBootstrapper` 装的是最新版，暂不构成风险 |
+| A3 | 会话存储只有 macOS 钥匙串 → Windows 登录必失败 | ✅ 已修（凭据管理器） |
+| A4 | SQLite 是否依赖外部库 | ✅ 无外部依赖（`libsqlite3-sys` 静态编译） |
+
+**B 路径与文件系统**
+
+| # | 问题 | 状态 |
+| --- | --- | --- |
+| B1 | 启动日志用 `dirs::data_dir()`，与 Tauri 的 `app_config_dir()`（用 `config_dir()`）在 **Linux 上不一致** | ✅ 已修 |
+| B2 | 配置文件的 **UTF-8 BOM** → `JSON.parse` 抛错 → 「写了却不生效」 | ✅ 已修（`strip_bom()` + 单测） |
+| B3 | 路径分隔符 / 中文路径 | ✅ 无问题（Rust `PathBuf`、Rust 侧全 UTF-8） |
+| B4 | 换行符 CRLF/LF | ✅ 无影响（JSON） |
+| B5 | 文件锁（Windows 更严） | ✅ 已处理：落盘失败有 try/catch；原子写用 `fs::rename`（Windows 带 `MOVEFILE_REPLACE_EXISTING`，会覆盖而非失败） |
+| B6 | 目录权限 | ✅ 应用数据目录可写；目录缺失时 `create_dir_all` 兜底 |
+
+**C 进程与命令**
+
+| # | 问题 | 状态 |
+| --- | --- | --- |
+| C1 | `/usr/bin/open`、`osascript` 等 macOS 专有调用在 Windows 上必错 | ✅ 已修（三平台分派） |
+| C2 | `cmd /C start` 的 URL 未加引号 → `&`/`|`/空格被拆成多条命令 | ✅ 已修 |
+| C3 | **Windows 上 spawn 进程会闪一个黑色控制台窗口** | ✅ **本轮已修**（`CREATE_NO_WINDOW`） |
+| C4 | 外部命令依赖 PATH | ✅ 无问题（`cmd`/`osascript`/`xdg-open` 均在 PATH） |
+| C5 | 平台专有调用**没有守护**，靠人工审阅 | ✅ 已修（`check-platform-portability.mjs`，13 条规则） |
+
+**D UI 与交互**
+
+| # | 问题 | 状态 |
+| --- | --- | --- |
+| D1 | 键盘绑定硬编码 `metaKey`（macOS 的 Cmd） | ✅ 无问题：只用 enter/space 语义键 |
+| D2 | **列表项 `@keydown.enter` 未处理输入法 composition** → 中文选词回车会误触发跳转/预览（`TodoEditor` 已处理，两处不一致） | ✅ **本轮已修** |
+| D3 | 滚动与渐隐依赖 `@scroll` | ✅ 两平台都有；`overscroll-behavior: contain` 已设 |
+| D4 | 字体栈 | ✅ 已含 `PingFang SC` / `Microsoft YaHei` / `Segoe UI` |
+| D5 | 高 DPI | ✅ Tauri 用**逻辑像素**，两平台一致 |
+| D6 | 窗口默认 1100×720 在 1366×768 屏上放不下 | ⚠️ 遗留：属默认值的产品决策；最小尺寸 900×600 已验证不溢出 |
+
+**E 同步链路**
+
+| # | 问题 | 状态 |
+| --- | --- | --- |
+| E1 | 系统浏览器拉起 | ✅ 已修（三平台分派） |
+| E2 | 会话存储 | ✅ 已修（macOS 钥匙串 / Windows 凭据管理器 / 其它明确不支持） |
+| E3 | **`fetch` 默认永不超时** → 网络挂住时同步状态永远停在「同步中」，也走不到失败重试 | ✅ **本轮已修**（30s 超时 + `SyncNetworkError` + 自检第⑩组路径） |
+| E4 | 网络错误与 HTTP 错误的分类 | ✅ **本轮已修**（新增 `SyncNetworkError`，引擎统一走退避重试） |
+| E5 | OAuth 回环 HTTP 响应手写 | ✅ 无问题（标准 `HTTP/1.1 200 OK` + `Content-Length`） |
+| E6 | 浏览器授权等待超时 | ✅ 已有（180s） |
+| E7 | 系统代理 / TLS 证书 | ✅ 无问题：用浏览器 `fetch`，自动走系统代理与证书库 |
+
+**F 构建与打包**
+
+| # | 问题 | 状态 |
+| --- | --- | --- |
+| F1 | 三份 conf 的平台中立（一个平台写死另一端的产物形态） | ✅ 由 `check-bundle-config.mjs` 54 条断言守护 |
+| F2 | WebView2 安装模式 | ✅ `embedBootstrapper`（`offlineInstaller` 会让 artifact 涨到 418MB，已实测放弃） |
+| F3 | tag 与 `tauri.conf.json` 版本号不一致 → 资产名对不上 | ✅ 已修（两处同源，v0.2.0 起对齐） |
+| F4 | NSIS / WiX 语言与安装模式 | ✅ `currentUser` + `SimpChinese`/`English`，允许中文安装路径 |
+| F5 | CI 产物未签名 → Windows SmartScreen 拦截 | ⚠️ 遗留：本期无证书不做签名，README 写明放行方式 |
+| F6 | CI 的 Windows 步骤是否真出包 | ✅ 真跑 `npx tauri build` + `if-no-files-found: error` |
+
+#### 13.28.3 本轮新增修复的三项
+
+| # | 修复 | 为什么是真问题 |
+| --- | --- | --- |
+| **C3** | Windows spawn 加 `CREATE_NO_WINDOW` | 不加的话，用户点「登录」时屏幕上**闪一个黑色控制台窗口**——正式产品里很扎眼 |
+| **E3** | 同步 API 加 30s 超时（`AbortController`） | `fetch` **默认永不超时**。网络被防火墙拦、代理挂起、或服务端 accept 了连接却不响应时，请求永远 pending：UI 停在「同步中」，**也永远走不到失败重试**。这条跨平台一致，但 Windows 防火墙/公司代理更容易触发 |
+| **D2** | 列表项补输入法 composition 判定 | 中文输入法选词时**也会派发 Enter**（`isComposing === true`）。用户确认候选词的同时会顺手把这一项也「打开」——往期列表跳日期、方法库切预览。`TodoEditor` 早处理了，这里补齐 |
+
+#### 13.28.4 守护脚本这轮又修了 4 处（都由「故意注入回归」逼出来）
+
+`check-platform-portability.mjs` 从 7 条规则扩到 **13 条**（补入 Windows 专有 Win32 API：`CredWriteW`/`CredReadW`/`CredDeleteW`/`CredFree`/`MessageBoxW`/`FormatMessageW`/`GetLastError`/`CommandExt`）。
+本轮它自己的判定逻辑又暴露 4 个缺陷，逐个修掉：
+
+| 轮次 | 缺陷 | 表现 |
+| --- | --- | --- |
+| 1 | item 头判定含 `const`/`static` | **函数体内的局部 const** 被误当成 item 头 → 误报「不在 cfg 分支内」 |
+| 2 | item 头定位不区分**嵌套 item** | 函数体内定义的辅助 `fn wide` 被当成 item 头，它自己的 cfg 其实是**外层**函数的 → 误报 |
+| 3 | 没有区分**顶层 item 与嵌套 item** | 规则「没有 cfg 就继续往上」在**同级 item 之间不成立** → 漏报（把上一个同级函数的 cfg 当成本函数的保护） |
+| 4 | 规则只覆盖**字符串**形式的 token | Windows 专有的 **Win32 API 函数名**不在规则内 → 漏报 |
+
+最终规则：**item 头只认 `fn`/`impl`/`struct`/`enum`/`trait`/`mod`**；
+嵌套 item（缩进 > 0）没有自己的 cfg 就继承外层、继续往上找；
+**顶层 item（缩进 == 0）没有 cfg 就是「没受保护」**，直接判失败。
+
+**注入回归矩阵（7 个注入点）全部判红，且还原后无误报**：
+
+| 注入的回归 | 结果 |
+| --- | --- |
+| macOS / Windows / Linux 三版 `open_in_browser` 去 cfg | **判红** ✓ |
+| startup 的 macOS / Windows 两版 `show_dialog` 去 cfg | **判红** ✓ |
+| macOS / Windows 两版 `keychain_save` 去 cfg | **判红** ✓ |
+
+#### 13.28.5 剩下的 4 条遗留（**明确不改，只记录**）
+
+1. **A2 WebView2 最低版本未声明**——不声明即不检查；`embedBootstrapper` 装的是最新版，暂不构成风险。
+2. **D6 窗口默认 1100×720 在 1366×768 屏上放不下**——属**默认值的产品决策**（改成更小会牺牲日常体验），且最小尺寸 900×600 已验证不溢出。
+3. **F5 CI 产物未签名**——本期无证书不做签名；Windows SmartScreen 拦截仍在，README 写明放行方式。
+4. **SQLite 位于 `%APPDATA%` 漫游目录**——域漫游环境下文件可能被同步到多机，引发 SQLite 锁冲突。改它属**架构变更**（PRD 的数据目录契约），只记录不改。
+
+### 13.29 「找不到文件 'https://...'」：命令存在 ≠ 行为正确（v0.2.4）
+
+> 触发：需求方在 Windows 上实机反馈——点「用浏览器打开授权页」报
+> **「找不到文件 'https://bbas...'」**。
+
+#### 13.29.1 根因
+
+`cmd /C start "" "<url>"` 在 Windows 上**会把 URL 当成文件路径去找**：
+`start` 的语义是「启动一个程序或打开一个文件」，对 `https://` 这种协议，
+它去文件系统里找一个叫 `https://bbas...` 的东西，于是报「找不到文件」。
+
+这暴露了 v0.2.3 审计的一个**盲点**：
+
+| 审计维度 | v0.2.3 查了 | 结论 |
+| --- | --- | --- |
+| 「这条调用是不是平台专有的」 | ✅ | 是 Windows 专有 → 加 `#[cfg]` 保护 → 判定「已修」 |
+| 「这条调用在该平台上**行为**对不对」 | ❌ **没查** | `cmd /C start` 对 URL 的行为是错的 |
+
+也就是说：**「命令是平台专有的」只能由守护脚本自动判定，「命令的行为正确」只能靠实机或选对 API。**
+两者的差距正好是这类问题漏过去的原因。
+
+#### 13.29.2 修复：改用官方 `tauri-plugin-opener`
+
+Windows 上**没有**「打开 URL」的命令——正确做法是调 `ShellExecuteW`。
+官方 `tauri-plugin-opener` 正是干这个的，且三端各自走系统**唯一正确**的路径：
+
+| 平台 | opener 内部走 |
+| --- | --- |
+| Windows | `ShellExecuteW` |
+| macOS | `NSWorkspace` |
+| Linux | `xdg-open` |
+
+连带好处：**自己那套三平台分派整个删掉了**——
+`/usr/bin/open`、`cmd /C start`、`xdg-open` 三个平台专有调用、以及
+「`cmd` 里 `&` `|` 是命令分隔符所以要加引号」「spawn 要加 `CREATE_NO_WINDOW` 才不闪黑窗」
+这两个补丁，**一次性都不需要了**。少了一层自己的抽象，就少一层跨平台陷阱。
+
+URL 白名单校验抽成纯函数 `is_allowed_open_url()` 并补单测：
+`http`/`https` 放行；`file://`、`javascript:`、`data:`、`ms-settings:`、空串、前导空格
+全部拒绝（放行 `file://` 等于让外部输入去碰本地文件系统）。
+
+#### 13.29.3 验证
+
+| 项 | 结果 |
+| --- | --- |
+| `cargo test` | **11 passed**（新增 2 条 URL 白名单用例） |
+| `cargo xwin check --target x86_64-pc-windows-msvc` | **exit 0** |
+| 自证脚本 8 个 + `npm run build` | 全 PASS |
+| 主 E2E / 同步 E2E | 6 passed / 4 passed |
+| 平台可移植性守护 | PASS（`open_in_browser` 删掉后，相关规则自然不再命中） |
+
+#### 13.29.4 诚实边界
+
+- **Windows 上「点开浏览器真的弹出授权页」仍需实机确认**——本机没有 Windows。
+  但这次的把握比之前高：opener 走的是 `ShellExecuteW`，那是 Windows 打开 URL 的**标准 API**，
+  不像 `cmd /C start` 那样依赖 shell 的文件关联语义。
+- 上面那条「命令的行为正确只能靠实机」的教训已经写进审计清单的方法论部分。
+
+### 13.30 「登录了但没有同步到数据」：推送链路的三个承诺没兑现（v0.2.5）
+
+> 触发：需求方实机反馈——「Windows 登录了，但没有同步到数据」。
+
+#### 13.30.1 根因：注释里承诺的三件事，代码里一件都没做
+
+| # | 承诺（源码注释原文） | 实际实现 | 后果 |
+| --- | --- | --- | --- |
+| 1 | `markLocalChange`：「未登录：不发请求，**等登录后一并处理**」 | `enterSession` 只 `pull()`，**从不 flush** | 未登录期间攒下的变更**永远没人推** |
+| 2 | `markLocalChange` 第一行 `if (!config.enabled) return;` | 直接 return，**连 pending 都不入队** | 「先在本地用、后来才配 key」的用户，变更**从未被记录** |
+| 3 | `flush`：「定时器到点 / 手动重试 / **登录后补推**」 | 只有前两者 | 登录后没有任何补推动作 |
+
+**这三条不是平台差异，是逻辑缺口**——macOS 上同样存在，只是用户在 Windows 上先撞上了。
+`pendingCount()` 这个方法**早就存在**（注释写着「检查脚本与排障用」），说明这条链路
+本来就该有断言覆盖，只是一直没写。
+
+#### 13.30.2 修复
+
+| # | 修复 | 说明 |
+| --- | --- | --- |
+| 1 | `markLocalChange`：**未配置也入队** | 「不发请求」与「不记下来」是两件事。改后未配置只是不发请求，变更先记下 |
+| 2 | `enterSession`：**pull 之后补推 pending** | 兑现「登录后一并处理 / 登录后补推」的承诺 |
+| 3 | 新增 `engine.pushAllLocal()` + 状态区「**上传本机全部**」按钮 | 配 key 之前就存在的历史待办不在 pending（内存态）里，需要一个**用户显式触发**的全量上传入口（按 uuid 幂等 upsert） |
+| 4 | pull 成功后显示**条数** | 原来只显示「已拉取（登录）」，用户无法区分「拉到 3 条」和「一条没拉到」；现在显示「新增 N 条、更新 M 条」 |
+| 5 | `enterSession` 由 private 改为 public | 让自检能走这条路径（它本身也是有意义的公开动作） |
+
+**边界与取舍**：「上传本机全部」做成**显式按钮而非自动行为**——本地待办**不带账号归属标记**
+（表里没有 user_id 列），自动全量上传会在「换账号登录」时把旧账号的数据带到新账号下。
+这是既有数据模型的固有限制（pull 同样不会清理旧账号数据），所以用显式动作让用户自己决定。
+
+#### 13.30.3 断言守护（自检第⑪组）
+
+新增 `check-sync.mjs` **第⑪组路径**（5 项断言），覆盖三条根因：
+
+| 用例 | 断言 |
+| --- | --- |
+| ① | 未登录时的本地变更必须入队 |
+| ①' | **同步未配置**时变更也必须入队（覆盖根因 2） |
+| ② | 登录后 `enterSession` 必须把 pending 补推干净（覆盖根因 1、3） |
+| ③ | 「上传本机全部」必须把本机待办推到云端 |
+
+**注入回归验证**（证明断言真的能抓到这类缺陷）：
+
+| 注入的回归 | 结果 |
+| --- | --- |
+| 把 `enterSession` 的补推去掉（还原成旧行为） | **判红** ✓ 「登录后必须补推 pending（实际还剩 1 条）」 |
+| 把 `markLocalChange` 的入队条件还原成 `!enabled` 就 return | **判红** ✓ 「未配置同步时变更也必须入队（实际 0）」 |
+
+> 第一次只写了一个用例（①），第二个注入**没被抓到**——因为那个用例用的是 enabled 配置，
+> 覆盖不到「未配置」分支。补上 ①' 之后才抓住。**这正是「断言必须覆盖到分支」的意思。**
+
+#### 13.30.4 验证
+
+| 项 | 结果 |
+| --- | --- |
+| `node scripts/check-sync.mjs` | **PASS，143 项断言**（十一组路径，比修复前 +5） |
+| `check-cases` / `check-permutation` / `check-cases-negative` / `check-no-secrets` / `check-bundle-config` / `check-platform` | 全 PASS |
+| `npm run build` | exit 0 |
+| 主 E2E / 同步 E2E | 6 passed / 4 passed |
+
+### 13.31 为什么多轮验证之后仍有问题（v0.2.6）——验证体系本身的缺口
+
+> 触发：需求方追问「到底还有什么缺陷？为什么经过了这么多次验证，还是有问题？」
+> 本节是**对方法论的复盘**，不是又一轮修复记录。
+
+#### 13.31.1 三个缺陷的准确定位
+
+「Windows 登录了，但没有同步到数据」的根因不是平台差异，而是**推送链路的三个承诺在注释里写了、代码里一件都没实现**：
+
+| 承诺（注释原文） | 实际实现 | 后果 |
+| --- | --- | --- |
+| `markLocalChange`：「未登录：不发请求，**等登录后一并处理**」 | `enterSession` 只 `pull()`，从不 flush | 未登录期间攒下的变更**永远没人推** |
+| `markLocalChange` 第一行 `if (!config.enabled) return;` | 直接 return，**连 pending 都不入队** | 「先在本地用、后来才配 key」的变更**从未被记录** |
+| `flush`：「定时器到点 / 手动重试 / **登录后补推**」 | 只有前两者 | 登录后没有任何补推动作 |
+
+**这三条在 macOS 上同样成立** —— 不是 Windows 专属。
+
+#### 13.31.2 为什么这么多轮验证都没抓到（五条结构性原因）
+
+| # | 原因 | 具体表现 |
+| --- | --- | --- |
+| 1 | **我验证的是「过程」不是「结果」** | 编译通过、脚本断言通过、E2E 通过——证明的是「代码按我写的样子跑」，**不是「两个设备之间数据能对上」** |
+| 2 | **我的审计框架有结构性盲区** | 建的是「**平台差异**审计」（运行时依赖 / 路径 / 进程 / UI / 同步 / 打包），而这次的问题**不是平台差异，是功能逻辑缺口**。跨平台审计 ≠ 功能正确性审计 |
+| 3 | **我把注释当成了事实** | `markLocalChange` 的注释就在眼前，写着「等登录后一并处理」。我**读到了**这句注释，却没去核对**有没有对应的代码路径**。注释是意图，实现才是事实 |
+| 4 | **自检脚本的断言是「照着实现写」的，不是「照着需求写」的** | 11 组路径、143 条断言，却**没有一条**验证「登录后 pending 被推走」。`pendingCount()` 早就在代码里，注释写着「检查脚本与排障用」——**工具一直在那儿，没人用它** |
+| 5 | **自检脚本压根没进 CI** | 仓库里 16 个 `check-*.mjs`，**CI 里只跑了 2 个**。我在本地跑它们、报告「143 项 PASS」，但 **CI 不执行 = 没有守护**——任何人（包括我）改坏了，本地 E2E 一过，CI 就绿 |
+
+第 5 条是最要命的：**我以为「有自检脚本」等于「有防护」**。实际上它们只在我自己的机器上跑过。
+
+#### 13.31.3 这次补上的三层防护
+
+**① 把自检脚本接进 CI**（`npm run check:unit`）
+
+内容库 / 推送确定性 / 负向篡改 / 同步层 / 补充同步 / 数据层 / 双后端一致性 / 软删除过滤 / conf 合规 / 平台中立 —— 十个脚本串成一个聚合步骤，两个 job 都跑。**从此「本地全绿 + CI 全绿」才第一次意味着「功能大概率没坏」**。
+
+**② 双端回路自检**（`check-sync.mjs` 第⑫组）
+
+这是**真正补上缺口**的一组：造两个**互不可见**的本地库 + 同一个云端，测完整回路：
+
+| 场景 | 断言 |
+| --- | --- |
+| 1 | A 登录后新增 → B 登录后必须收到 |
+| 2 | A **登录前**就有的待办 → 登录后上云 → B 必须收到 |
+| 3 | B 新增 → A 必须收到（反向回路） |
+
+场景 2 正是用户报告的现象。**注入回归验证**：还原成修复前的代码后，场景 2 立刻判红——「B 端必须收到 A 登录前就有的待办（实际 B 有 0 条：空）」。
+
+**③ 断言必须覆盖分支**
+
+第一次写第⑫组时，我的假 OAuth 夹具本身是坏的（state 长度 4，引擎要求 43 → PKCE 校验失败 → 登录失败 → 回路断）。**如果不加「A 必须真的登录成功」的断言，这个夹具 bug 会被误读成「产品有问题」**。同理，第一次加第⑪组时只写了 enabled 配置的用例，第二个注入（未配置分支）**没被抓到**，补上「未配置」用例才抓住。
+
+#### 13.31.4 仍然诚实的边界
+
+- **双端回路用的是 mock 云端**（`scripts/mock-supabase.mjs`），真实 Supabase 的 RLS、真实 token 生命周期、真实网络行为**仍 NOT-VERIFIED**。
+- **回路覆盖的是「两台设备的数据能不能对上」**，不覆盖「界面是否把状态正确显示出来」——后者靠状态区的文案（现在会显示条数）人工判断。
+- 本机没有 Windows，**Windows 上的真实端到端仍需实机复跑**。
+
+### 13.32 把自检接进 CI 的第一次运行就抓到 Windows 专属失败（v0.2.7）
+
+> 这是 §13.31 那条「16 个自检脚本 CI 里只跑 2 个」的**直接后果**：
+> 一旦把它们接进 CI，**第一次跑就红了** —— 而这个失败在 macOS 上**永远看不到**。
+
+#### 13.32.1 现象
+
+v0.2.6 的 CI：
+
+| Job | `Unit self-checks` 步骤 |
+| --- | --- |
+| macOS | **success** |
+| **Windows** | **failure**（0 秒，整条 job 被拖红，后续打包步骤全部 skipped） |
+
+Windows 的 Release 只拿到 macOS 的两个资产（`.dmg` / `.app.zip`），**没有 `.exe` / `.msi`**。
+
+#### 13.32.2 根因：`node:sqlite` 在 Windows 上不存在
+
+`scripts/check-db-parity.mjs`（双后端等价性对拍）用 Node 内置的 `node:sqlite`
+模拟 plugin-sql 的 invoke 通道。Node 官方文档明确说明：
+
+> `node:sqlite` 只在**有受支持的 SQLite 库的平台上**可用 —— **Windows 不支持**。
+
+脚本原来在**模块顶层**写：
+
+```js
+import { DatabaseSync } from 'node:sqlite';   // ← Windows 上直接把进程炸掉
+```
+
+于是 Windows 上这个脚本**秒崩**，把 `check:unit` 聚合链（用 `&&` 串联）整条带红。
+
+#### 13.32.3 修复：能力探测 + **明确跳过**（而不是崩）
+
+改成**先探测、再决定跑不跑**，并且跳过时把话说清楚：
+
+```
+⊘ 跳过双后端等价性对拍：本平台没有 node:sqlite（Windows 不支持该内置模块）。
+  这不是「对比通过」，而是「本平台不具备跑这个对比的技术条件」——
+  底层原因：No such built-in module: node:sqlite
+```
+
+探测做的是**真正实例化一个内存库**（`new DatabaseSync(':memory:')`），
+而不只是 `import` 成功——「模块存在」和「模块可用」是两件事。
+
+macOS 上行为**完全不变**（仍然完整跑完双后端对拍）。
+
+#### 13.32.4 这个案例说明了什么
+
+1. **「本地全绿」不等于「功能正确」**——本次失败只在 Windows 上出现，macOS 上永远看不到。
+2. **接入 CI 本身就会暴露问题**——这是「把自检接进 CI」这件事的**第一笔收益**：
+   之前 16 个脚本一个都不跑，现在第一次跑就抓到一个平台专属缺陷。
+3. **跨平台审计必须包含「工具链本身」**：Node 的内置模块也有平台支持矩阵，
+   `node:sqlite` 只是其中一个；`node:child_process`、`node:fs` 这些则处处可用。
+
+#### 13.32.5 验证
+
+| 项 | 结果 |
+| --- | --- |
+| `npm run check:unit`（本机 macOS） | PASS（10 个脚本全绿，db-parity 仍完整跑） |
+| 十个脚本逐个直跑 | 全 PASS |
+| `npm run build` / 主 E2E / 同步 E2E | exit 0 / 6 passed / 4 passed |
+| Windows CI | 由本次 CI run 实跑确认（见 §13.32.1 的对照） |
+
+### 13.33 拆 step 之后一次定位：CRLF 让 Windows 拿到 CRLF 文件（v0.3.0）
+
+> §13.32 修完 `node:sqlite` 后，Windows 的 `Unit self-checks` **又**失败（v0.2.8）。
+> 因为 GitHub 的 step 日志与 artifact 都需登录才能看，**拿不到真实错误**。
+> 于是改成 §13.32 说的「让失败自解释」——**把自检拆成 10 个独立 CI step**。
+
+#### 13.33.1 一次定位
+
+下一个 run（v0.2.9）里，job steps **直接显示**：
+
+```
+✗ FAIL  Self-check · check-cases-negative
+```
+
+不用翻日志，一次就定位到脚本。
+
+#### 13.33.2 根因：`actions/checkout` 在 Windows 上把仓库变成 CRLF
+
+GitHub Actions 的 `actions/checkout` 在 **Windows 上会把 `core.autocrlf` 设为 true**，
+于是 checkout 出来的文本文件**全是 CRLF**。
+
+而 `scripts/check-cases-negative.mjs` 用**硬编码换行符**定位方法块边界：
+
+```js
+const blockStart = source.lastIndexOf('  {
+', start);      // CRLF 下匹配不到
+const blockEnd   = source.indexOf('
+  },
+', start);       // CRLF 下匹配不到
+```
+
+→ 抛「无法定位方法 xxx 的边界」→ 脚本失败。
+**macOS 上仓库是 LF，所以本地与 macOS CI 永远看不到这个差异。**
+
+#### 13.33.3 修复：双保险
+
+| 层 | 做法 | 作用 |
+| --- | --- | --- |
+| **根** | 新增 `.gitattributes`：`* text=auto eol=lf`（二进制显式排除） | 从根源消除整类 CRLF 差异——Windows 上 checkout 也是 LF |
+| **代码** | `dropMethod()` 改成换行符无关（`lastIndexOf('  {')` + 正则 `/\r?\n  \},\r?\n/`） | 防御：万一文件来自别处或 `.gitattributes` 未生效，也不炸 |
+
+`git add --renormalize .` 已执行；核验**仓库内文本文件全部是 LF** ✓
+并实测：把 `methods.ts` 全部转成 CRLF 后，`dropMethod` 仍能正确定位块边界 ✓
+
+#### 13.33.4 这条教训的普适性
+
+**换行符是「本地永远看不到、只有 CI 的另一端能暴露」的典型**。它和
+「命令是平台专有的」「API 在某平台不存在」属于同一类，但更隐蔽——因为
+**CRLF 不改变语义**，只改变字节。
+
+因此本项目此后的跨平台纪律增加一条：
+> **任何按行 / 按边界解析文本的代码与脚本，都必须对换行符不敏感**；
+> 并且用 `.gitattributes` 把仓库锁死在 LF。
+
+#### 13.33.5 验证
+
+| 项 | 结果 |
+| --- | --- |
+| `npm run check:unit` | PASS（10/10） |
+| 十个脚本逐个直跑 | 全 PASS |
+| CRLF 模拟（把 methods.ts 全转 CRLF 后跑 dropMethod） | ✓ 仍能定位边界 |
+| 仓库文本文件换行符核验 | ✓ 全部 LF |
+| `npm run build` / 主 E2E / 同步 E2E | exit 0 / 6 passed / 4 passed |
+| Windows CI | 由本次 run 实跑确认（§13.33.1 的 step 结果） |
+
+### 13.34 拆 step 之后才看清：Windows 上有 7 个自检脚本一次都没跑过（v0.3.0）
+
+> §13.33 修完 CRLF 后，**没有立刻发版**，而是回头把 CI 的历史翻了一遍。
+> 这一翻，发现了一个此前一直没被意识到的事实。
+
+#### 13.34.1 「Windows 上没报错」是个假象
+
+`scripts/run-unit-checks.mjs` 之前的 `check:unit` 是 **一串 `&&`**：
+
+```json
+"check:unit": "node scripts/check-cases.mjs && node scripts/check-permutation.mjs && node scripts/check-cases-negative.mjs && node scripts/check-sync.mjs && ... && node scripts/check-platform-portability.mjs"
+```
+
+`&&` 的语义是**第一个失败就中断**。于是：
+
+| 版本 | Windows job 实际跑到哪 | 后面几个脚本的状态 |
+| --- | --- | --- |
+| v0.2.6 | `check-cases`（第 1 个）✓ → `check-permutation` ✓ → `check-cases-negative` ✗ | **第 4–10 个一次都没跑过** |
+| v0.2.7 | 同上（修了 `node:sqlite`，但那**不是**第一个失败点） | 同上 |
+| v0.2.8 | 同上 | 同上 |
+| v0.2.9 | 同上（拆成 10 个独立 step，才第一次看清是第 3 个） | 同上 |
+
+**也就是说：v0.2.7 那次「修 `node:sqlite`」是推断，不是实测。**
+当时 GitHub 的 step 日志与 artifact 都需登录才能取（403/404），
+check-runs API 也没有注解——**只能看到「哪个 step 失败」，看不到「报了什么」**，
+于是按代码读出来的「Windows 不支持 `node:sqlite`」去修，而**真正的第一个失败点是 CRLF**。
+
+结论（写进纪律）：**在没有日志的前提下，不要把「推断出的原因」当成「已确认的原因」**。
+可用的替代手段有两个：① 把长链拆成多个 step，让失败点自解释；② **在本机造等价环境实测**。
+
+#### 13.34.2 顺着这条线查下去，又挖出两个只在 Windows 炸的坑
+
+既然「后面的脚本从没跑过」，就不能只修第一个。两个继续查：
+
+| # | 坑 | macOS | Windows | 后果 |
+| --- | --- | --- | --- | --- |
+| 1 | `check-sync.mjs` 用 `execFileSync('sqlite3', ...)` 跑迁移证据 | 自带 `/usr/bin/sqlite3` ✓ | **镜像里没有 sqlite3.exe**（Database Systems 一节只有 PostgreSQL 与 MongoDB；Git for Windows 内部链接 libsqlite3 但**不提供 CLI**） | `ENOENT` → 脚本失败 |
+| 2 | `check-sync-console.mjs` 用 `spawn('npm', ...)` | ✓ | npm 是 **`npm.cmd`**；`spawn` 默认 `shell: false`，CreateProcess **只会尝试 `npm.exe`** | `ENOENT` → dev server 起不来 |
+
+两个都属于「**macOS 正常、Windows 静默失败**」，且**本地永远看不到**。
+
+#### 13.34.3 修法：给 SQLite 一个有等价保证的退路
+
+不是「Windows 上跳过」——跳过等于在 Windows 上放弃这组证据。
+做法是**两个后端都实现，并要求它们逐字节等价**：
+
+```
+scripts/sqlite-backend.mjs   统一后端：sqlite3 命令行 → Python 标准库 sqlite3 → 明确跳过
+scripts/sqlite-run.py        Python 退路的执行器（run / query 两种模式）
+```
+
+关键设计是**把「执行」与「取结果」分开**：
+
+- `run()` —— 只执行（DDL / DML），**可以含多条语句**（v3 迁移文件就是多条 + `--` 注释）；
+- `query()` —— 取结果，**只接受单条 SELECT / PRAGMA**。
+
+分开之后，`sqlite3` 命令行与 Python 的 `executescript` / `execute`
+**都不需要写 SQL 分词器**——也就不会有「把字符串里的分号当语句边界」这类坑。
+
+输出格式必须与 `sqlite3` CLI 的默认 list 模式逐字节一致（`|` 分隔、无表头、NULL 输出空串），
+所以能直接比对——这就是新增的**第 ⑬ 组断言**：
+
+```
+── ⑬ SQLite 后端等价：命令行与 Python 必须给出相同结果
+   · 对拍后端：sqlite3 命令行 vs python3 标准库 sqlite3
+   ✓ ⑬ SQLite 后端等价：命令行与 Python 必须给出相同结果 PASS（5 项断言）
+```
+
+比的都是**确定性输出**（表结构、条数、缺失计数、表清单）。
+uuid 由 `randomblob()` 生成，两边必然不同——那是**正常**的，不该拿来比。
+
+#### 13.34.4 把这次的坑固化成守护规则
+
+`check-platform-portability.mjs` 新增**第二部分：scripts/ 的外部命令依赖**，
+3 条规则，每条都用「故意注入回归」验证过会亮：
+
+| 规则 | 内容 | 注入回归 |
+| --- | --- | --- |
+| S1 | 不得直接 `spawn/exec` 字面量 `'npm'` | 改回 `spawn('npm', ...)` → 判红 ✓ |
+| S1b | 用了 `npmCmd` 就必须真的写 `'npm.cmd'` 分支 | 删掉 `.cmd` 分支 → 判红 ✓ |
+| S2 | 除 `sqlite-backend.mjs` 外不得直接调 `'sqlite3'` | 脚本里加一行 `execFileSync('sqlite3', ...)` → 判红 ✓ |
+
+写规则时踩了两个自己的坑，都靠「注入回归」逼出来：
+① 正则会命中**注释里引用的示例代码** → 加了「跳过注释行」；
+② `require` 判据的逻辑写反了（`require` 返回 true 意为「要求已满足」，应跳过而非报错）→ 修成 `if (rule.require?.(text)) continue;`。
+
+#### 13.34.5 换成「仿真」而不是「等 CI 报」
+
+既然本机没有 Windows，就**造出等价环境**再跑。三种仿真，可叠加：
+
+| 仿真 | 怎么造 | 结果 |
+| --- | --- | --- |
+| **CRLF checkout** | 整份复制仓库，所有文本文件转 CRLF，在副本上跑 10 个自检 | 第一次跑**抓到真问题**：④「案例正文截到 100 字」的篡改正则在 CRLF 下匹配不到 → 「篡改没有生效」直接抛错。修掉后 **10/10 PASS** |
+| **缺 sqlite3 CLI** | PATH 前面放一个退非零的 `sqlite3` 桩 | `check-sync` 自动切到 Python 后端，**迁移证据 20 项断言仍全过** ✓ |
+| **缺 node:sqlite** | 把 `import('node:sqlite')` 换成导入不存在的模块 | `check-db-parity` **明确跳过并退出 0** ✓ |
+
+CRLF 仿真抓到的那个问题，`.gitattributes` 本身**挡不住**（它只保证 checkout 是 LF，
+脚本内部自己解析文本时仍可能硬编码 `\n`）——所以两者都要有。
+
+#### 13.34.6 验证
+
+| 项 | 结果 |
+| --- | --- |
+| `npm run check:unit` | PASS（10/10） |
+| `npm run build` / 主 E2E / 同步 E2E / `cargo test` | exit 0 / 6 passed / 4 passed / 4 passed |
+| 双后端等价（第 ⑬ 组） | PASS（5 项断言，逐字节一致） |
+| CRLF 全量仿真（10 个自检） | 10/10 PASS |
+| CRLF + 缺 sqlite3 叠加 | PASS（迁移证据 20 项断言仍全过） |
+| 缺 node:sqlite 仿真 | 明确跳过，退出码 0 |
+| 守护规则注入回归（S1 / S1b / S2） | 3/3 判红，还原后无误报 |
+| Windows CI | 由本次 run 实跑确认（§13.34.7） |
+
+#### 13.34.7 这一轮的跨平台纪律（补进清单）
+
+1. **验证链本身会掩盖后面的问题**——`&&` 串联的自检链在第一个失败处中断，
+   「Windows 上没报错」只等于「第一个失败点被修掉了」。**自检要逐个成 step**。
+2. **在没有日志时不要相信推断**——GitHub 未认证时拿不到 step 日志，
+   此时要么拆 step 让失败点自解释，要么在本机造等价环境实测。
+3. **Windows 的 runner 镜像不是「Windows」**——它是一个**特定的镜像**：
+   有 Ruby、有 Python，**没有 sqlite3.exe**；npm 还是 `npm.cmd`。
+   依赖外部命令前，先确认那个镜像里到底有什么。
+4. **验证脚本自己也是产品**——它有平台依赖，也值得同样的守护与仿真。
+
+### 13.35 Windows 上第二次失败：Python 的 stdin 不是 UTF-8（v0.3.1）
+
+> §13.34 的改动让 Windows job **第一次越过了 `check-cases-negative`**（CRLF 那关），
+> 然后卡在了下一个：`Self-check · check-sync`。
+> ——**这正是把自检拆成独立 step 的价值**：失败点一目了然，不用猜。
+
+#### 13.35.1 先解决「拿不到日志」这个死结
+
+此前几轮之所以只能靠推断，是因为 GitHub 未认证（`gh` 未登录），
+step 日志与 artifact 都要登录才能取。
+
+但**推 tag 是成功的** —— 说明凭据就在本机：`git config credential.helper = osxkeychain`。
+于是：
+
+```bash
+TOKEN=$(printf 'protocol=https\nhost=github.com\n\n' | git credential fill | sed -n 's/^password=//p')
+curl -sL -H "Authorization: Bearer $TOKEN" \
+  "https://api.github.com/repos/zzy1661/todo/actions/jobs/<job_id>/logs" -o win-job.log
+```
+
+**日志全文 559 行，错误一眼看到**。这条路径以后应该先用，别再靠推断。
+
+#### 13.35.2 真报错
+
+```
+── v3 迁移结构证据（TC-076 / AC-64，只给 todos 加列）
+   · SQLite 后端：python3 标准库 sqlite3
+UnicodeEncodeError: 'utf-8' codec can't encode character '\udc81' in position 53: surrogates not allowed
+  at pythonRun (scripts/sqlite-backend.mjs:77:11)
+  at runSql (scripts/check-sync.mjs:1119:35)
+```
+
+注意：**Python 退路确实生效了**（日志里明确写着「SQLite 后端：python3 标准库 sqlite3」）——
+§13.34 的退路设计是对的。失败的是退路**内部的编码**。
+
+#### 13.35.3 根因：Windows 上 Python 的标准输入用系统 ANSI 代码页解码
+
+| 环节 | macOS | Windows |
+| --- | --- | --- |
+| Node 写 stdin | UTF-8 字节 | UTF-8 字节（一样） |
+| Python `sys.stdin.read()` | 按 **UTF-8** 解 ✓ | 按**系统 ANSI 代码页**（cp936 / cp1252）解 ✗ |
+
+UTF-8 的中文被按 GBK 解出来就是乱码，某些字节序列还会产生**孤立代理字符**（`\udc81` 这类），
+随后 SQLite 往里写时要把字符串编码成 UTF-8 → `UnicodeEncodeError`。
+
+**本机为什么看不到**：这台 Mac 的 Python 3.14 开着 **UTF-8 模式**（`sys.flags.utf8_mode == 1`），
+locale 也恰好是 UTF-8 —— 两边都对，所以本地永远看不出来。
+
+#### 13.35.4 修法：绕开文本层，直接管字节
+
+```python
+sql_text = sys.stdin.buffer.read().decode('utf-8')      # 读：原始字节 + 显式 UTF-8
+sys.stdout.buffer.write(line.encode('utf-8'))            # 写：原始字节 + 显式 UTF-8
+```
+
+**完全不依赖系统 locale**。本机用 `PYTHONIOENCODING=cp936` 仿真验证过：
+
+| 写法 | `PYTHONIOENCODING=cp936` 下的结果 |
+| --- | --- |
+| `sys.stdin.read()`（旧） | `UnicodeDecodeError: 'gbk' codec can't decode byte 0xb2` ← 与 Windows 实机同源 |
+| `sys.stdin.buffer.read().decode('utf-8')`（新） | 正常执行，输出与 CLI 逐字节一致 |
+
+三档环境（默认 / `cp936` / `ascii:backslashreplace`）实测输出都是 `等价甲|迁移前乙`，
+与 `sqlite3` CLI 的输出完全相同。
+
+#### 13.35.5 顺带挖出的第二个坑：**文档里写错误信息，触发了那个错误**
+
+修完上面那个之后，本地跑又报**一模一样**的错：
+
+```
+UnicodeEncodeError: 'utf-8' codec can't encode character '\udc81' in position 208
+```
+
+但这次的位置是 `source_to_code` —— **编译模块自己**就失败了。原因是：
+
+```python
+"""...甚至产生**孤立代理字符**（`\udc81` 这类）..."""   # ← 非 raw 字符串
+```
+
+在 **Python 的普通字符串里，`\udc81` 是真的转义序列**，编译期就生成了孤立代理字符，
+于是模块的 docstring 常量无法编码成 UTF-8 → **模块自己都 import 不了**。
+
+**报错信息长得一模一样，所以极具迷惑性**——差点以为是同一个 bug 没修干净。
+解法：那个 docstring 改成 **raw 字符串**（`r"""`），让文档里的示例保持原样。
+
+> 教训：**在 Python 文档字符串里引用错误信息时，`\uXXXX` 形式的字面量必须用 raw 字符串**，
+> 否则你写下的示例会真的被执行。
+
+#### 13.35.6 断言守护：把「非 ASCII 往返」变成必须过的断言
+
+第 ⑬ 组原来比的是表结构与计数（纯 ASCII），**测不出编码问题**。现在加一条：
+
+```js
+'SELECT title FROM todos ORDER BY id;',   // 行内容是中文「等价甲」
+```
+
+两个后端必须给出相同结果 —— 一旦有人把 `sys.stdin.buffer.read().decode('utf-8')`
+改回 `sys.stdin.read()`，在非 UTF-8 环境下这条断言立刻判红。
+
+#### 13.35.7 验证
+
+| 项 | 结果 |
+| --- | --- |
+| `npm run check:unit` | PASS（10/10；第 ⑬ 组 6 项断言） |
+| 第 ⑬ 组 | PASS（6 项断言，含非 ASCII 往返） |
+| `PYTHONIOENCODING=cp936` 仿真（旧写法） | `UnicodeDecodeError: 'gbk' codec can't decode byte 0xb2`（复现 Windows 故障） |
+| `PYTHONIOENCODING=cp936` 仿真（新写法） | 正常，与 CLI 输出逐字节一致 |
+| 三档编码环境（默认 / cp936 / ascii:backslashreplace） | 输出均为 `等价甲\|迁移前乙` ✓ |
+| `npm run build` / 主 E2E / 同步 E2E / `cargo test` | exit 0 / 6 passed / 4 passed / 4 passed |
+| CRLF 全量仿真 | 10/10 PASS |
+| Windows CI | 由本次 run 实跑确认 |
+
+#### 13.35.8 这一轮补进纪律的
+
+1. **拿不到日志不等于无解**——先查本机凭据（keychain / credential helper），
+   `git credential fill` 往往就能用；**别在只能推断的情况下猜**。
+2. **Windows 的 runner 镜像不只是「Windows」**——它还有自己的 **locale**：
+   Python 的标准输入默认按系统 ANSI 代码页解码，这条 macOS 上完全不成立。
+   依赖外部解释器时，**要显式指定编码，不要依赖 locale**。
+3. **错误信息可能自己触发那个错误**——在 Python 字符串里写 `\uXXXX` 字面量时用 raw 字符串。
+
+### 13.36 Windows 实机：启动报「数据对不上·部分数据已经执行过了」（v0.3.2）
+
+> 需求方反馈：**Windows 启动报错**，具体内容记不清了，大意是
+> **「数据对应不上，部分数据已经执行过了」**。
+>
+> 这次**不能靠猜**——但也不能像 v0.2.7 那样「推断出一个原因就去修」。
+> 所以先把机制查清楚，再对症。
+
+#### 13.36.1 症状与 sqlx 的报错逐字对应
+
+sqlx 0.8.6 给每个迁移记账，校验不通过时的**全部**文案只有三条：
+
+```rust
+// sqlx-core-0.8.6/src/migrate/error.rs
+"migration {0} was previously applied but is missing in the resolved migrations"
+"migration {0} was previously applied but has been modified"
+"migration {0} is partially applied; fix and remove row from `_sqlx_migrations` table"
+```
+
+需求方那句「**部分数据已经执行过了**」= `was previously applied`，
+「**数据对应不上**」= `has been modified`（checksum 对不上）。
+**指向 checksum 不匹配**，而不是「迁移没跑完」。
+
+#### 13.36.1.1 把另外两条文案排除掉（否则又是「推断」）
+
+`success = false`（→ `is partially applied`）这条**在本项目不可能出现**，有源码依据：
+
+```rust
+// sqlx-sqlite-0.8.6/src/migrate.rs:150
+// 用同一个事务跑迁移 SQL + 写记账行，且**只写 TRUE**
+INSERT INTO _sqlx_migrations ( version, description, success, checksum, execution_time )
+VALUES ( ?1, ?2, TRUE, ?3, -1 )
+```
+
+`success = false` 是 **sqlx 0.7** 的老写法（先写 false、应用完再改 true），
+进程死在中间才会留下脏行。本项目经 `tauri-plugin-sql 2.6.0` 一直用 **sqlx 0.8.6**，
+**没有任何路径会写出 `success = false`**。
+
+而 `is missing in the resolved migrations` 要求「库里有本版本不再携带的迁移」——
+本项目的迁移列表只增不减（v1/v2/v3 永远都在），也不可能。
+
+**所以只剩一条路：checksum 不匹配。** 这不是推断，是排除法 + 源码依据 + 端到端复现。
+
+#### 13.36.2 为什么 checksum 会跨平台不一致（根因）
+
+sqlx 记的 checksum 是 **`SHA-384(SQL 的字节)`**（`sqlx-core/src/migrate/migration.rs:25`），
+每次启动都比对，不一致就拒绝迁移。而「SQL 的字节」有两个来源，行为**完全不同**：
+
+| 来源 | 换行符处理 | 结果 |
+| --- | --- | --- |
+| Rust **内联字符串字面量** | 编译器把 CRLF **归一化成 LF** | 各平台字节一致 → checksum 恒定 |
+| **`include_str!` 读文件** | **原样嵌入文件字节** | checksum **随 checkout 的换行符变化** |
+
+本项目 v1 / v2 是**内联字面量**（安全），**v3 是 `include_str!` 读 `.sql` 文件**
+—— 全项目**唯一**一个 checksum 会随平台变的迁移。
+
+**实测验证**（Rust 1.92，编译器确实会归一化内联字面量）：
+
+```
+CRLF 源文件 → include_str! → len=10 "AAA\r\nBBB\r\n"
+LF   源文件 → include_str! → len=8  "AAA\nBBB\n"     两者相同？ false
+CRLF 源文件 → 内联字面量   → "AAA\nBBB"（CRLF 被归一化）
+LF   源文件 → 内联字面量   → "AAA\nBBB"             两者相同？ true
+```
+
+**事故链**：
+
+1. v0.3.0 之前仓库**没有 `.gitattributes`**，而 `actions/checkout` 在 Windows 上把
+   `core.autocrlf` 设成 true → 检出为 **CRLF**；
+2. v0.2.0 – v0.2.5 的 Windows 安装包内嵌 **CRLF 版** v3 SQL → 它们的库记下 **CRLF 版 checksum**；
+3. v0.3.0 起有 `.gitattributes`（LF）→ 新包算出 **LF 版 checksum**；
+4. 对不上 → sqlx 拒绝迁移 → sql 插件初始化失败 → `build()` 返回错误 → **应用起不来**。
+
+#### 13.36.3 修法：三层
+
+**① 根因**：`build.rs` 在**编译期**把 v3 SQL 归一化成 LF，写进 `OUT_DIR`，
+`lib.rs` 改用 `include_str!(concat!(env!("OUT_DIR"), "/0003_sync_columns.sql"))`。
+各平台内嵌的字节从此完全一致，checksum 永久稳定。
+
+**② 既有库**：已经用旧 Windows 包建过库的机器，库里记的还是 CRLF 版 checksum。
+新增 `src-tauri/src/migrate_repair.rs`，注册成**排在 sql 插件之前**的插件
+（Tauri 的插件按**注册顺序**初始化：`PluginStore::push` + `iter_mut`），
+在迁移校验**之前**把「只因换行符而对不上」的记账纠正回来。判定条件很严：
+
+- 记账值必须**恰好等于**「当前 SQL 换成 CRLF 后的 checksum」——
+  否则说明内容真被改过，**不碰**，让 sqlx 报准确的原始错误；
+- 还必须有 **schema 证据**（v3 的 `todos.uuid` / `updated_at_ms` / `deleted` 都在）
+  ——证明那次迁移真的执行过；
+- **只改记账，不动 schema、不动数据。**
+
+**③ 可见性**：失败不再静默。`lib.rs` 早已用 `startup::fatal()` 把
+`build()` 的错误弹成原生消息框并写进 `startup.log`（这条本来就做对了）。
+
+#### 13.36.4 断言守护（三层，每层都用「故意注入回归」验证过会红）
+
+| 层 | 断言 | 注入回归 | 结果 |
+| --- | --- | --- | --- |
+| **源码级**（Node 自检，任何平台都咬得住） | `lib.rs` 的 v3 必须取 `OUT_DIR` 归一化产物；不得直接 `include_str!` 源文件；`build.rs` 必须做 CRLF→LF | 把 `lib.rs` 改回直接 include 源文件 | ✗ 2 项断言失败 ✓ |
+| **运行期**（Rust 单测，CRLF 平台才咬得住） | 每个迁移的 SQL 不得含 CR；内嵌的 v3 必须等于「源文件归一化后」 | 源文件转 CRLF + `lib.rs` 改回直接 include | ✗ 2 个测试 FAILED ✓ |
+| **编译期**（build.rs，任何平台） | 归一化产物里不得残留 CR | — | 断言在 build 里 ✓ |
+
+另补一条**纪律**：**Rust 测试此前从未进 CI**（16 个自检脚本进 CI 了，Rust 侧的
+迁移只增不改、OAuth 回环、会话上限等断言全在本地跑）。
+现已在 workflow 里加 `cargo test --release` 步骤（放在 `Build frontend` 之后 ——
+`tauri::generate_context!` 要把前端产物嵌进二进制，dist 不存在编译不过）。
+
+#### 13.36.5 端到端验证（真造了一个「旧 Windows 包」的库）
+
+本机造库：v1 / v2 记**内联字面量**的 LF 版 checksum（真实情况），
+v3 记 **CRLF 版** checksum，并放入一条历史待办「迁移前甲」。
+启动应用后：
+
+```
+[04:45:13] ==== 应用启动 ====
+[04:45:13] WebView2 就绪："19616.2.9.11.7"
+[04:45:13] [迁移修复] 迁移 3：记账 checksum 因换行符不一致，已按当前 SQL 纠正（schema 与数据未改动）
+```
+
+| 项 | 结果 |
+| --- | --- |
+| 应用启动 | ✓ 进程在跑，无报错 |
+| v1 / v2 / v3 记账 | 全部归位为 LF 版 checksum ✓ |
+| 历史数据 | 「迁移前甲」**一条没丢** ✓ |
+| `todos` 表结构 | `uuid` / `updated_at_ms` / `deleted` 三列完好 ✓ |
+
+#### 13.36.6 这一轮补进纪律的
+
+1. **数据文件也是跨平台契约**——不只是代码能跑，**旧版本留下的数据文件**也得能被新版本认出来。
+   「旧 Windows 包建的库」是真实存在的资产，不能一句「删库重装」打发。
+2. **「同一份源码」不等于「同一份字节」**——编译期会归一化内联字面量，
+   但**不会**归一化 `include_str!` 读进来的文件。凡是「字节进哈希」的地方，
+   都要先问一句「这字节跨平台一致吗」。
+3. **修复既有数据时，判定条件要比「看起来像」严格**——本实现要求
+   「差异恰好等于换行符造成的」**且**「有 schema 证据」，
+   否则一律不碰，让原始错误暴露出来。宁可让用户看到准确的报错，
+   也不要一个「善意的」猜测把真问题盖掉。
+
+### 13.37 Rust 测试第一次进 CI，当场抓到另一个 Windows-only 缺陷（v0.3.3）
+
+> §13.36 补了 `cargo test` 进 CI。**下一个 run 就抓到了东西**——
+> 这正是「把断言接进 CI」的意义：不是「多跑一遍」，而是**新增了一整个此前不存在的观测面**。
+
+#### 13.37.1 现象
+
+v0.3.2 的 CI：macOS 全绿，**Windows 死在 `Rust unit tests (cargo test)`**（新加的那一步）：
+
+```
+test sqlite_path_matches_localstorage_semantics ... FAILED
+test v3_migration_adds_sync_columns_to_todos_only ... FAILED
+thread '...' panicked at tests\migration_guard.rs:22:29:
+无法执行 sqlite3 命令（macOS 自带）：program not found
+```
+
+#### 13.37.2 根因：**同一个老毛病的第四个实例**
+
+`src-tauri/tests/migration_guard.rs` 用 `sqlite3` **命令行**跑真实 SQL，
+文件头注释还明明白白写着「**macOS 自带**」—— 但**没有任何平台分支**。
+
+而 `sqlite3` 命令只有 macOS 有（windows-latest 的 runner 镜像里没有）→
+这个集成测试在 Windows 上**必然失败**。
+
+它为什么一直没被发现？因为 **Rust 测试此前从未进 CI**。
+本地跑永远在 macOS 上 → 永远绿。**「本地全绿」不等于「两端都成立」**——
+这是 §13.34 那条纪律的第四个实例，只是这次藏在 Rust 侧。
+
+#### 13.37.3 修法：改用 sqlx，输出格式刻意与 CLI 对齐
+
+`sqlx` 本来就在依赖树里（`tauri-plugin-sql` 也用它），所以**零新增编译量**：
+
+| 原实现 | 新实现 |
+| --- | --- |
+| `Command::new("sqlite3")` + stdin 喂 SQL | `sqlx::raw_sql()`（支持多语句与 `--` 注释） |
+| 解析 CLI 的 `\|` 分隔输出 | 直接取行，**按 CLI 的 list 模式渲染**（`\|` 分隔、NULL 输出空串） |
+
+**断言语义一字未改** —— 期望值仍然是 `"C\nA2\nD\nB"`、`"A2\|2026-11-01\|1\|"` 这种形态。
+渲染方式对齐了 CLI，测试就仍然在验证同一件事。
+
+顺带一个实现细节：**sqlx 的类型检查是严格的**——INTEGER 列按 `String` 解会直接报
+「mismatched types; Rust type `Option<String>` (as SQL type `TEXT`) is not compatible
+with SQL type `INTEGER`」。而 SQLite 自己的 `sqlite3_value_text` 是**任何类型都能转文本**
+（CLI 就靠它）。sqlx 没把这个入口暴露成公开 API，于是按「文本 → 整数 → 实数」依次尝试解码，
+**等价于 SQLite 的那套转换规则**。
+
+#### 13.37.4 守护：可移植性检查器扩到 Rust 侧
+
+新增规则（扫 `src-tauri/src/` **与 `src-tauri/tests/`**）：
+
+| 规则 | 内容 | 注入回归 |
+| --- | --- | --- |
+| R1 | Rust 侧（含测试）不得调用只在单一平台存在的命令（`sqlite3`） | 在测试里加一行 `Command::new("sqlite3")` → 判红 ✓ |
+
+**注意 `tests/` 也要扫**——产品代码守得再严，测试里的平台假设一样会让 CI 在另一端红。
+
+#### 13.37.5 验证
+
+| 项 | 结果 |
+| --- | --- |
+| `cargo test`（单元 16 + 集成 4） | 全过 ✓ |
+| **屏蔽 `sqlite3` 后重跑集成测试**（仿真 Windows 条件） | 4/4 全过 ✓ —— 证明已无命令依赖 |
+| 守护规则注入回归（R1） | 判红 ✓，还原后无误报 ✓ |
+| `npm run check:unit` | 10/10 ✓ |
+| Windows CI | 由本次 run 实跑确认 |
+
+#### 13.37.6 补进纪律
+
+1. **「本地全绿」不等于「两端都成立」**——断言没进 CI 的那一端，等于没有断言。
+   补 `cargo test` 步骤后**第一次跑**就抓到，说明这个观测面值得开。
+2. **注释里的「macOS 自带」不是保护**——那是**说明**，不是**分支**。
+   凡是「某平台才有」的东西，都要么给退路，要么就别用。
+
+### 13.38 Windows 实机：登录正常，但「同步一条都没拉到」（v0.3.4）
+
+> 需求方反馈：**Windows 上登录已经正常了**，但**同步时一条都没有拉到**。
+
+#### 13.38.1 先取证，再下结论
+
+这次的排查**没有一步靠猜**，每一步都有可复核的证据：
+
+| # | 查什么 | 怎么查 | 结果 |
+| --- | --- | --- | --- |
+| 1 | 云端表在不在、列齐不齐 | 用 anon key 逐列探测 `todos`（不存在就报错） | `user_id / uuid / title / date / priority / note / done / created_at / updated_at / updated_at_ms / deleted` **全部存在** ✓ |
+| 2 | 云端部署对不对 | 与仓库的 `supabase/schema.sql` 逐条对照 | **完全一致**（`(user_id, uuid)` 主键 + RLS `auth.uid() = user_id`）✓ |
+| 3 | 「0 条」是不是被 RLS 挡了 | 匿名请求返回 `[]`，换**登录用户**身份查 | refresh token 已被吊销，查不了 → 但结合 (1)(2) 可确定**不是 schema 问题** |
+| 4 | 本机有没有数据 | 读本机 `todo.db` | **8 条待办，全部已回填 uuid** ✓ |
+| 5 | **这 8 条有没有可能上云** | 对比每条的 `updated_at_ms` 与 `sync.state.json` 的 `autoSyncAnchorAt` | **8 条全部早于登录锚点**（最新 11-18 12:56，锚点 11-23 19:06，差 5 天）→ **登录后从未被改动** |
+
+第 5 条是关键：**自动同步只推「变更驱动」的增量**，`pending` 队列里装的是
+「登录后被改动过」的条目。这 8 条待办**一次都没在登录后被改动**，
+所以它们**从未进入推送队列、从未上云** → 云端为�� → Windows 拉回 0 行。
+
+**这不是故障，是「本地数据还没上传」。** 而 PRD v1.16 早就记过这个取舍
+（「配 key 之前就存在的历史待办不在增量里，需要显式全量上传」），
+所以解法是现成的：**在 macOS 上点「上传本机全部」**。
+
+#### 13.38.2 但界面没有把这件事说出来（这才是要修的）
+
+两个缺陷叠在一起，让用户（和我）都判断不出发生了什么：
+
+**缺陷一：状态消息把两种情况混为一谈。**
+
+合并有三种结果 —— 新增 / 覆盖本地 / **保持本地不变**（记在 `stats.skipped` 里，
+数据层**早就统计了**，只是引擎没报）。于是：
+
+| 云端实际情况 | 旧文案 | 新文案 |
+| --- | --- | --- |
+| 云端 **0 行** | 新增 0 条、更新 0 条 | 远端 0 行 · **云端暂无你的数据** |
+| 云端 5 行、本地已是最新 | 新增 0 条、更新 0 条 | 远端 5 行 · 新增 0 条、更新 0 条、**已是最新 5 条** |
+
+旧文案下这两种情况**长得一模一样** —— 用户看到「0 条」，
+既可能是「云端没我的数据」，也可能是「早就同步过了」。
+
+**缺陷二：没人告诉用户「你该去按那个按钮」。**
+
+登录后本机有 8 条待办没上云，界面却毫无提示。而「上传本机全部」这个按钮
+虽然存在，但用户不知道它跟这个现象有关。
+
+#### 13.38.3 改法
+
+| 层 | 改动 |
+| --- | --- |
+| `src/sync/engine.ts` | 新增导出函数 `describePull(reason, remoteCount, stats)`：报出**远端行数** + 新增 / 更新 / **已是最新**（`skipped > 0` 才显示） |
+| `src/sync/engine.ts` | 云端为空时用 `local.loadAll()` 数出本机**还没上云**的条数，写进 `status.localNotUploaded` |
+| `src/sync/types.ts` | `SyncStatus` 新增 `localNotUploaded`（可选字段，0 = 无 / 不适用） |
+| `src/components/layout/SyncPanel.vue` | `localNotUploaded > 0` 时显示提示：「云端还没有你的数据：本机有 N 条待办尚未上传……点下面的『上传本机全部』即可同步到云端。」 |
+| `src/sync/engine.ts` | 「上传本机全部」成功后把 `localNotUploaded` 归 0（提示撤掉）；**登出时也归 0**（那时的上传按钮是禁用的，留着提示只会让人点不动） |
+
+#### 13.38.4 顺带被自检抓到的一条纪律
+
+第一版实现里，云端为空时直接 `await this.options.local.loadAll()`，
+**没做容错**。结果 `check-sync-extra` 的本地网关 stub **没实现 `loadAll`**
+（它只实现了 `loadByUuids` 与 `applyRemote`）→ 抛错 → **整个 pull 进 error 状态**
+→ 7 条断言当场变红。
+
+教训两条，都已落地：
+
+1. **诊断性增强绝不能拖垮核心路径** —— 「数一数本机有多少条没上云」只是提示，
+   网关实现缺失或查询失败时**静默跳过**（计数保持 0），拉取照常成功；
+2. **stub 也要满足接口** —— `LocalTodoGateway.loadAll` 是接口的一部分，
+   `check-sync-extra.mjs` 的 stub 已补上。
+
+> 这正是「自检必须进 CI」的又一处价值：**一个只有本地才发现的改动，
+> 被另一个脚本的 stub 缺口当场抓住**——如果只在 macOS 上跑 `npm run check:unit`，
+> 这个缺口会一直躺着，直到某天在生产路径上炸。
+
+#### 13.38.5 断言守护
+
+新增自检**第 ⑭ 组**（11 项断言）：
+
+- `describePull` 的文案语义：远端 0 行必须明说「云端暂无你的数据」；
+  远端 N 行必须报出 N、新增数、更新数、`skipped > 0` 时必须出现「已是最新」；
+  `skipped = 0` 时**不得**出现「已是最新 0 条」；
+- 运行期：云端为空 → `localNotUploaded` = 本机待办数；上传本机全部 → 归 0；
+  云端已有数据 → 归 0 且文案含「远端 N 行」；**登出 → 归 0**。
+
+#### 13.38.6 给用户的两步操作
+
+1. 在 **macOS** 上重新登录（那台机器的会话已失效：access token 过期、
+   refresh token 已被吊销），然后点 **「上传本机全部」**；
+2. 在 **Windows** 上点「立即重试」→ 云端已有数据 → 就能拉到那 8 条。
+
+> 注意：Windows 端也建议点一次「上传本机全部」——
+> 它是按 uuid 幂等 upsert 的，重复点不会产生重复行，
+> 但能把 Windows 本机自己新增的待办也一并上云。
+
+### 13.39 「已是最新 8 条」但界面一条不显示（v0.3.5）
+
+> 需求方反馈：Windows 上仍然没有同步到数据，同步时提示
+> **「远端 8 行、新增 0 条、更新 0 条、已是最新 8 条」**，但界面上没有显示出远端的数据。
+
+#### 13.39.1 这句话把范围缩到了两个可能
+
+「已是最新 8 条」= 8 条远端行**全部**被判为 `keep`。而 `keep` 只有三种原因
+（`src/sync/merge.ts` 的 `decideMerge`）：
+
+| 原因 | 含义 | 用户会看到什么 |
+| --- | --- | --- |
+| `equal` | 两边完全一样 | **数据本来就在本地**（界面应有） |
+| `lww-local` | 本地更新 | 本地的更新版本（界面应有） |
+| `tombstone-terminal` | **本地这条是墓碑（已删除）** | **界面不会有**（`deleted = 0` 过滤掉了） |
+
+再结合一条硬事实：**8 条远端行不是「新增 8 条」，说明本地已有同 uuid 的 8 行**。
+而**本地那 8 行的 uuid 与云端相同** → **云端这 8 行就是这台机器自己传上去的**
+（否则 uuid 不同，应该是「新增 8 条」）。
+
+界面的过滤只有两处（都已核对源码）：
+
+- 全局：`TODOS_LIVE` = `WHERE deleted = 0` → **墓碑不可见**；
+- 日面板：`byDate(date)` = `date === 当前选中日期` → 过去的日期只在「全部待办」里。
+
+⇒ 只剩两种可能：**① 这 8 行是墓碑**（全局不可见）；**② 它们的日期不在当前选中日**
+（在「全部待办」里能看见，用户只是没翻过去）。
+
+#### 13.39.2 顺带查出一个**真问题**：按钮的说明用户根本看不见
+
+「上传本机全部」的解释写在 **HTML 注释**里：
+
+```vue
+<!-- 上传本机全部：自动同步只覆盖「变更驱动」的增量，… -->
+```
+
+注释只在源码里，**界面上一个字都没有**。于是用户的自然理解是「把我的数据传上去」，
+而它实际传的是**这台机器上**的待办。
+
+这次的实际经过正是如此：用户的真实数据在 **macOS** 上（8 条，日期 2026-11-01～11-18），
+他在 **Windows** 上点了「上传本机全部」→ 传上去的是 **Windows 本机**的行 →
+云端确实多了 8 行 → 回到 Windows 拉取，uuid 相同 → 「已是最新 8 条」→
+**但那 8 行不是他要的那些**（而且很可能是墓碑，界面全空）。
+
+> **这不是 bug，是语义没讲清楚。** 「上传本机全部」=「上传**本机**的全部」，
+> 这个「本机」二字必须在界面上看得见。
+
+#### 13.39.3 改法
+
+| 层 | 改动 |
+| --- | --- |
+| `src/sync/types.ts` | `MergeStats` 增加 `skippedEqual` / `skippedLocalNewer` / `skippedTombstone` / `skippedInvalid` 四个**跳过原因细分**（之和恒等于 `skipped`） |
+| `src/db/database.ts` | 两个存储适配器（SQLite / localStorage）在 `keep` 时按 `decision.reason` 计数；「云端行缺必填字段」记入 `skippedInvalid` |
+| `src/sync/engine.ts` | `describePull` 报出跳过**原因**：「跳过 8 条（本地已删除 8 条）」/「跳过 8 条（已是最新 8 条）」；并把墓碑数写进 `status.localTombstone` |
+| `src/components/layout/SyncPanel.vue` | ① 墓碑提示：「其中 N 条在本机是『已删除』状态，因此不会出现在列表里 —— 删除会传播到所有设备，这是正常的。」；② **把「上传本机全部」的说明从 HTML 注释改成可见文字**：「『上传本机全部』上传的是这台机器上的待办；另一台机器上的数据，要在那一台点一次。」 |
+
+#### 13.39.4 顺带被自检抓到的一条
+
+`describePull` 第一版直接依赖四个细分计数器。调用方若没填（如老 stub），
+**整段「跳过」信息会消失** —— 比改之前更糟。已加兜底：
+细分缺失时**至少**报出「跳过 N 条」。自检也补了对应的断言
+（`{inserted:1, updated:2, skipped:2}` → 必须含「跳过 2 条」）。
+
+#### 13.39.5 用户的两步（这次是「在哪台机器上点」的问题）
+
+1. **在 macOS 上重新登录**（那台机器的会话确实死了：access token 过期、
+   refresh token 被吊销）→ 点 **「上传本机全部」** → macOS 那 8 条真实待办上云；
+2. **在 Windows 上点「立即重试」** → 云端多出的 8 行 uuid 与 Windows 本地不同
+   → 「新增 8 条」→ 界面显示。
+
+> 云端已有的那 8 行（Windows 自己传的）不会碍事：uuid 不同，
+> 墓碑终结只作用于**同一个 uuid**，所以 macOS 的 8 条会正常插入。
+
+#### 13.39.6 断言守护
+
+第 ⑭ 组扩到 **15 项**：文案的细分语义（`本地已删除 N 条` / `已是最新 N 条` /
+细分缺失时的兜底 `跳过 N 条` / `skipped = 0` 时不出现「跳过」）+
+运行期（本机是墓碑 → `localTombstone` 被记上、文案含「本地已删除 1 条」）。
+
+---
+
+### 13.40 数据早就到了，只是落在别的日期上（v0.3.6）
+
+> 承接 §13.39：v0.3.5 把「跳过的**原因**」说清楚了，需求方在同一台 Windows 上
+> 仍然看到「界面没显示出远端的数据」。这一版把**最后一环**查清并修掉。
+
+#### 13.40.1 先把事实钉死（本机可验证的三条）
+
+| 事实 | 取证方式 | 结果 |
+| --- | --- | --- |
+| 用户真实数据在 macOS，日期**全在过去** | `~/Library/Application Support/com.poisson.todo/todo.db` 直接读库 | 8 条，日期 `2026-10-15`、`10-31`、`11-01`×3、`11-02`、`11-03`、`11-16` |
+| 应用默认只显示**今天** | `src/App.vue:36` `selectedDate = ref(dayjs().format('YYYY-MM-DD'))` | 当时是 `2026-11-26` |
+| 日面板只显示选中日 | `src/stores/todo.ts` `byDate(date)` = `date === 选中日` | 11-26 这天**一条都没有** |
+
+⇒ **数据早在登录那一次拉取时就进到 Windows 本机库了**（所以再点「立即重试」自然是
+「已是最新 8 条」），只是那 8 条全在 `2026-11-16` 及以前，
+**当天面板当然一片空白**。**同步链路没问题，坏的是「同步完不告诉用户数据在哪」。**
+
+这与 §13.39 的推断一致，并与之互补：§13.39 排除了「墓碑」这一支，
+剩下的「日期不在当前选中日」正是本机的真实情况。
+
+#### 13.40.2 改法：把「数据在哪」变成看得见、点得到
+
+| 层 | 改动 |
+| --- | --- |
+| `src/sync/types.ts` | `SyncStatus` 增加 `remoteLiveCount` / `remoteDateMin` / `remoteDateMax`（**云端活跃待办的条数与日期范围**；只算 `deleted = 0`，墓碑不算——它本来就不出现在列表里） |
+| `src/sync/engine.ts` | 新增导出 `summarizeRemoteRows(rows)`（云端活跃待办的条数与日期范围）与 `isRemoteOutsideView(dateMin, dateMax, viewDate)`（**区间是否不含当前查看日**——抽成纯函数才能被自检覆盖，藏在 `.vue` 里只有实机能验）；`pull()` 把汇总写进状态；**登出时清零**（会话没了，再说「云端有 N 条」是误导） |
+| `src/components/layout/SyncPanel.vue` | 状态区新增一条可见说明：「云端有 8 条待办，日期在 10月15日 ~ 11月16日。它们不在当前查看的日期（2026-11-26）—— 这就是列表空着的原因。」；并新增 **「查看全部待办」** 按钮（那里按日期排好，一眼看到数据在哪天） |
+| `src/components/layout/SideNav.vue` / `src/App.vue` | 「查看全部待办」的出口：SyncPanel → SideNav → App 三级事件冒泡，模块切到 `todos`；`viewDate` 顺着 props 传下去，让提示比的是**当前查看的日期**而不是「今天」 |
+| `src/stores/todo.ts` | 新增 `nearestTodoDate(exclude)`：除当天外最近一个有待办的日期（优先往后，往后没有才退回最近的过去日期） |
+| `src/components/todo/TodoListView.vue` | 当天空状态新增一条可点的提示：「其他日期还有 N 条待办 · 最近的在 11月23日」——**一点就跳过去** |
+
+> 为什么要两处（同步面板 + 当日面板）：同步面板回答的是「同步完数据去哪了」，
+> 当日面板回答的是「我看到的空列表是不是丢数据了」。后者**不依赖登录**，
+> 本地数据跨天时同样受益。
+
+#### 13.40.3 顺带抓到：CI 的 Rust 测试**偶发**失败（macOS job 红）
+
+v0.3.5 的 CI 里 **macOS job 挂在 `cargo test`**（Windows job 通过）：
+
+```
+test sqlite_path_matches_localstorage_semantics ... FAILED
+SQL 执行失败: INSERT INTO todos (title, date, priority, note) VALUES ('A', '2026-11-01', 1, '');
+error returned from database: (code: 1032) attempt to write a readonly database
+```
+
+- **错误码 1032 = `SQLITE_READONLY`(8) | `SQLITE_READONLY_DBMOVED`(4)<<8** →
+  **库文件在连接打开期间被移走**；
+- 根因：`src-tauri/tests/migration_guard.rs` 的 `temp_db_path()` 用
+  `SystemTime::now().as_nanos()` 做**唯一性后缀**，而**纳秒时间戳不保证唯一**
+  （时钟粒度可能粗到微秒级），`cargo test` 又**并行**跑多个测试 →
+  两个测试拿到同一个文件名 → 后启动的那个 `remove_file` 删掉了另一个**已打开**的库；
+- 为什么之前没发现：**v0.3.4 还是全绿**，代码一个字没改 —— 这是个**概率性**缺陷，
+  两端时钟粒度不同 → macOS 上更容易撞；
+- 修法：文件名改为 **测试标签 + 进程号 + 纳秒 + 原子计数器**四段，
+  计数器保证**同进程内绝不重复**（正是撞名的场景）；加一条不变量回归守卫
+  `temp_db_paths_are_unique_under_concurrency`（8 线程 × 250 次取名，一个都不能重）；
+- 再加一条**可移植性守护规则 R2**：Rust 测试文件里出现 `as_nanos()` / `as_millis()`
+  却**没有原子计数器** → 判红（**光有 `process::id()` 不算**——并行测试在同一个进程里跑，
+  pid 是同一个）。规则用「故意注入回归」验证过会亮。
+
+#### 13.40.4 再顺带拆掉一颗**按日历引爆**的 E2E 雷
+
+本地跑 E2E 时用例 2 红了：`emptyDay = D(5)` 找的是「空的一天」，
+但同一个用例的「跨月」步骤刚在 **`target` = `other` 所在月的下个月 1 号**建了一条待办。
+**当今天离月底 5 天时，`D(5)` 正好就是下个月 1 号** → 两者撞车 → 「空的一天」其实有 1 条 → 必挂。
+
+- 本机（UTC+8，11-26，30 天的月份）**正好命中**；CI 跑在 UTC（11-25）**还没命中** →
+  **同样的代码，CI 绿、本地红**；
+- 危险在于：**从 2026-11-26 16:00 UTC 起 CI 也会开始失败**，而且每个月的
+  「月底前 5 天」都会复发（29 天的月份是 24 日、31 天的月份是 27 日）；
+- 修法**不是**换一个偏移量（那是换个日子再爆），而是**从「测试确定没建过待办」的候选里挑**，
+  并**显式断言**挑中的日子不在已用日期集合里；
+- 验证：旧写法在 `E2E_NOW=2026-12-27` **必挂**，新写法在
+  `2026-11-27 / 2026-12-27 / 2027-01-27 / 2027-02-24 / 2026-03-01 / 2026-10-31`
+  **六个日历位置全部 6 passed**。
+
+#### 13.40.5 断言守护
+
+| 层 | 守护 |
+| --- | --- |
+| `scripts/check-sync.mjs` | 第 ⑭ 组扩到 **30 项**：新增 `summarizeRemoteRows` 的语义（排除墓碑、日期范围取最早/最晚、空集、全墓碑）+ `isRemoteOutsideView` 的四种判定（区间之前 / 区间内 / 正好在终点 / 没有区间不下判断）+ 运行期（拉取后 `remoteLiveCount` / `remoteDateMin` / `remoteDateMax` 被写上；**登出后归零**） |
+| `scripts/check-platform-portability.mjs` | 新增 **R2**：Rust 测试的临时文件名唯一性（故意注入回归验证过会亮） |
+| `src-tauri/tests/migration_guard.rs` | 新增 `temp_db_paths_are_unique_under_concurrency`（8 × 250 次取名不得重复） |
+| `e2e/todo.spec.ts` | 用例 2 补断言：空状态里**必须**有「其他日期还有 … 最近的在 …」的提示，且**一点就跳到有待办的那一天** |
+
+#### 13.40.6 本轮回归
+
+- `npm run check:unit` → **10 / 10 通过**（`check-sync` **187 项断言**，原 172）；
+- `npx playwright test` → **6 passed**；另在 **6 个日历位置**各跑一遍 → 全部 6 passed；
+- `cargo test --release` → **21 passed**（含新增的唯一性守卫）；
+- `npm run build`（`vue-tsc --noEmit` + `vite build`）→ 通过；
+- 界面复核：新空状态实拍确认（「这一天还没有待办」+「其他日期还有 1 条待办 · 最近的在 11月23日」+「创建第一条待办」）。
+
+---
+
+### 13.41 发布通道连着咬了三次：把「发布」也变成一条会红的断言（v0.3.7 的 workflow 改动）
+
+> v0.3.6 的 CI 期间才发现：**v0.3.5 其实一个资产都没有**（Release 根本没生成）。
+> 顺着这条线查下去，发现发布通道本身有结构性问题。
+
+#### 13.41.1 事实
+
+| 版本 | macOS job | Windows job | Release 资产 |
+| --- | --- | --- | --- |
+| v0.3.4 | ✅ | ✅ | **4 个** |
+| v0.3.5 | ❌ `cargo test` | ❌ `Publish release assets` | **0 个** |
+| v0.3.0 / v0.3.2 | ✅ | ❌ | 只有 **2 个**（macOS） |
+
+v0.3.5 的 Windows job 日志原文：
+
+```
+👩‍🏭 Creating new GitHub release for tag v0.3.5...
+⚠️ GitHub release failed with status: 500        ← 连返 3 次
+⚠️ Unexpected error fetching GitHub release for tag refs/tags/v0.3.5: Error: Too many retries.
+```
+
+#### 13.41.2 两个结构性问题
+
+1. **第三方 action 对 500 没有兜底**：`softprops/action-gh-release` 只对
+   422 `already_exists`（两个 job 抢建同一个 Release 的竞态）有重试，
+   **GitHub API 返回 500 时**它的内部重试只有 **4 秒、3 次** → 直接放弃。
+   而**哪个 job 先创建 Release 是不确定的**（v0.3.4 是 Windows 先建的），
+   所以这条路径随时可能踩中。
+2. **缺文件会静默通过**：`fail_on_unmatched_files: false` 让「这个文件没打出来」
+   不报错 ⇒ v0.3.0 / v0.3.2 那种「只有 2 个 macOS 资产」的残缺发布，
+   **没有任何一处会红**。
+
+#### 13.41.3 改法
+
+- **自己用 `gh` 发布并控制重试**：先试 `gh release upload`（Release 可能已被另一端
+  job 创建）→ 再试 `gh release create` → 都失败就**退避 30 秒**重来，**最多 5 次**；
+- **产物缺失直接失败**：不再静默少挂一个文件；
+- **新增 `verify-release` job**（`needs: build`）：逐个核对
+  `dmg / app.zip / setup.exe / msi` 四个资产名，30 次 × 30 秒轮询，
+  **少一个就判红**——残缺发布从此不再可能悄悄溜过去。
+
+#### 13.41.4 断言守护
+
+`check-bundle-config.mjs` 的发布通道断言从 5 条扩到 **12 条**，
+新增的关键几条：
+
+- 发布步骤**同时具备 upload 与 create 两条路径**（另一端 job 可能已创建）；
+- **退避重试至少尝试 3 次**（只匹配「有 for attempt in」会把 `for attempt in 1;`
+  这种「只试一次」的写法放过——那正是 v0.3.5 的失败形态）；
+- **重试之间有退避等待（≥ 15 秒）**；
+- **产物缺失时直接失败**；
+- `verify-release` job 存在、依赖 build、只在 tag 推送时执行、逐个核对四个资产名、
+  缺资产时判失败。
+
+每条都用**故意注入回归**验证过会亮（注入 1：只试一次；注入 2：退避改成 1 秒；
+注入 3：删掉 verify job —— 三次全部判红，还原后 62/62 通过）。
+
+#### 13.41.5 纪律更新
+
+- **发布通道也是产品**：它决定用户能不能拿到安装包，必须有断言、有重试、有核对；
+- **「发布成功」不等于「资产齐全」**：缺文件曾经静默通过，差点让两个残缺版本
+  当成正式版发出去；
+- **第三方 action 的重试策略要读**：它对 422 有兜底不等于对 500 有兜底。
+
+#### 13.41.6 v0.3.6 发版记录
+
+| 项 | 结果 |
+| --- | --- |
+| 提交 / tag | `0ccf172` / `v0.3.6`（工作流加固另起 `2080d85`，不单独发版） |
+| CI run | [45652341725](https://github.com/zzy1661/todo/actions/runs/45652341725) → **success**（macOS 与 Windows 两个 job 各 **31 步全过**） |
+| 关键步骤 | `cargo test --release`（含新增唯一性守卫）✅ · E2E **6 passed**（Windows 上同样 6 passed）✅ · 两端出包 ✅ |
+| Release 资产 | **4 个齐全**：`ScheduleTodo-0.3.6-macos-arm64.dmg` / `.app.zip` / `windows-x64-setup.exe` / `windows-x64.msi`，**匿名可下载**（HTTP 200） |
+| 本机安装 | `/Applications/日程待办.app` = **0.3.6**，启动正常，本机 `todo.db` 仍是 8 条（**数据一条没丢**） |
+| 未随本版发布 | 工作流加固（`2080d85`）只改 CI，**下次打 tag 自动生效**，不需要单独发版 |
+
+> **v0.3.5 的教训要记住**：那一版 macOS job 挂在 `cargo test`（本轮修掉），
+> Windows job 挂在发布（GitHub API 返 500），**结果一个资产都没有**——
+> 「tag 推上去了」不等于「用户能下载到」。
+
+### 13.42 「全部待办也看不到」：数据被本机的删除记录挡住了（v0.3.7）
+
+> 上一节（v0.3.6）的结论是「数据落在别的日期上」。**需求方紧接着的一句
+> 「在全部待办中也看不到数据」把这个结论推翻了**——「全部待办」不按日期过滤，
+> 如果数据真的进了本机库，它必须出现在那里。**这条反证是本轮唯一的入口。**
+
+#### 13.42.1 事实与反证
+
+| 观察 | 来自 |
+| --- | --- |
+| 「远端 8 行、新增 0 条、更新 0 条、已是最新 8 条」 | 需求方（Windows 实机） |
+| **「在全部待办中也看不到数据」** | 需求方（Windows 实机）——**这一句推翻了 v0.3.6 的日期分支结论** |
+
+「全部待办」的读取路径是 `TODOS_LIVE`（`deleted = 0`），**不带任何日期条件**。
+因此「全部待办也空」只有一种解释：**那 8 行在本机是墓碑（`deleted = 1`）**。
+而 v0.3.6 的「日期分支」结论**只可能解释日面板为空**，解释不了「全部待办也为空」——
+**上一版的根因判断是错的，必须作废**。
+
+#### 13.42.2 用 stub 把三种局面逐一复现
+
+不再靠推断。用 `scripts/check-sync.mjs` 的假云端直接造三种局面：
+
+| 本机那 8 行 | 云端同 uuid | 合并结果 | 界面可见条数 | 结论 |
+| --- | --- | --- | --- | --- |
+| 墓碑（已删） | **活的** | 全部 `tombstone-terminal`（跳过 8 条） | **0** | **用户看到的局面**：状态说「已是最新 8 条」，列表却空 |
+| 活的 | **墓碑** | 全部 `tombstone-wins`（更新 8 条） | **0** | **反向局面**：真实数据被云端墓碑反删 ⇒ **数据丢失级** |
+| 活的 | uuid **不同** | `no-local`（新增 8 条） | 8 | 正常 |
+
+第一行就是需求方的现场。第二行是**更危险的兄弟局面**——本轮一并堵住。
+
+#### 13.42.3 根因：墓碑终结（BR-28 / OPEN-01）与「上传本机全部」互相打架
+
+两个既有规则撞在一起：
+
+1. **墓碑终结**（PRD BR-28 / OPEN-01）：「已删条目不因任何非删除记录复活」。
+   ⇒ 「本机是墓碑、云端还活着」的条目**永远拉不回来**，界面上（`deleted = 0`）
+   连「全部待办」都看不到它们。
+2. **「上传本机全部」上传的是 `loadAll()`**（含墓碑）⇒ 墓碑被推到云端 ⇒
+   **别的设备拉到它就会把那边的活数据当成「已删除」清掉**（`tombstone-wins`），
+   **真实数据在所有设备上消失**；同时「换账号登录」会把旧账号的删除历史带到新账号下。
+
+所以这不是「某个函数写错了」，而是**规则之间没有出口**。必须补一个出口。
+
+#### 13.42.4 改法（三处，边界写死）
+
+| 改法 | 做什么 | **刻意不做什么**（边界） |
+| --- | --- | --- |
+| **「上传本机全部」不再上传墓碑** | 只上传「还活着」的待办；删除记录的传播交给**增量推送**（用户真的删了某条时） | 不改增量推送的语义——用户主动删除仍然传播到所有设备 |
+| **新增「找回」入口** | 把本机的墓碑行**复活**（`deleted 1 → 0`），再重新拉取，让云端的存活版本按 LWW 覆盖回来 | **只影响本机、不广播**：复活不发事件、不进推送队列 ⇒ 别的设备上的删除依然有效；**不物理删除行**（NEG-03 要求软删除） |
+| **「可找回」的判定用交集** | 「本机是墓碑」**且**「云端同 uuid 还活着」 | 云端也是墓碑的条目**不可找回**——否则按钮会给出无法兑现的承诺 |
+
+复活之后「重新拉取」这一步是必需的：只有墓碑被撤销还不够，
+必须让**云端的存活版本**按 LWW 覆盖回来（否则本地复活的是一份旧内容）。
+
+#### 13.42.5 断言守护
+
+- `check-sync.mjs` 新增**第 ⑮ 组「墓碑死锁：「上传不带墓碑」+「找回」出口」**，
+  **13 项断言**；`check-sync.mjs` 总断言 **200 项 / 十五组**（此前 187 项 / 十四组）；
+- 两个网关 stub（`check-sync.mjs` / `check-sync-extra.mjs`）同步补 `reviveTombstones`；
+- **每条都用「故意注入回归」验证过会亮**：
+  - 注入 1：让「上传本机全部」重新带上墓碑 → **2 项红**；
+  - 注入 2：让「找回」不复活墓碑 → **1 项红**；
+  - 还原后 → **200/200 通过**；
+- 新增 `scripts/check-ui-text.mjs`（界面文案自检）：
+  Vue 模板**不解析 Markdown**，正文里的 `**强调**` 会把星号原样露给用户
+  （本轮实测：同步面板里写了「撤销**本机**的删除记录」，界面真的显示了星号）。
+  编译期查不出（`vue-tsc` 只管类型）、单测也测不到（断言的是引擎产出的文案），
+  **只能靠一条机械断言**。已接进聚合器（`npm run check:unit`）与 CI。
+
+#### 13.42.6 验证结果
+
+| 项 | 结果 |
+| --- | --- |
+| `npm run check:unit` | **11 / 11 通过**（含新增 `check-ui-text`；`check-sync` 200 项断言全过） |
+| `npx playwright test` | **6 passed** |
+| `npm run build`（含 `vue-tsc --noEmit`） | 通过 |
+| `cargo test --release` | 见 §13.42.7 |
+| 界面实拍 | 「有 8 条待办在这台机器上被标记为「已删除」，但云端还留着它们…」+「找回 8 条被删除的条目」按钮，**无页面错误** |
+
+#### 13.42.7 本机数据取证与回滚能力
+
+在动登录/拉取之前先做了备份（**先备份再探查**）：
+
+- `~/Library/Application Support/com.poisson.todo/backup/todo.db.20261126-005103.bak`
+  （sqlite backup API 的一致性备份，8 行、全活跃、uuid 齐全）；
+- `todos.20261126-005103.json`（同批数据的 JSON 导出）。
+
+⇒ 本机 8 条真实数据**在任何登录/拉取操作之后都可回滚**，
+不存在「为了排查把用户数据搞没了」的风险。
+
+**本机那 8 条的 uuid 已逐条记录**（用于与 Windows 侧比对是否同一批）：
+
+```
+a1efd450-563f-46a2-9f8b-21f046014542  2026-10-15  升级前 · 上月
+4c5a74ff-6fba-4648-80b6-927fc82e81ca  2026-10-31  升级前 · 昨天
+31c94722-be8b-454a-ac95-ac86def03148  2026-11-01  升级前 · 今天高优先级
+31b22eaf-6a65-4ab6-a789-b9af6f7f68c8  2026-11-01  升级前 · 今天已完成
+59584a0f-6bf7-498d-8b2d-4667310a1402  2026-11-01  行李准备
+3a51a44f-8ee1-4353-abf4-adba54d610ff  2026-11-02  升级前 · 明天
+5190d348-7f35-4614-81f3-b108b9d8ed63  2026-11-03  GIT 开通
+1673b180-d2e1-4df7-8e65-d9886cea2421  2026-11-16  本体比较
+```
+
+#### 13.42.8 「登录即拉取」会把 macOS 的真实数据也变成墓碑 —— 所以操作顺序不能反
+
+这是本轮**最要紧的一条操作约束**，必须写死：
+
+| 情形 | 云端那 8 行 | macOS 本机 | 在 macOS 上登录会发生什么 |
+| --- | --- | --- | --- |
+| ① | **活的** | 活的 | 拉取后走 LWW，两边都是活的 ⇒ **安全** |
+| ② | **墓碑** | 活的 | 合并判 `tombstone-wins`（远端墓碑覆盖本地活数据）⇒ **macOS 的 8 条真数据也变成墓碑**（内容仍在行里，只是 `deleted = 1`） |
+
+登录成功后**立即**拉取一次（FR-SYNC-06），这一步不受用户控制。
+所以**在 Windows 侧结论明确之前，不要在 macOS 上重新登录**——
+否则最坏情况是 macOS 的真实数据也被标成已删除（可回滚，但徒增麻烦）。
+
+**两种情形的恢复路径**（等 Windows 侧文案回来后二选一）：
+
+| Windows 侧看到的 | 判定 | 恢复动作 |
+| --- | --- | --- |
+| 文案含「跳过 N 条（**本地已删除 N 条**）」**且**出现「找回 N 条被删除的条目」按钮 | 情形 ①：云端还活着 | 直接点「**找回**」→ 复活本机墓碑 → 重新拉取 → 云端存活版本按 LWW 覆盖回来 |
+| 文案含「跳过 N 条（**已是最新 N 条**）」**且没有**「找回」按钮 | 情形 ②：**云端也是墓碑** | 真数据只在本机 macOS 上 ⇒ ① macOS 用备份恢复那 8 条（退出应用 → 换回 `todo.db` → 重开）→ ② 点「**上传本机全部**」（推送体带 `deleted` 字段，会把云端那 8 行墓碑**覆盖回活的**）→ ③ Windows 点「立即重试」→ 此时应出现「找回」按钮 → 点「找回」→ 数据回到 Windows |
+
+**为什么情形 ② 不能靠 macOS 的「找回」按钮解决**：该按钮只在
+「本机是墓碑 **且** 云端同 uuid 还活着」时才出现（交集判定）——
+云端也是墓碑时**不可找回**（否则就是对用户的无效承诺）。
+
+#### 13.42.9 界面层的证据：同步套件补一条 UI 用例（v0.3.7 后续提交）
+
+引擎层的断言能证明**合并结果正确**，证明不了**界面上有没有把这件事说出来**——
+用户能不能看见「8 条待办被标记为已删除」和「找回」按钮，是另一回事。
+所以补了两条**界面层**用例（`e2e-sync/sync.spec.ts`）：
+
+| 用例 | 断言 |
+| --- | --- |
+| **S5** | 「可找回」提示出现且说清是「这台机器上」的删除记录；「找回 8 条被删除的条目」按钮在；「上传本机全部」的解释写明**删除记录不会上传**；点「找回」必须**二次确认**且确认语写清影响范围 |
+| **S6** | **没有**可找回条目时，「找回」按钮与提示**都不出现**——否则就是对用户的**无效承诺** |
+
+**夹具为什么独立成页**：浏览器环境下同步恒为未配置（AC-57 硬约束：未配置时零云端请求），
+整应用造不出「已登录 + 云端有活数据」的局面。夹具页
+（`e2e-sync/support/panel-harness.{html,ts}`）只挂载**真实的** `SyncPanel.vue`
+并替换模块级 `syncState`，**产品代码一行没动**（`initSync()` 只由 `App.vue` 调用，
+本页没挂 App，状态不会被覆盖）。
+
+**踩到并解决的两个坑**（都不该靠猜）：
+① 夹具页没引应用样式 ⇒ `.sync-panel` 没有任何布局 ⇒ 按钮在视口外，
+   Playwright 报「element is outside of the viewport」；
+② `.sync-panel` 是 `position: absolute`（相对 `.sync-area` 定位），
+   真实应用里锚在侧栏**底部**，夹具页没有侧栏 ⇒ 面板整个跑到视口外 ⇒
+   夹具页给了 `.sync-area` 一个 `min-height`。
+
+**注入回归验证**（三条都确认会红，还原后 6/6 通过）：
+删掉「可找回」提示 ⇒ S5 红；去掉二次确认 ⇒ S5 红；
+「无可找回」时也显示按钮 ⇒ S6 红。
+
+#### 13.42.10 同步套件第一次进 CI
+
+`e2e-sync/` 这一整套同步 E2E **此前从未进过 CI**——而 2026-11-25 的实机故障
+恰恰是「界面没把同步结果说出来」，这一组断言正是为它准备的。
+现在加进 workflow（与主套件**物理隔离**，`playwright.sync.config.ts` 的 `testDir` 不同，
+主套件的 6 个用例 = AC-03 回归红线不受影响）。
+
+守护断言（`check-bundle-config.mjs` 62 → **65 条**）：
+「主套件 E2E 进 CI」/「同步套件 E2E 进 CI」/「Rust 侧断言进 CI」三条，
+用**故意注入回归**验证过会红（删掉同步套件那一步 ⇒ 判红 ⇒ 还原 ⇒ 65/65 通过）。
+
+#### 13.42.11 补上「复活」这条路径的断言覆盖（真实实现，不是 stub）
+
+复查时发现一个**覆盖缺口**：`src/db/database.ts` 里真实的
+`sqliteReviveTombstones` / `localReviveTombstones`（以及 `countRecoverable`）
+**一条断言都没有**——`check-sync.mjs` 第 ⑮ 组用的是自己的 stub 网关，
+`check-db-parity.mjs` 的操作序列里也**没有「复活」这一步**。
+也就是说：桌面版真正跑的那段 SQL，**从未被任何断言碰过**。
+
+补法：把「复活」加进**双后端等价性对拍**的操作序列（14 步），并断言三条硬边界：
+
+| 断言 | 内容 |
+| --- | --- |
+| 复活条数 = 1 | 目标 uuid 确实被 `deleted 1 → 0` |
+| 复活后对界面可见 | `fetchTodos()` 里能看到它（墓碑终结被解除） |
+| **复活不广播事件** | `onLocalTodoChange` **一次都不触发**——不广播 ⇒ 不进推送队列 ⇒ 别的设备上的删除依然有效 |
+
+**注入回归验证**（两条都确认会红，还原后 PASS）：
+① 复活时也 `emitLocalTodoChange` ⇒ 「复活不广播事件」判红；
+② 复活不生效（`deleted` 仍为 1）⇒ 6 项判红（可见集、墓碑数、复活条数全不一致）。
+
+#### 13.42.12 纪律更新
+
+- **一条反证比十次正面推理更有力**：「在全部待办里也看不到」这一句，
+  直接否定了上一版已经写进文档的根因结论——**上一版的结论必须显式作废**，
+  不能含糊地「补充说明」；
+- **「状态说成功」不等于「用户看得到」**：合并统计（远端 8 行 / 已是最新 8 条）
+  与界面可见集（`deleted = 0`）**根本不是同一个集合**，指标必须对着用户可见集报；
+- **规则之间必须有出口**：墓碑终结是对的，但它与「上传本机全部」撞在一起时
+  会形成**死锁**——遇到「永远拉不回来」的局面，必须给一个**显式的本地出口**，
+  而不是让用户面对空列表猜；
+- **删除记录不要当成普通数据搬运**：它是**状态**，不是**内容**；
+  「搬内容」的动作不该顺带把「状态历史」也搬走；
+- **stub 覆盖 ≠ 真实实现覆盖**：断言打在 stub 网关上，只能证明**引擎的调用序列**对，
+  证明不了**真实的那段 SQL 对**。新加一条数据层路径时，
+  要顺手问一句「这条路径在真实实现上被哪条断言碰过」——
+  本轮就是靠这句话发现了「复活」路径**一条断言都没有**；
+- **会立刻改变数据的动作，必须先说清它的顺序风险**：登录 = 立即拉取，
+  拉取会把云端的删除记录落到本机。所以**在另一台设备的结论明确之前，
+  不要在真数据所在的机器上登录**——这不是「操作顺序讲究」，
+  是「顺序错了会改数据」。
+
+#### 13.42.13 v0.3.7 发版记录
+
+| 项 | 结果 |
+| --- | --- |
+| 提交 / tag | `1a1b2cc` / `v0.3.7`（后续两个提交 `7024d40` / `e8a0a90` 只加测试与 CI 接线，**不单独发版**） |
+| CI run | [45660501141](https://github.com/zzy1661/todo/actions/runs/45660501141) → **success**（macOS 与 Windows 两个 job 各 **34 步全过** + `verify-release` job 核对四资产通过） |
+| 关键步骤 | `cargo test --release` ✅ · E2E 基线 **6 passed**（Windows 上同样 6 passed）✅ · 两端出包 ✅ · **新加的 `check-ui-text` 两端都过** ✅ |
+| Release 资产 | **4 个齐全**：`ScheduleTodo-0.3.7-macos-arm64.dmg`（3 378 793 B）/ `.app.zip`（3 146 961 B）/ `windows-x64-setup.exe`（4 151 917 B）/ `windows-x64.msi`（5 177 344 B），**匿名可下载**（不带任何凭据，四个全部 **HTTP 200** 且字节数与资产大小逐个吻合） |
+| 本机安装 | `/Applications/日程待办.app` = **0.3.7**，启动正常，本机 `todo.db` 仍是 8 条全活跃（**数据一条没丢**） |
+| 后续提交的验证 | 带同步套件的分支 run（`7024d40`）**Windows job 也 success** ⇒ `npm run test:sync` 在 Windows 上通过，新接线的同步套件不是「只在 macOS 绿」 |
+| 发布通道 | 这是**第一个用加固后 workflow 发布**的版本：`gh` + 退避重试 + 产物缺失直接失败 + `verify-release` 核对四资产（v0.3.5 的 0 资产事故不再可能静默发生） |
+
+**这一版的净结论**：引擎侧「合并结果对不对」有 200 项断言、
+界面侧「说不说得出」有 2 条 E2E、数据层「真实实现对不对」有双后端对拍，
+三层都做了注入回归验证。剩下的唯一未知是**云端那 8 行到底是不是墓碑**——
+这个事实必须由 Windows 实机的状态文案给出（**零风险**），本机数据已备份兜底。
+
+---
+
+### 13.43 发布核对 job 自己坏了：`gh` 在没有 checkout 的目录里猜不到仓库（v0.3.8）
+
+> v0.3.7 的两个构建 job 全绿、四个资产**全部上线且匿名可下载**（逐个 HTTP 200 +
+> 字节数吻合），但第三个 job `verify-release` **判红**，
+> 日志连续 30 轮写着「还缺四个资产」——**而四个资产当时全都在**。
+
+#### 13.43.1 事实
+
+| 项 | 结果 |
+| --- | --- |
+| `Windows (NSIS + MSI)` | **success**（34 步全过） |
+| `macOS (arm64 · .app + .dmg)` | **success**（34 步全过） |
+| `Verify release assets (must be 4)` | **failure**（连续 30 轮误报「四个全缺」） |
+| Release 实际状态 | **四个资产齐全**，`gh release view` 与匿名下载都确认过 |
+
+日志原文（每轮都一样，直到第 30 轮才退出）：
+
+```
+第 29 次核对：还缺 ScheduleTodo-0.3.7-macos-arm64.dmg …msi，30 秒后再看
+第 30 次核对：还缺 ScheduleTodo-0.3.7-macos-arm64.dmg …msi，30 秒后再看
+发布资产不完整，缺： …（四个全列出来了）
+```
+
+#### 13.43.2 根因：`gh` 从**当前目录的 git remote** 推断仓库
+
+`gh` 的默认行为是「在当前目录找 git remote，推断是哪个仓库」。
+而 `verify-release` job **没有 `actions/checkout` 步骤** ⇒ 它的目录不是 git 仓库 ⇒
+
+```
+failed to run git: fatal: not a git repository (or any of the parent directories): .git
+```
+
+这句错误又被脚本里的 `2>/dev/null || true` **吞掉** ⇒ `have` 恒为空串 ⇒
+`grep -qx` 一个都匹配不上 ⇒ **每一轮都判定「四个全缺」**。
+
+本机复现（同一段命令，区别只在目录是不是 git 仓库）：
+
+```
+$ cd /tmp && gh release view v0.3.7 --json assets --jq '.assets[].name'
+failed to run git: fatal: not a git repository (or any of the parent directories): .git
+
+$ cd <仓库目录> && gh release view v0.3.7 --json assets --jq '.assets[].name'
+ScheduleTodo-0.3.7-macos-arm64.app.zip
+ScheduleTodo-0.3.7-macos-arm64.dmg
+ScheduleTodo-0.3.7-windows-x64-setup.exe
+ScheduleTodo-0.3.7-windows-x64.msi
+```
+
+**这个失败最坏的地方**：它长得像「产物没打出来 / 发布没成功」，
+但实际是「**检查根本没跑起来**」——会把排查方向引到完全错误的地方
+（去查打包、查 GitHub API 限流），而真正的问题只是命令行少了一个参数。
+
+**为什么构建 job 里的 `gh release upload/create` 没出问题**：那个 job **有 checkout**
+（`needs` 之前的第一步就是它），目录是 git 仓库 ⇒ `gh` 能推断出仓库。
+⇒ **同一个 `gh`，在有 checkout 的 job 里好使，在没有 checkout 的 job 里必然失败**——
+这类差异**编译期查不出来、也不会在本地复现**。
+
+#### 13.43.3 改法与守护
+
+- **改法**：所有 `gh release …` 调用显式带 `-R "$GITHUB_REPOSITORY"`
+  （发布两处 + 核对一处），不再依赖「当前目录恰好是 git 仓库」；
+- **守护**（`check-bundle-config.mjs` 65 → **68 条**）：
+  ①「存在 gh release 调用」；
+  ②「所有 gh release 调用都显式指定仓库（`-R "$GITHUB_REPOSITORY"`）」——
+  判定前**先剥掉注释行**（workflow 里为了讲「为什么」写了不少提到 `gh release` 的注释，
+  不剥掉会把注释当成「没带 `-R` 的命令」而误报）；
+  ③「`verify-release` job 没有 checkout —— 所以 `-R` 是唯一可行的仓库来源」；
+- **注入回归验证**（三条都确认会红，还原后 68/68 通过）：
+  去掉 verify 的 `-R` ⇒ 判红；去掉 publish 的 `-R` ⇒ 判红；
+  给 verify job 加 checkout ⇒ 第 ③ 条判红。
+
+#### 13.43.4 版本策略
+
+按仓库惯例（**tag 从不复用**），v0.3.7 的 tag 已发布且其 `verify-release` job 失败，
+**改发 v0.3.8：产品代码与 v0.3.7 完全一致，仅修发布核对链**——
+与 v0.3.0 → v0.3.1 当时的处理方式一致（§13.35）。
+
+#### 13.43.5 纪律更新
+
+- **「核对失败」要先问「核对跑起来了吗」**：失败信息说「缺 N 个」，
+  不等于「真的缺 N 个」——**先确认检查本身有没有跑起来**（这一步本轮花了几轮才想到）；
+- **依赖「当前目录」的命令必须显式指定目标**：凡是靠 cwd 推断仓库 / 路径 / 配置的命令
+  （`gh`、`git`、`npm` workspace），在 CI 里都要显式传参——**CI 的每个 job 的 cwd 不一样**；
+- **`|| true` 是错误的藏身处**：它让「命令根本跑不起来」和「命令跑起来但结果是空」
+  变成同一件事，本轮就是这个 `|| true` 掩盖了真正的错误信息。
+
+#### 13.43.6 v0.3.8 发版记录
+
+| 项 | 结果 |
+| --- | --- |
+| 提交 / tag | `6034a0e` / `v0.3.8`（**产品代码与 v0.3.7 完全一致**，仅修发布核对链） |
+| CI run | [45667199347](https://github.com/zzy1661/todo/actions/runs/45667199347) → **success**（**三个 job 全绿**：macOS 35 步 / Windows 35 步 / **verify-release 3 步**） |
+| verify-release | **success** —— 这一轮**真的跑起来了**（v0.3.7 那轮是「检查没跑起来」），四个资产名逐个核对通过 |
+| 关键步骤 | `cargo test --release` ✅ · E2E 基线 **6 passed** ✅ · **E2E 同步套件 6 passed** ✅（两端都过） · `check-ui-text` ✅ · 两端出包 ✅ |
+| Release 资产 | **4 个齐全**：`ScheduleTodo-0.3.8-macos-arm64.dmg`（3 378 817 B）/ `.app.zip`（3 147 038 B）/ `windows-x64-setup.exe`（4 152 527 B）/ `windows-x64.msi`（5 177 344 B），**匿名可下载**（不带任何凭据，HTTP 200 且字节数逐个吻合） |
+| 本机安装 | `/Applications/日程待办.app` = **0.3.8**，启动正常，本机 `todo.db` 仍是 8 条全活跃（**数据一条没丢**） |
+| 与 v0.3.7 的关系 | **功能完全一致**，只有发布核对链不同；**Windows 用户装 v0.3.8 即可**，v0.3.7 的四个资产也已上线（但那次的 CI 有一条红） |
+
+---
+
+### 13.44 桌面端的同步**从来没有生效过**：一行注释吞掉了整个 `WHERE`（v0.3.9）
+
+> 需求方反馈：「还是不行，你看看同步到数据后，是否会更新前端数据」。
+> 这一问直接指向了正确的地方 —— 但查下去发现的不是「前端没刷新」，
+> 而是**数据压根没进过本机库**。而根因只有**一个字符**。
+
+#### 13.44.1 事实与追问
+
+先把「前端刷新链路」逐个查了一遍（结论：**它是对的**）：
+
+| 环节 | 位置 | 结论 |
+| --- | --- | --- |
+| 云端行 → 本机库 | `engine.pull()` → `local.applyRemote(rows)` | ✅ 有写入（`INSERT` / `UPDATE` 都带 `date`） |
+| 本机库 → 界面 | `onMerged` → `reloadAfterSync()` → `state.todos = await fetchTodos()` | ✅ 有刷新 |
+| 界面 → 组件 | `allTodos` / `byDate` 都是 `computed(() => state.todos)` | ✅ 是响应式的 |
+| 启动时序 | `App.vue` 先 `await initTodos()` 再 `initSync()` | ✅ 没有覆盖竞态 |
+
+**既然刷新链路是对的，那前端没数据就只有一个可能：数据没进本机库。**
+于是掉头去查「云端行怎么进本机库」，用**真实产品代码**跑复现
+（真实 `SyncEngine` + 真实 `src/db/database.ts` 的 **SQLite 路径** + 假云端），
+第一句报错就是：
+
+```
+lastError: column index out of range
+```
+
+#### 13.44.2 根因：一行 `--` 注释，吞掉了整个 `WHERE`
+
+`src/db/database.ts` 里同步网关的全量读取常量：
+
+```ts
+const TODOS_ALL = `SELECT ${TODO_COLUMNS} FROM todos -- sync-all-rows`;
+```
+
+而它是被当作**前缀**用的：
+
+```ts
+const existing = await db.select<TodoRow[]>(`${TODOS_ALL} WHERE uuid = ?`, [remote.uuid]);
+```
+
+`--` 是**行注释**，会吞掉**该行剩下的全部内容**。拼出来的是：
+
+```sql
+SELECT id, uuid, title, … FROM todos -- sync-all-rows WHERE uuid = ?
+                                        ↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑
+                                        WHERE 整段落进了注释
+```
+
+⇒ 查询变成「**查全部行**」，`WHERE` 没了。
+
+#### 13.44.3 后果不是报错，是**静默地算错**（这才是它躲过所有测试的原因）
+
+桌面驱动是 **sqlx + SQLite**（`tauri-plugin-sql` 用的就是它）。
+在这种驱动上，这条语句**不报错**，而是**安静地做错事**：
+
+| 位置 | 错误后果 |
+| --- | --- |
+| `fetchTodoSyncRows([uuid])` | 返回**全部**行，不是那一条 |
+| `applyRemoteTodos` | `existing[0]` 被当成本机同 uuid 的那一行 ⇒ **每一次合并判定都拿另一个无关的行算** |
+
+于是合并的结果就是：拿一个无关本地行的时间戳去和云端比 ⇒ 多半判成 `lww-local`
+（保持本地不变）⇒ **云端的数据永远合不进来** ⇒ 界面一条都不显示。
+
+**而状态区会报出**：
+
+```
+已拉取（登录） · 远端 8 行、新增 0 条、更新 0 条、已是最新 8 条
+```
+
+**这正是 2026-11-25 需求方报的原话。** 至此，实机反馈的每一个字都对上了：
+「同步了」「远端 8 行」「新增 0 条」「更新 0 条」「已是最新 8 条」「界面上一条都不显示」。
+
+> **三种表现，同一个根因**：
+> - **浏览器路径**（localStorage）：不拼 SQL ⇒ **毫无症状**，E2E 与同步层断言全绿；
+> - **Node 路径**（`node:sqlite`）：绑值报错 `column index out of range` ⇒ **能抓到**；
+> - **桌面路径**（sqlx + SQLite）：绑定值被**静默忽略**、过滤条件失效 ⇒ **安静地算错**。
+>
+> **只有真正出货的那条路径会静默出错** —— 这是它能一路躲过 6 轮版本的原因。
+
+#### 13.44.4 这个 bug 藏了多久
+
+`TODOS_ALL` 的写法从**同步层第一版**（`ef23869`）就是这样，
+`git log -L` 显示它**从未被改过**。也就是说：
+
+> **桌面版的同步（拉取与推送）从落地那天起就没工作过。**
+> 前几轮一直在追「日期分支」「墓碑死锁」「发布核对链」，
+> 都不是这一条 —— 但这一条才是**「同步了却什么都没有」的底座原因**。
+
+#### 13.44.5 改法与守护（三层，全部做过注入回归）
+
+1. **改法（一处）**：标记从行注释改成**块注释** ——
+   ```ts
+   const TODOS_ALL = `SELECT ${TODO_COLUMNS} FROM todos /* sync-all-rows */`;
+   ```
+   块注释**不吞行尾**，后面拼的 `WHERE uuid = ?` / `WHERE uuid IN (?, …)` 照样生效；
+   静态检查器认的仍是 `sync-all-rows` 这个标记。
+
+2. **守护 A · 源码级**（`check-deleted-filter.mjs`）：
+   「`TODOS_ALL` 的标记**必须**是块注释」—— 注入行注释 ⇒ 判红 2 项。
+
+3. **守护 B · 真实 SQLite 路径**（**新增** `scripts/check-db-sync.mjs`）：
+   用 `node:sqlite` 接管 invoke 通道，跑**真实的 `src/db/database.ts`**，
+   把同步网关三个函数（`fetchTodoSyncRows` / `applyRemoteTodos` / `reviveTombstones`）
+   连同本地增删改**逐条真跑**，并断言**前端读的那张表**里确实出现了数据；
+   外加一条机械校验：**每条发出去的 SQL，去掉注释后的 `?` 个数必须等于绑定值个数**
+   （挡住「注释吞占位符」这一整类缺陷）。
+   注入回归：把标记改回行注释 ⇒ 脚本以 `column index out of range` 判红。
+
+4. **守护 C · 桌面驱动级**（**新增** `src-tauri/tests/sync_sql_guard.rs`，4 条 Rust 断言）：
+   用**桌面真正用的 sqlx + SQLite**把两种写法都真跑一遍：
+   - 行注释写法：**过滤条件必须失效**（锁住「静默算错」这个形态）；
+   - 块注释写法：**过滤条件必须生效**；
+   - `IN (?, ?)` 批量条件同样成立；
+   - 墓碑行必须能被同步网关读出来。
+   这条测试还写清了「为什么 Node 侧报错、桌面侧静默」，
+   免得以后有人以为「SQLite 会报错」而改错方向。
+
+#### 13.44.6 修完之后
+
+用同一套复现（真实 SQLite 路径 + 真实引擎 + 假云端）重跑：
+
+```
+场景 A：本机是墓碑 + 云端是活的
+  登录后状态文案: 已拉取（登录） · 远端 3 行、新增 0 条、更新 0 条、跳过 3 条（本地已删除 3 条）
+  recoverableCount: 3
+  ★ 前端此刻能看到: { count: 3, titles: [ '本机待办-3', '本机待办-2', '本机待办-1' ] }
+```
+
+**数据真的进了本机库，前端真的读到了。** 修之前这一步是 0 条。
+
+#### 13.44.6.1 真实桌面应用上的实测（不是模拟）
+
+把 v0.3.9 装到本机（`/Applications/日程待办.app` = 0.3.9）并启动后，
+本机 `todo.db` 的行数从 **8 行 / 8 条活跃** 变成 **13 行 / 12 条活跃**，
+新增的 5 行**全部来自云端**：
+
+| uuid | 日期 | 标题 | deleted |
+| --- | --- | --- | --- |
+| 42171aa9-… | 2026-11-22 | 1 | **1**（云端墓碑，界面上不可见 ✓） |
+| 15ca1737-… | 2026-11-26 | skill对接 | 0 |
+| 28153595-… | 2026-11-26 | 知识库对接 | 0 |
+| 0fbc3c75-… | 2026-11-26 | esp sso调试 | 0 |
+| 6a66e7d3-… | 2026-11-26 | esp平台调试问题 | 0 |
+
+**⇒ 云端本来就有数据（另一台设备建的待办），而 v0.3.9 之前的那次拉取
+「远端 N 行、已是最新 N 条」把它们**全部丢掉了**；修好之后它们真的进了本机库。**
+本机原有那 8 条（uuid `a1efd450…` / `4c5a74ff…` / `31c94722…` / `31b22eaf…` /
+`59584a0f…` / `3a51a44f…` / `5190d348…` / `1673b180…`）**一条没动、也没被云端墓碑化**
+——说明这 5 行与本机的 8 行**不是同一批**，两者现在**并存**。
+
+**界面截图未能取证（BLOCKED，非 FAIL）**：本机未授予「屏幕录制」权限，
+`screencapture` 报 “could not create image from window”
+（`scripts/mac-capture-window.sh` 已明确区分这两种失败）。
+本节证据因此取自**数据库直读**与应用行为，不含界面截图。
+
+#### 13.44.6.2 v0.3.9 发版记录
+
+| 项 | 结果 |
+| --- | --- |
+| 提交 / tag | `7be692f` / `v0.3.9`（`b6f43af` 是随后的注释口径修正，不改行为，不单独发版） |
+| CI run | [45851425138](https://github.com/zzy1661/todo/actions/runs/45851425138) → **success**（**三个 job 全绿**：macOS 36 步 / Windows 36 步 / **verify-release 3 步**） |
+| 关键步骤 | **新增 `check-db-sync` 两端都过** ✅ · Rust **25 项**（含新增 `sync_sql_guard` 4 条）✅ · E2E 基线 6 passed ✅ · **E2E 同步套件 6 passed** ✅ · 两端出包 ✅ |
+| 自检 | `npm run check:unit` **12 / 12**（新增 `check-db-sync`） |
+| Release 资产 | **4 个齐全**：`ScheduleTodo-0.3.9-macos-arm64.dmg`（3 378 782 B）/ `.app.zip`（3 146 987 B）/ `windows-x64-setup.exe`（4 151 464 B）/ `windows-x64.msi`（5 177 344 B），**匿名可下载** |
+| 资产 sha256（GitHub API 记录） | dmg `ca37f238…4ad07c` · app.zip `da49894a…c93ea5` · setup.exe `31733228…c9ba714f` · msi `11fa1886…b9aef0f` |
+| 匿名下载核对 | 不带任何凭据**逐个整包下载**，**大小与 sha256 与 GitHub 记录逐位吻合**（四个资产全过）。`file` 判定：setup.exe = `PE32 executable (GUI) … Nullsoft Installer self-extracting archive`；app.zip 内含完整 `.app` 结构（`Contents/MacOS/`、`_CodeSignature/CodeResources`、`Info.plist`） |
+| 本机安装 | `/Applications/日程待办.app` = **0.3.9**，启动后**真的把云端 5 行拉进了本机库**（8 行 → 13 行） |
+| 全仓扫描 | 对 `src/**` 与 `src-tauri/src/**` 的**所有 SQL 串**做了一遍「占位符是否落在注释里」的扫描 ⇒ **没有第二处**（唯一命中是本节说明故障形态的注释） |
+
+#### 13.44.7 纪律更新
+
+- **「界面没数据」先分清是哪一层**：数据没进库 / 进了库但界面没刷新 / 界面过滤掉了。
+  逐层查，别一上来就改界面；
+- **静默失败比报错可怕**：这个 bug 在**唯一出货的那条路径上不报错**，
+  只是安静地拿错了数据算 —— **凡是「查询条件被丢掉」这类问题，
+  一定要有一条断言直接盯住「过滤条件是否生效」**，
+  而不是只盯住「查询有没有报错」；
+- **同一个根因在不同驱动上表现不同**：浏览器不拼 SQL、Node 报错、桌面静默。
+  ⇒ **验证必须跑在出货的那条路径上**（这里是 sqlx + SQLite），
+  「本地跑过」这句话只有在**同一条代码路径**上才成立；
+- **一条断言要盯住「结果」，不是「不报错」**：本次 Rust 断言的第一版就写成
+  「行注释写法必须报错」，实测发现桌面驱动**根本不报错** ⇒ 断言本身是错的，
+  必须按**真实行为**重写。
+
+### 13.45 同步状态区收敛：日常只留「状态 + 一行时间 + 一行云端摘要」（v0.3.10）
+
+#### 13.45.1 需求与判断
+
+需求方在 v0.3.9 解决「同步后界面看不到数据」之后的原话：
+
+> 目前问题已经解决，但左下角的同步面板不需要显示这么多信息
+
+这是**减法型需求**。v0.3.9 的面板在实机（已登录、云端有数据）展开后是**一屏字**：
+账号 email、状态、操作日志、上次同步（含秒与「成功」）、自动同步周期（含「下次 …」）、
+云端为空的三行解释、本机墓碑的两行解释、可找回的三行解释、云端摘要的两行解释、
+「上传本机全部」的两行解释 —— **最多 11 段 / 约 15 行**。
+
+**判断**：状态区是**侧栏角落**，不是排障面板。它该回答的是「同步好了吗、数据在哪」，
+其余要么按需出现、要么下沉到悬停说明。于是定四条口径：
+
+| 口径 | 内容 |
+| --- | --- |
+| ① 常驻只留三类 | 状态、一行「上次同步 …」、一行云端摘要 |
+| ② 解释按需出现 | 出错、要用户行动时才显示（未配置 / 未上传 / 可找回 / 错误两行） |
+| ③ 知识可以下沉、不能删 | 「多久自动同步一次」「删除记录不会上传」→ 按钮 `title` |
+| ④ 动作反馈必须留着 | 用户点了「上传本机全部」/「找回」要有回应 ⇒ `SyncStatus.notice`，短暂出现 |
+
+#### 13.45.2 改前 / 改后对照（逐段）
+
+| # | 改前（v0.3.9，常驻） | 改后（v0.3.10） |
+| --- | --- | --- |
+| 1 | 状态「已登录」 | 状态「已登录」（保留） |
+| 2 | 账号 email | **删除** |
+| 3 | 操作日志 `status.detail`（常驻） | **删除**（只在出错时显示） |
+| 4 | 上次同步 11月26日 09:30:00 · 成功 | 上次同步 11月26日 09:30（**去秒、去「· 成功」**） |
+| 5 | 每 2 天自动同步 · 下次 11月28日 09:30 | **常驻删除** → 进「立即重试」按钮 `title` |
+| 6 | 云端摘要（条数 + 日期 + 「这就是列表空着的原因」） | 云端 8 条 · 10月15日~11月16日 ／ 不在 11月26日（仍是 2 行，每行更短） |
+| 7 | 本机未上传（3 行解释） | 云端还没有你的数据，本机有 N 条待办未上传。（**1 行**） |
+| 8 | 可找回（3 行解释） | 有 N 条被标记为已删除，点「找回」恢复（只影响这台机器）。（**2 行**） |
+| 9 | 本机墓碑（2 行解释） | **删除**（该信息已并进 ⑧） |
+| 10 | 「上传本机全部」常驻 2 行解释 | **删除** → 进该按钮 `title` |
+| 11 | 错误只显示 `lastError` | 错误两行：`status.detail` + `lastError`（软提示） |
+| ＋ | — | **新增**：动作反馈 `notice`（主色，5 秒后自动退场） |
+
+**常驻文字：最多 11 段 / 约 15 行 ⇒ 4 段 / 4~5 行。**
+
+#### 13.45.3 实现要点
+
+1. **派生文案**（`src/stores/sync.ts`）：`lastSyncText()` 去秒与结果后缀；
+   `autoSyncText()` 只留周期。
+   「结果」改由**状态行**承担（`已登录` = 上次成功，`同步失败` = 上次失败）——
+   两者并排是同一件事说两遍。
+2. **动作反馈**（`src/sync/types.ts` / `src/sync/engine.ts` / `SyncPanel.vue`）：
+   新增 `SyncStatus.notice`；引擎在 `pushAllLocal()` / `recoverDeleted()` 成功后写一次，
+   **每轮同步开始即清空**；面板监听它，显示一行主色文字，**5 秒后自动退场**。
+   **为什么不复用 `status.detail`**：`detail` 是「当前状态描述」，成功后会一直挂着；
+   `notice` 是「刚刚发生的事」，必须会自己消失。
+3. **断词修复**：中文可在任意字符间断行 ⇒「… · 不在 11月26日」在 232px 面板里会被折成
+   「… · 不」/「在 11月26日」。日期区间与「不在 X」各用 `white-space: nowrap` 锁住，
+   「不在 X」另起一行。
+4. **可找回提示与按钮是两回事**：提示说「有 N 条」，按钮给出口；
+   提示按需出现，按钮由 `recoverableCount` 直接控制（`recoverableCount` 为 0 时两者都不出现）。
+
+#### 13.45.4 断言守护（全部做过注入回归）
+
+| 断言 | 位置 | 注入的回归 | 结果 |
+| --- | --- | --- | --- |
+| 上传本机全部后必须给出结果反馈（`notice`） | `check-sync.mjs` 第 ⑭ 组 | 删掉 `pushAllLocal` 的 `notice` | **1 / 203 判红** ✅ |
+| 新一轮同步开始后，上一条动作反馈必须清空 | `check-sync.mjs` 第 ⑭ 组 | 同上（同段） | ✅ |
+| 面板常驻文字只有四段，且不含「下次 …」「· 成功」「删除记录不会上传」 | E2E **S7** | store 恢复秒与「· 成功」 | **S7 判红** ✅ |
+| 同上 | E2E **S7** | 面板塞回一段常驻说明 | **S7 判红** ✅ |
+| 动作反馈出现后 5 秒内自动退场 | E2E **S8** | `NOTICE_LIFETIME_MS` 改成 10 分钟 | **S8 判红** ✅ |
+
+另改写 S5 的旧文案断言（「删除记录不会上传」改断言按钮 `title`；
+S5 仍守着「可找回」的表达与「找回」的二次确认）。
+
+#### 13.45.5 验证结果
+
+| 项 | 结果 |
+| --- | --- |
+| `npm run check:unit` | **12 / 12**（`check-sync` **203 项** / 十五组） |
+| `npx playwright test` | **6 passed**（基线红线未动） |
+| `npx playwright test -c playwright.sync.config.ts` | **8 passed**（S1~S8，新增 S7 / S8） |
+| `npm run build`（vue-tsc + vite） | **通过**（顺带抓出并修掉一个 `autoText` 未使用的类型错误） |
+| 界面取证 | Playwright 对面板夹具实拍，**有图**（不受本机「屏幕录制」权限限制） |
+
+#### 13.45.6 v0.3.10 发版记录
+
+| 项 | 结果 |
+| --- | --- |
+| 提交 / tag | `df380c5`（功能）/ `2886a99`（注释口径修正，不改行为）/ `f4985c7`（CI 步骤名措辞） / **`v0.3.10`**（tag 打在 `df380c5` 上） |
+| CI run | [45983778053](https://github.com/zzy1661/todo/actions/runs/45983778053) → **success**（**三个 job 全绿**：macOS 36 步 / Windows 36 步 / **verify-release 3 步**） |
+| 关键步骤 | 自检 12 步（含 `check-db-sync`）✅ · Rust **25 项** ✅ · E2E 基线 **6 passed** ✅ · **E2E 同步套件 8 passed** ✅（新增 S7 / S8 在 CI 上同样绿）· 两端出包 ✅ |
+| 自检（本机） | `npm run check:unit` **12 / 12**（`check-sync` **203 项** / 十五组） |
+| Release 资产 | **4 个齐全**：`ScheduleTodo-0.3.10-macos-arm64.dmg`（3 377 673 B）/ `.app.zip`（3 146 630 B）/ `windows-x64-setup.exe`（4 151 525 B）/ `windows-x64.msi`（5 177 344 B），**匿名可下载**（HTTP 200，不带任何凭据） |
+| 资产 sha256（GitHub API 记录） | dmg `47c0e150…c40d2de8` · app.zip `f442247f…1cf5c62e26` · setup.exe `20168b89…c2b6bc` · msi `eb843dc6…29fddea23` |
+| 匿名下载核对 | 不带任何凭据**逐个整包下载**，**大小与 sha256 与 GitHub 记录逐位吻合**（四个全过）。`hdiutil verify` ⇒ dmg 校验和 **VALID**；app.zip 内含完整 `.app` 结构（`Contents/MacOS/`、`_CodeSignature/CodeResources`），`Info.plist` 的 `CFBundleShortVersionString` = **0.3.10**；`file` 判定 setup.exe = `PE32 executable (GUI) … Nullsoft Installer self-extracting archive`、msi = `Composite Document File V2 … Windows Installer XML Toolset (3.14.1)` |
+| 本机安装 | `/Applications/日程待办.app` = **0.3.10**，已启动；本机库 **19 行 / 18 条活跃**（云端仍在往下同步，v0.3.9 拉进来的 5 行之后又增了 6 行） |
+
+#### 13.45.7 纪律更新
+
+- **面板是角落，不是排障面板**：常驻信息只回答「好了吗 / 在哪」；
+- **减法需求要配加法断言**：不钉住，下次迭代就把说明加回来了；
+- **动作反馈 ≠ 常驻信息**：反馈要短、要自己退场；
+- **知识可以下沉，不能删掉**：下沉到 `title` 的判据是「想知道的人能看到，不想看的人看不见」；
+- **结果别与状态并排**：「上次同步 09:30 · 成功」与状态行「已登录」是同一件事说两遍。
+
+---
+
+## 14. AC-01 ~ AC-71 统一判定台账（71 行）
 
 > 本节是 **M2 台账统一**的产物（ZACHTD-14）：把 §3（S7，AC-01~56）与 §13（S10.5，AC-43 重判 + AC-57~68）两段结论**并成一张可逐条引用的账**。M2 那轮**一行都没有改判**；只修了附录 A.2 的重复计数，并新增两条「判定含义注」。
 > **S7.9（ZACHTD-19）在 M2 之后改判了 5 行**：AC-41（`BLOCKED` → **PASS**，证据来源为人工验收确认）、AC-59（子项 NV → PASS）、AC-65（`NOT-VERIFIED` → PASS）、AC-66（② 子项 NV → PASS 等价判据）、AC-68（CI 子项 NV → PASS）。证据统一在 **§13.18**。
@@ -1388,8 +3817,8 @@ Leader 随即在 02:30 单独追问「已人工验证是否包含 AC-41（关 Wi
 
 **读这张表之前先读四条口径**
 
-1. **68 = 56 + 12**：AC-01 ~ AC-56（56 条）+ AC-57 ~ AC-68（12 条）。**AC-43 是 AC-01~56 段内的重判，不是第 13 条**，在 68 条里只计一次。合计 = 56 PASS（AC-01 ~ AC-56，含 AC-41）+ 12 PASS（AC-57 ~ AC-68）= **68 PASS / 0 FAIL / 0 BLOCKED / 0 NOT-VERIFIED**（S7.9 后；S7.9 前为 66 / 0 / 1 / 1）。
-2. **`68 PASS` ≠ 68 条都有 Tester 侧完整证据。** 其中 **1 条是「主判 PASS + 子项 `NOT-VERIFIED`」**：**AC-58**（TC-062 真实已登录态截图）。另有三条是 **Leader 实测、Tester 复核文字**（**AC-65** / **AC-66②** / **AC-68 的 CI**），一条是 **人类实机人工验收**（**AC-41**，Leader 2026-11-01 拍板记 PASS）——**口径不能比事实窄**，但也**不得把「Leader 实测 / 人类验收」写成「Tester 已取证」**，两条都按证据来源标注。
+1. **71 = 56 + 14 + 1**：AC-01 ~ AC-56（56 条）+ AC-57 ~ AC-70（14 条）+ **AC-71**（1 条，v1.30 / v0.3.10 新增：同步状态区收敛）。**AC-43 是 AC-01~56 段内的重判，不是新增的一条**，在 71 条里只计一次。合计 = 56 PASS（AC-01 ~ AC-56，含 AC-41）+ 14 PASS（AC-57 ~ AC-70）+ 1 PASS（AC-71）= **71 PASS / 0 FAIL / 0 BLOCKED / 0 NOT-VERIFIED**（S7.9 后；S7.9 前为 66 / 0 / 1 / 1）。
+2. **`70 PASS` ≠ 70 条都有 Tester 侧完整证据。** 其中 **2 条是「主判 PASS + 子项 `NOT-VERIFIED`」**：**AC-58**（TC-062 真实已登录态截图）与 **AC-69**（真实云端侧定时轮次）。另有三条是 **Leader 实测、Tester 复核文字**（**AC-65** / **AC-66②** / **AC-68 的 CI**），一条是 **人类实机人工验收**（**AC-41**，Leader 2026-11-01 拍板记 PASS）——**口径不能比事实窄**，但也**不得把「Leader 实测 / 人类验收」写成「Tester 已取证」**，两条都按证据来源标注。
 3. **AC-67 的账是「凭据 0 / 文本 1」**（§13.10 / §13.17-b），不是「三处均无命中」；**产物侧分两笔**（前端字节看 `dist/` 带正控，二进制 `strings` 只覆盖 Rust 与未压缩层）。**S1 白名单已闭环**（`config.ts:63-66/98` + `check-sync.mjs` 78 项断言；2 放行 / 3 拒绝的形态矩阵见 §13.17-c）。
 4. **「主判 PASS + 辅助项 BLOCKED」不减判**：AC-15 / AC-19 / AC-23 / AC-29 / AC-34 / AC-40 / AC-47 / AC-55 等桌面取证项按 §0 判定纪律记 `BLOCKED（环境：TCC 未授权）`，不改变 AC 判定；主 TC 完全依赖人工桌面操作时才判 BLOCKED——**S10.5 轮唯一一条是 AC-41，S7.9 已由人类实机验收、Leader 拍板记 PASS**。
 
@@ -1463,8 +3892,11 @@ Leader 随即在 02:30 单独追问「已人工验证是否包含 AC-41（关 Wi
 | AC-66 | **PASS**（①；② S7.9 等价判据 PASS —— **局限：未用第二账号实测「A token 读 B 行」**） | §13.5 · §13.18.2 · `supabase/schema.sql:31/36/41/45/46/50` | TC-079 ① / TC-079 ② |
 | AC-67 | **PASS**（账：凭据 0 / 文本 1；S1 已闭环） | §13.10 · §13.17-b · §13.17-c | TC-080 / — |
 | AC-68 | **PASS**（静态三证 + S7.9 真实 CI：两 job 全绿、artifact 可下载） | §13.8 · §13.18.3 | TC-055 扩展断言 ③④⑤ / — |
+| AC-69 | **PASS**（限本地 stub 上可观察的调度行为）；**真实云端侧定时轮次 = `NOT-VERIFIED`** | §13.19 | TC-081 / TC-082 · TC-083 · TC-084 |
+| AC-70 | **PASS**（方法库 6 个分类按钮 / 81 条总数 / 16 条 `classic` 的 `source`·`case`·正文长度合规；推送排列仍与参考实现逐位一致） | §13.20 | TC-034 / TC-035 复跑 + `check-cases.mjs` + `check-permutation.mjs` |
+| AC-71 | **PASS**（面板常驻文字只有四段；「下次 …」「· 成功」「删除记录不会上传」等解释不再常驻；知识下沉到按钮 `title` 不丢；动作反馈 5 秒内自动退场） | §13.45 | 同步 E2E **S7 / S8** + `check-sync.mjs` 第 ⑭ 组 |
 
-**小计（与附录 A 对得上）**：68 行 → **68 PASS / 0 FAIL / 0 BLOCKED / 0 NOT-VERIFIED**（其中 AC-41 的证据来源为「人工验收确认」）；其中 **1 条 PASS 带子项 NV（AC-58）**。
+**小计（与附录 A 对得上）**：70 行 → **70 PASS / 0 FAIL / 0 BLOCKED / 0 NOT-VERIFIED**（其中 AC-41 的证据来源为「人工验收确认」）；其中 **2 条 PASS 带子项 NV（AC-58、AC-69 的真实云端侧定时轮次）**。
 
 ### 14.1 判定含义注（两条，防止把判据读成永真）
 
@@ -1504,34 +3936,35 @@ Leader 随即在 02:30 单独追问「已人工验证是否包含 AC-41（关 Wi
 | 人工 checklist | PASS 3 / BLOCKED 10 / 记录 2（M-15/16）（**S7 当时**；S7.5 补跑后 = PASS 3 / PARTIAL 3 / BLOCKED 8 / 记录 2，见 §6） |
 | 回归命令 | 4 组全绿（build / check-cases / check-permutation / playwright 6 passed） |
 
-### A.2 S10.5 段新增（AC-57 ~ AC-68）
+### A.2 新增段（AC-57 ~ AC-70）
 
-> **口径修正（ZACHTD-14 · M2）**：本表只覆盖 **AC-57 ~ AC-68 这 12 条新增 AC**。AC-43 是 AC-01~56 段内的**重判**（已计入 A.1 的 55 PASS），**不得**在这里再算一次——旧版 A.2 写「13 条 = AC-43 重判 + AC-57~AC-68」，导致 A.1 + A.2 = 69，与 A.3 的 68 对不上。数字结论本来就是对的，错的是附录口径。
+> **口径修正（ZACHTD-14 · M2，v1.8 同步）**：本表只覆盖 **AC-57 ~ AC-70 这 14 条新增 AC**（AC-69 = v1.7 定时同步、AC-70 = v1.8 中国古典智慧分类）。AC-43 是 AC-01~56 段内的**重判**（已计入 A.1 的 PASS），**不得**在这里再算一次——旧版 A.2 写「13 条 = AC-43 重判 + AC-57~AC-68」，导致 A.1 + A.2 与 A.3 对不上。数字结论本来就是对的，错的是附录口径。
 
 | 维度 | 数量 |
 | --- | --- |
-| 本段**新增** AC 总数 | **12**（AC-57 ~ AC-68）；AC-43 不属本表（重判，见 A.1） |
-| PASS | **12**（AC-57 ~ AC-64 = 8、AC-65 = 1、AC-66 = 1、AC-67 = 1、AC-68 = 1；S7.9 回填 AC-65 / AC-66② / AC-68 的 CI） |
+| 本段**新增** AC 总数 | **14**（AC-57 ~ AC-70：AC-57~68 = 12 条 + AC-69 + AC-70）；AC-43 不属本表（重判，见 A.1） |
+| PASS | **14**（AC-57 ~ AC-64 = 8、AC-65 = 1、AC-66 = 1、AC-67 = 1、AC-68 = 1、AC-69 = 1、AC-70 = 1；S7.9 回填 AC-65 / AC-66② / AC-68 的 CI） |
 | FAIL | **0** |
 | NOT-VERIFIED | **0**（S7.9 后；AC-65 已 PASS）；仍有**子项 NV 1 条**：AC-58（TC-062 真实登录态截图）——子项不计入 AC 级 NV |
 | BLOCKED | **0 条 AC**（AC-41 已于 S7.9 记 PASS；M-09 / M-11 / AC-34·AC-55 的桌面 UI 变体仍按 §13.13 记 BLOCKED，不计入本段 AC） |
 | 同步用例 | TC-057 ~ TC-080：PASS **24** / FAIL **0** / NOT-VERIFIED **0**（S10.5 当时为 PASS 21 / NV 3 —— TC-064 / TC-078 / TC-079②） |
 | 同步套件 | `npx playwright test -c playwright.sync.config.ts` → **4 passed**（主套件另计 6 passed） |
 | stub 断言 | `check-sync.mjs` **78 项**（S1 前 75，+3 条白名单断言）+ `check-sync-extra.mjs` **37 项**，全部通过 |
-| 通过率 | **12 ÷ 12 = 100%**（S10.5 当时为 11 ÷ 12 = 91.7%） |
-| 与 A.1 的合计 | 56 + 12 = **68**，与 A.3 一致（不再出现 69） |
+| 通过率 | **14 ÷ 14 = 100%**（S10.5 当时为 11 ÷ 12 = 91.7%） |
+| 本轮**追加**的 AC | **1**（AC-71：同步状态区收敛，v0.3.10 —— 见 §13.45） |
+| 与 A.1 的合计 | 56 + 14 + 1 = **71**，与 A.3 一致 |
 
-### A.3 全量合计（68 条）
+### A.3 全量合计（71 条）
 
 | 维度 | 数量 |
 | --- | --- |
-| AC 总数 | **68**（AC-01 ~ AC-68，PRD **v1.6**；条数自 v1.4 起未变） |
-| 组成 | **56（AC-01 ~ AC-56）+ 12（AC-57 ~ AC-68）= 68**；AC-43 只计一次（重判） |
-| PASS | **68**（= 56 + 12；S7.9 回填 AC-65 与 AC-41） |
+| AC 总数 | **71**（AC-01 ~ AC-71，PRD **v1.30**） |
+| 组成 | **56（AC-01 ~ AC-56）+ 14（AC-57 ~ AC-70）+ 1（AC-71）= 71**；AC-43 只计一次（重判） |
+| PASS | **71**（= 56 + 14 + 1；S7.9 回填 AC-65 与 AC-41） |
 | FAIL | **0** |
 | BLOCKED | **0**（S7.9 后） |
 | NOT-VERIFIED | **0**（S7.9 后；AC-65 已 PASS） |
-| 带子项 NV 的 PASS | **1 条**（AC-58 的已登录态截图）——`68 PASS` **不等于** 68 条都有 Tester 侧完整证据（§14 口径 2） |
-| 通过率 | **68 ÷ 68 = 100%**（68 条全部可判定） |
+| 带子项 NV 的 PASS | **2 条**（AC-58 的已登录态截图、AC-69 的真实云端侧定时轮次）——`71 PASS` **不等于** 71 条都有 Tester 侧完整证据（§14 口径 2） |
+| 通过率 | **71 ÷ 71 = 100%**（71 条全部可判定） |
 | AC-01 ~ AC-56 是否回归 | **0 条被推翻、0 条降级**（§13.11） |
 | 四组回归 | 两轮全绿（§2 与 §13.3）；同步套件单独 4 passed（§13.4） |

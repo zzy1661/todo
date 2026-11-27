@@ -133,3 +133,134 @@ test('S4 · 状态区：未配置说明、登录入口存在但禁用、关闭�
   expect(stored).toHaveLength(1);
   expect(dayjs(TODAY).isValid()).toBe(true);
 });
+
+/**
+ * S5 · 墓碑死锁：状态区必须说清「数据被本机的删除记录挡住了」，并给出出口。
+ *
+ * **为什么要有这条**：2026-11-25 实机反馈「远端 8 行、已是最新 8 条，
+ * 但界面上一条都不显示」。引擎侧的断言能证明**合并结果正确**，
+ * 证明不了**界面上有没有把这件事说出来**——
+ * 用户能不能看见「8 条待办被标记为已删除」与「找回」按钮，是另一回事。
+ *
+ * 这条用例只验证**界面表达与交互**（复活逻辑由 `check-sync.mjs` 第 ⑮ 组断言）。
+ */
+test('S5 · 墓碑死锁：状态区说清「被标记为已删除」并给出「找回」出口（v0.3.7）', async ({
+  page,
+}) => {
+  await page.goto('/e2e-sync/support/panel-harness.html?recoverable=8');
+  await expect(syncPanel(page)).toBeVisible();
+
+  // ① 「可找回」必须**说出来**，且说清是「这台机器上」的删除记录
+  const hint = syncPanel(page).locator('[data-sync-recoverable]');
+  await expect(hint).toContainText('8 条被标记为已删除');
+  await expect(hint).toContainText('只影响这台机器');
+
+  // ② 「找回」按钮必须在，条数要对
+  const recover = syncPanel(page).locator('[data-sync-recover]');
+  await expect(recover).toBeVisible();
+  await expect(recover).toHaveText('找回 8 条被删除的条目');
+
+  // ③ 「上传本机全部」的解释必须写清**删除记录不会上传**
+  //    （否则用户以为删掉的条目也会跟着搬上云）
+  //    2026-11-27 面板收敛：这句话从常驻段落下沉到按钮的**悬停说明**——
+  //    知识不许丢，但不许占版面。
+  await expect(syncPanel(page).locator('.sync-push-all')).toHaveAttribute(
+    'title',
+    /删除记录不会上传/
+  );
+
+  // ④ 这是**反删除**，必须二次确认，且确认语要说清影响范围
+  let dialogText = '';
+  page.on('dialog', async (dialog) => {
+    dialogText = dialog.message();
+    await dialog.accept();
+  });
+  await recover.click();
+  await expect.poll(() => dialogText).toContain('找回 8 条被删除的条目');
+  expect(dialogText).toContain('只影响这台机器');
+});
+
+/**
+ * S6 · 没有可找回的条目时**不得出现**「找回」出口。
+ *
+ * **为什么**：按钮若在「其实找不回」时也出现，就是**无效承诺**——
+ * 用户点了没反应，只会更困惑。
+ */
+test('S6 · 无可找回条目时不出现「找回」按钮与提示（v0.3.7）', async ({ page }) => {
+  await page.goto('/e2e-sync/support/panel-harness.html?recoverable=0');
+  await expect(syncPanel(page)).toBeVisible();
+
+  await expect(syncPanel(page).locator('[data-sync-recoverable]')).toHaveCount(0);
+  await expect(syncPanel(page).locator('[data-sync-recover]')).toHaveCount(0);
+});
+
+/**
+ * S7 · 面板收敛（2026-11-27）：日常只剩「状态 + 一行时间 + 一行云端摘要」。
+ *
+ * **为什么要有这条**：需求方反馈「左下角的同步面板不需要显示这么多信息」。
+ * 收敛是**减法**，而减法最容易在后续迭代里被悄悄加回去——
+ * 所以必须用一条机械断言钉住「面板最多这么几段文字、不得再出现哪些解释」。
+ *
+ * **不钉住会怎样**：下一次有人想「把同步过程说得更清楚一点」，
+ * 就又往面板里塞回一段常驻说明，角落面板重新变成三屏文字。
+ */
+test('S7 · 面板收敛：日常只有状态 / 一行时间 / 一行云端摘要（v0.3.10）', async ({ page }) => {
+  await page.goto('/e2e-sync/support/panel-harness.html?recoverable=8&auto=1');
+  await expect(syncPanel(page)).toBeVisible();
+
+  // ① 状态行
+  await expect(syncPanel(page).locator('.sync-state')).toHaveText('已登录');
+
+  // ② 时间行：只到分钟，不带秒、不带「· 成功」（结果由状态行承担）
+  //    期望值**用同一套 dayjs 本地化算出来**：CI 是 UTC、本机是 UTC+8，
+  //    直接写死「09:30」会在 CI 上红（同一个时刻在两种时区显示不同）。
+  const expectedLast = `上次同步 ${dayjs(
+    Date.parse('2026-11-26T09:30:00+08:00')
+  ).format('M月D日 HH:mm')}`;
+  await expect(syncPanel(page).locator('.sync-last')).toHaveText(expectedLast);
+  // 时间只到分钟：不得出现「时:分:秒」
+  await expect(syncPanel(page).locator('.sync-last')).not.toHaveText(/\d{2}:\d{2}:\d{2}/);
+
+  // ③ 云端摘要：一行说清「云端有多少、在哪几天、是不是在你正在看的这一天」
+  const where = syncPanel(page).locator('[data-sync-where]');
+  await expect(where).toContainText('云端 8 条');
+  await expect(where).toContainText('10月15日~11月16日');
+  await expect(where).toContainText('不在 11月26日');
+
+  // ④ 解释性文字**不得再常驻**：
+  await expect(syncPanel(page)).not.toContainText('下次'); // 「下次同步」的时刻
+  await expect(syncPanel(page)).not.toContainText('· 成功'); // 结果由状态行承担
+  await expect(syncPanel(page)).not.toContainText('删除记录不会上传'); // 已下沉到按钮 title
+  await expect(syncPanel(page)).not.toContainText('这就是列表空着的原因');
+  await expect(syncPanel(page)).not.toContainText('每 2 天自动同步'); // 已下沉到按钮 title
+
+  // ⑤ 周期知识**不许丢**：只是从版面挪到了按钮的悬停说明
+  await expect(syncPanel(page).locator('.sync-retry')).toHaveAttribute(
+    'title',
+    /每 2 天自动同步/
+  );
+
+  // ⑥ 段落数量封顶：状态 + 时间 + 可找回提示 + 云端摘要 = 4 段
+  await expect(syncPanel(page).locator('p')).toHaveCount(4);
+});
+
+/**
+ * S8 · 用户显式动作的反馈：出现几秒就退场，**不许变成常驻文字**。
+ *
+ * **为什么**：面板收敛后，「点了『上传本机全部』/『找回』之后发生了什么」
+ * 就只剩按钮消失这一条线索了，用户会以为没点上。所以必须留一行反馈——
+ * 但反馈一旦常驻，收敛就白做了。这条断言同时钉住「要有」与「不能久」。
+ */
+test('S8 · 动作反馈短暂出现后自动退场（v0.3.10）', async ({ page }) => {
+  await page.goto(
+    '/e2e-sync/support/panel-harness.html?recoverable=0&notice=' +
+      encodeURIComponent('已上传本机全部 8 条待办')
+  );
+  await expect(syncPanel(page)).toBeVisible();
+
+  const notice = syncPanel(page).locator('[data-sync-notice]');
+  await expect(notice).toHaveText('已上传本机全部 8 条待办');
+
+  // 反馈不会一直挂着：几秒后自动退场（面板回到只有状态 + 时间 + 摘要）
+  await expect(notice).toHaveCount(0, { timeout: 9000 });
+});

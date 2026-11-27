@@ -12,8 +12,15 @@ name: build
 # E2E 在打包之前，任何回归都会拦在出包之前。
 #
 # 发布通道说明：`push.tags: ['v*']` 触发时，macOS / Windows 两个 job 各自上传
-# 自己的产物到同一个 Release（`softprops/action-gh-release`），资产名统一为
+# 自己的产物到同一个 Release，资产名统一为
 # `ScheduleTodo-<version>-<platform>[-arch].<ext>`。tag 由维护者打，流水线不建 tag。
+#
+# **发布为什么自己写**：两个 job 并发创建同一个 Release，第三方 action 只对
+# 422 already_exists 有兜底、**对 500 没有**（v0.3.5 实测连返 3 次 500 →
+# 「Too many retries」→ Windows 资产全丢，且 macOS job 未走到发布，
+# **v0.3.5 一个资产都没有**）。现在自己控制重试与退避，
+# 并且**产物缺失直接失败**，不再静默少挂文件。
+# 最后由 `verify-release` job **核对四个资产都在**——少一个就是红的。
 
 on:
   push:
@@ -73,8 +80,70 @@ jobs:
       - name: Secret guard (no hardcoded Supabase keys)
         run: npm run check:no-secrets
 
+      # 自检脚本组（内容库 / 推送确定性 / 同步层 / 数据层 / 平台中立）。
+      # **这些以前只在本地跑，CI 从不执行** —— 于是「本地全绿、CI 也全绿」并不代表
+      # 功能正确：2026-11-22 实机反馈的「登录了但没有同步到数据」就是这么漏过去的
+      # （推送链路的三个承诺在注释里写了、代码里没实现，而任何断言都没覆盖它）。
+      # 现在它们进 CI，改坏了会当场被拦。
+      # 自检**逐个脚本独立成 step**：失败时 job steps 直接显示是哪一个，
+      # 不必去翻日志（GitHub 的 step 日志需要登录才能看）。
+      - name: Self-check · check-cases
+        run: node scripts/check-cases.mjs
+      - name: Self-check · check-permutation
+        run: node scripts/check-permutation.mjs
+      - name: Self-check · check-cases-negative
+        run: node scripts/check-cases-negative.mjs
+      - name: Self-check · check-sync
+        run: node scripts/check-sync.mjs
+      - name: Self-check · check-sync-extra
+        run: node scripts/check-sync-extra.mjs
+      - name: Self-check · check-data-layer
+        run: node scripts/check-data-layer.mjs
+      - name: Self-check · check-db-parity
+        run: node scripts/check-db-parity.mjs
+      - name: Self-check · check-db-sync
+        run: node scripts/check-db-sync.mjs
+      - name: Self-check · check-deleted-filter
+        run: node scripts/check-deleted-filter.mjs
+      - name: Self-check · check-bundle-config
+        run: node scripts/check-bundle-config.mjs
+      - name: Self-check · check-platform-portability
+        run: node scripts/check-platform-portability.mjs
+      - name: Self-check · check-ui-text
+        run: node scripts/check-ui-text.mjs
+
+      # 自检的完整输出（每个脚本的 stdout/stderr）传成 artifact：
+      # 失败时**不必本地复现**也能看到到底是哪个脚本、报了什么。
+      - name: Upload unit-check log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-checks-log-${{ matrix.os }}
+          path: verify/unit-checks.log
+          if-no-files-found: ignore
+          retention-days: 14
+
+      # 平台可移植性：平台专有调用（/usr/bin/、osascript、cmd /C…）必须被
+      # #[cfg(...)] 保护，否则另一端的运行时会静默失败——这类问题编译期查不出来
+      # （2026-11-02 的 Windows「双击没反应」就是这么漏过去的）。
+      - name: Platform portability guard
+        run: npm run check:platform
+
       - name: Build frontend
         run: npm run build
+
+      # Rust 侧断言（迁移只增不改、迁移 SQL 的平台无关性、OAuth 回环、会话上限…）。
+      #
+      # **此前 Rust 测试从未进 CI** —— 「本地跑过」不等于「有防护」。
+      # 2026-11-23 的实机故障（迁移 checksum 因换行符跨平台不一致 → 应用起不来）
+      # 正是 Rust 侧的问题，而当时的 CI 里一条 Rust 断言都没跑。
+      #
+      # 放在「Build frontend」之后：`tauri::generate_context!` 会把前端产物嵌进二进制，
+      # dist 不存在时编译不过。
+      # 用 --release：与随后的 `npx tauri build` 共用同一套 release 依赖产物，
+      # 不额外编译一遍依赖。
+      - name: Rust unit tests (cargo test)
+        run: cargo test --release --manifest-path src-tauri/Cargo.toml
 
       - name: Install Playwright Chromium (unix)
         if: runner.os != 'Windows'
@@ -86,6 +155,16 @@ jobs:
 
       - name: E2E baseline (must be 6 passed)
         run: npx playwright test
+
+      # 同步套件（`e2e-sync/`，独立配置）：**此前从未进过 CI**。
+      # 里面装的是同步侧的浏览器证据（零云端请求、断网降级、状态区表达、
+      # 墓碑死锁的「找回」出口）—— 2026-11-25 的实机故障恰恰是「界面没把
+      # 同步结果说出来」，而这一组断言正是为它准备的，不跑 CI 就等于没有防护。
+      #
+      # 与主套件**物理隔离**（playwright.sync.config.ts 的 testDir 不同），
+      # 所以主套件的 6 个用例（AC-03 回归红线）不受影响。
+      - name: E2E sync suite (must be 8 passed)
+        run: npm run test:sync
 
       # Windows job 必须真的出包，不是占位：tauri.windows.conf.json 由 Tauri
       # 按平台自动合并（targets: nsis + msi）。
@@ -140,23 +219,122 @@ jobs:
 
       # 发布通道：tag 推送时把安装包挂成 Release 资产（无需登录直链下载，
       # 不像 Actions artifact 那样 14 天过期）。
-      # 两个 matrix 实例并发创建同一个 Release：softprops/action-gh-release v2
-      # 内部对 create 的 422 already_exists 竞态有重试兜底，先落地的一方拿到 release，
-      # 另一方补传自己的资产。
-      - name: Publish release assets (macOS)
-        if: runner.os == 'macOS' && startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            src-tauri/target/release/bundle/dmg/ScheduleTodo-*-macos-arm64.dmg
-            src-tauri/target/release/bundle/macos/ScheduleTodo-*-macos-arm64.app.zip
-          fail_on_unmatched_files: false
+      #
+      # **为什么自己写而不用 softprops/action-gh-release**：
+      # 两个 matrix 实例并发创建同一个 Release，第三方 action 内部对
+      # create 的 422 already_exists 有兜底，但**对 500 没有**——
+      # 2026-11-25 实测（v0.3.5）：Windows 侧创建 Release 时 GitHub API
+      # **连返 3 次 500**，而它的内部重试只有 4 秒、3 次 → 「Too many retries」
+      # → **Windows 资产全丢**；同一次运行里 macOS job 因 cargo test 失败
+      # 没走到发布，于是 **v0.3.5 一个资产都没有**（前一个能用的版本停在 v0.3.4）。
+      #
+      # 现在改成**自己控制重试与退避**：
+      # ① 先试 upload（Release 可能已由另一端 job 创建）→ ② 再试 create
+      # → ③ 都失败就退避 30 秒重来，最多 5 次；
+      # ④ **产物缺失直接失败**，不再像 `fail_on_unmatched_files: false`
+      # 那样静默少挂一个文件（v0.3.0 / v0.3.2 的「只有 2 个 macOS 资产」
+      # 就是这么来的，而且没人发现）。
+      - name: Publish release assets
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          VERSION=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          TAG="v${VERSION}"
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            FILES=(
+              "src-tauri/target/release/bundle/dmg/ScheduleTodo-${VERSION}-macos-arm64.dmg"
+              "src-tauri/target/release/bundle/macos/ScheduleTodo-${VERSION}-macos-arm64.app.zip"
+            )
+          else
+            FILES=(
+              "src-tauri/target/release/bundle/nsis/ScheduleTodo-${VERSION}-windows-x64-setup.exe"
+              "src-tauri/target/release/bundle/msi/ScheduleTodo-${VERSION}-windows-x64.msi"
+            )
+          fi
 
-      - name: Publish release assets (Windows)
-        if: runner.os == 'Windows' && startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            src-tauri/target/release/bundle/nsis/ScheduleTodo-*-windows-x64-setup.exe
-            src-tauri/target/release/bundle/msi/ScheduleTodo-*-windows-x64.msi
-          fail_on_unmatched_files: false
+          # 产物必须齐全：缺一个就拒绝发布（半成品 Release 比没有更糟）
+          for f in "${FILES[@]}"; do
+            if [ ! -f "$f" ]; then
+              echo "产物缺失：$f —— 拒绝发布半成品 Release"
+              exit 1
+            fi
+          done
+
+          for attempt in 1 2 3 4 5; do
+            # ① Release 可能已由另一端 job 创建 → 直接补传
+            # **`-R "$GITHUB_REPOSITORY"` 不是可选项**：`gh` 默认从**当前目录的 git remote**
+            # 推断仓库，没有 checkout 的目录里它会直接报
+            # 「failed to run git: fatal: not a git repository」并把输出吞进 `|| true`，
+            # 于是「发布」看起来成功了，其实一个文件都没传。
+            # （2026-11-26 实例：v0.3.7 的 verify-release job 没有 checkout，
+            #   `gh release view` 连续 30 次都返回空 ⇒ 报「四个资产全缺」⇒ job 判红，
+            #   而四个资产其实**早就上线且匿名可下载**。）
+            if gh release upload "$TAG" "${FILES[@]}" --clobber -R "$GITHUB_REPOSITORY"; then
+              echo "发布成功（upload，第 $attempt 次尝试）"
+              exit 0
+            fi
+            # ② 还没有 → 创建（gh 会把文件一起挂上）
+            if gh release create "$TAG" "${FILES[@]}" \
+                 --title "日程待办 $TAG" \
+                 --notes "由 GitHub Actions 自动发布；变更说明见仓库 docs/test/ZACHTD-2-test-report.md" \
+                 -R "$GITHUB_REPOSITORY"; then
+              echo "发布成功（create，第 $attempt 次尝试）"
+              exit 0
+            fi
+            echo "第 $attempt 次发布未成功（GitHub API 可能返回 500），退避 30 秒后重试"
+            sleep 30
+          done
+          echo "发布资产失败：5 次尝试均未成功"
+          exit 1
+
+  # 发布完成后的**核对**：四个资产必须都在。
+  # 以前缺文件会静默通过（fail_on_unmatched_files: false），
+  # 于是 v0.3.0 / v0.3.2 只挂上 2 个 macOS 资产也没人发现。
+  # 现在把它变成一条**会红的断言**：少一个资产 = 发布失败。
+  verify-release:
+    name: Verify release assets (must be 4)
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for the four assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          WANT=(
+            "ScheduleTodo-${VERSION}-macos-arm64.dmg"
+            "ScheduleTodo-${VERSION}-macos-arm64.app.zip"
+            "ScheduleTodo-${VERSION}-windows-x64-setup.exe"
+            "ScheduleTodo-${VERSION}-windows-x64.msi"
+          )
+          for attempt in $(seq 1 30); do
+            # **必须带 `-R "$GITHUB_REPOSITORY"`**：本 job **没有 checkout**，
+            # `gh` 在非 git 目录里无法推断仓库（会报 "failed to run git: not a git
+            # repository"），错误又被 `|| true` 吞掉 ⇒ `have` 恒为空 ⇒
+            # 一轮轮地误报「四个资产全缺」。
+            # （2026-11-26 实例：v0.3.7 的这一 job 连续 30 次误报后判红，
+            #   而四个资产当时**早已上线且匿名可下载**。）
+            have=$(gh release view "$TAG" --json assets --jq '.assets[].name' \
+                     -R "$GITHUB_REPOSITORY" 2>/dev/null || true)
+            missing=""
+            for want in "${WANT[@]}"; do
+              if ! echo "$have" | grep -qx "$want"; then
+                missing="$missing $want"
+              fi
+            done
+            if [ -z "$missing" ]; then
+              echo "四个资产齐了："
+              echo "$have"
+              exit 0
+            fi
+            echo "第 $attempt 次核对：还缺$missing，30 秒后再看"
+            sleep 30
+          done
+          echo "发布资产不完整，缺：$missing"
+          exit 1

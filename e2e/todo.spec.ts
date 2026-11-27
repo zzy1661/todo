@@ -241,8 +241,26 @@ test('2 · 完整链路: create, dots, priority, completion rate, cross-month', 
   await expect(page.locator('.todo-panel .day-title')).toHaveText(dayTitleOf(target));
 
   // --- an empty day's empty-state action pre-fills that very date (TC-014)
+  //
+  // **为什么不能写死 `D(5)`**：上面「跨月」那一步在 `target`
+  // （= `other` 所在月的**下个月 1 号**）建了一条待办。
+  // 而 `D(5)` 在「今天离月底 5 天」时正好落在下个月 1 号 —— 两者撞车，
+  // 「空的一天」其实有 1 条待办，空状态自然不出现，测试必挂。
+  //
+  // （2026-11-26 实测命中：本机 UTC+8 当天正是「月底前 5 天」；
+  //   CI 跑在 UTC，同一天还是绿的 —— 这类**按日历引爆**的雷最难查，
+  //   它会在没人改代码的时候突然让 CI 变红。）
+  //
+  // 现在从候选里挑一个**测试确定没建过待办**的日子，并显式断言这一点。
+  const usedDates = new Set([other, target]);
+  const emptyDay = [1, 2, 3, 4, 5, 6, -1, -2, -4, -5, -6]
+    .map((offset) => D(offset))
+    .find((day) => !usedDates.has(day))!;
+  expect(
+    usedDates.has(emptyDay),
+    `挑中的「空日」${emptyDay} 撞上了已建待办的日期（${[...usedDates].join('、')}）`
+  ).toBe(false);
   await page.locator('.today-btn').click();
-  const emptyDay = D(5);
   await selectDate(page, emptyDay);
   const empty = page.locator('.todo-panel .empty-state[data-empty="no-todos"]');
   await expect(empty.locator('.empty-title')).toHaveText('这一天还没有待办');
@@ -251,6 +269,20 @@ test('2 · 完整链路: create, dots, priority, completion rate, cross-month', 
   await expect(editor.locator('input[data-field="date"]')).toHaveValue(emptyDay);
   await editor.locator('.editor-cancel').click();
   await expect(page.locator('.editor')).toHaveCount(0);
+
+  // --- the empty state points at the other dates (v0.3.6)
+  //
+  // 多设备同步之后，待办常常全在别的日期上：此时「这一天还没有待办」必须
+  // 顺带告诉用户「别的日期还有多少条、最近的在哪一天」，并能一点跳过去。
+  // 没有这条，用户只会以为「数据没同步过来」（2026-11-25 实机反馈的真正原因）。
+  const jump = empty.locator('.empty-jump');
+  await expect(jump).toHaveCount(1);
+  await expect(jump).toContainText('其他日期还有');
+  await expect(jump).toContainText('最近的在');
+  await jump.click();
+  // 跳过去的那一天**必须有待办**（不能跳到一个空日子）
+  await expect(page.locator('.todo-panel .day-title')).not.toHaveText(dayTitleOf(emptyDay));
+  await expect(page.locator('.todo-panel .todo-item').first()).toBeVisible();
 });
 
 /* ------------------------------------------------------------------ case 3 */
@@ -313,10 +345,10 @@ test('3 · 每日工作法: deterministic push, shuffle, history, library, scrol
   await expect(page.locator('.dm-date-text')).toHaveAttribute('data-date', TODAY);
   await expect(name).toHaveText(methodName(todayOrder[1]));
 
-  // --- library counts: 65 total, five categories (AC-26 / TC-034)
-  await expect(page.locator('.library-count')).toHaveText('65 条');
+  // --- library counts: 146 total, six categories (AC-26 / TC-034)
+  await expect(page.locator('.library-count')).toHaveText('146 条');
   const filters = page.locator('.cf-btn');
-  await expect(filters).toHaveCount(6);
+  await expect(filters).toHaveCount(7);
   await expect(filters).toHaveText([
     '全部',
     '思维方法 17',
@@ -324,14 +356,16 @@ test('3 · 每日工作法: deterministic push, shuffle, history, library, scrol
     '汇报方法 12',
     '沟通方法 7',
     '效率方法 12',
+    '中国古典智慧 81',
   ]);
   const expectedCounts: [string, number][] = [
-    ['all', 65],
+    ['all', 146],
     ['thinking', 17],
     ['work', 17],
     ['report', 12],
     ['communication', 7],
     ['efficiency', 12],
+    ['classic', 81],
   ];
   for (const [key, count] of expectedCounts) {
     await page.locator(`.cf-btn[data-filter="${key}"]`).click();
@@ -343,7 +377,7 @@ test('3 · 每日工作法: deterministic push, shuffle, history, library, scrol
   // --- library preview does not overwrite the stored push (AC-20 / TC-028)
   const previewItem = page.locator('.lib-item[data-method-id="5w2h"]');
   await previewItem.click();
-  await expect(name).toHaveText('5W2H 分析法');
+  await expect(name).toHaveText(methodName('5w2h'));
   await expect(page.locator('.mc-preview')).toHaveCount(1);
   await expect(page.locator('.mc-preview')).toHaveAttribute('data-state', 'preview');
   await expect(page.locator('.mc-preview')).toHaveText('方法库预览');
@@ -356,7 +390,7 @@ test('3 · 每日工作法: deterministic push, shuffle, history, library, scrol
 
   // --- geometry: single column, steps above the two boxes, boxes above the case (AC-28 / TC-037)
   await previewItem.click();
-  await expect(name).toHaveText('5W2H 分析法');
+  await expect(name).toHaveText(methodName('5w2h'));
   const stepsBox = (await page.locator('.mc-steps-block').boundingBox())!;
   const duoBox = (await page.locator('.mc-box').first().boundingBox())!;
   const caseBox = (await page.locator('.mc-case').boundingBox())!;
@@ -388,7 +422,7 @@ test('3 · 每日工作法: deterministic push, shuffle, history, library, scrol
 
   // --- rice-scoring is a conditional fixture: judge only when it really overflows (TC-039)
   await page.locator('.lib-item[data-method-id="rice-scoring"]').click();
-  await expect(name).toHaveText('RICE 评分');
+  await expect(name).toHaveText(methodName('rice-scoring'));
   const rice = await inner.evaluate((el) => ({
     scrollHeight: el.scrollHeight,
     clientHeight: el.clientHeight,

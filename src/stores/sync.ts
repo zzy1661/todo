@@ -11,7 +11,7 @@
 import { reactive } from 'vue';
 import dayjs from 'dayjs';
 import { invoke } from '@tauri-apps/api/core';
-import { applyRemoteTodos, fetchTodoSyncRows, isTauriEnv } from '../db/database.ts';
+import { applyRemoteTodos, fetchTodoSyncRows, isTauriEnv, reviveTombstones } from '../db/database.ts';
 import {
   DISABLED_CONFIG,
   parseSyncConfig,
@@ -25,6 +25,12 @@ import {
   serializeSession,
   type SessionStore,
 } from '../sync/sessionStore.ts';
+import {
+  createMemoryStateStore,
+  parseSyncState,
+  serializeSyncState,
+  type SyncStateStore,
+} from '../sync/stateStore.ts';
 import { onLocalTodoChange } from '../sync/events.ts';
 import { nowMs } from '../sync/clock.ts';
 import { currentTimers } from '../sync/timers.ts';
@@ -80,6 +86,36 @@ function createKeychainSessionStore(): SessionStore {
         await invoke('sync_session_clear');
       } catch {
         /* 清除失败不影响本地已置未登录 */
+      }
+    },
+  };
+}
+
+/**
+ * 桌面端：定时同步锚点状态（PRD FR-SYNC-17）。
+ *
+ * 落在 app data 目录的独立状态文件，**不进 SQLite**（BR-07 两表固定、BR-08 迁移只增不改）。
+ * 文件里只有时间戳，没有凭据，因此不进钥匙串。
+ */
+function createFileStateStore(): SyncStateStore {
+  return {
+    kind: 'file',
+    async load() {
+      try {
+        const raw = await invoke<string | null>('sync_state_read');
+        return parseSyncState(raw);
+      } catch {
+        return null; // 读不到就当「首次建立周期」，不让启动失败
+      }
+    },
+    async save(state) {
+      await invoke('sync_state_write', { blob: serializeSyncState(state) });
+    },
+    async clear() {
+      try {
+        await invoke('sync_state_clear');
+      } catch {
+        /* 清除失败不影响同步本身 */
       }
     },
   };
@@ -163,13 +199,21 @@ async function startSync(): Promise<void> {
     ? createKeychainSessionStore()
     : createMemorySessionStore();
 
+  // 定时同步锚点：桌面端落盘（跨重启延续周期），浏览器 / 未配置时用内存实现
+  const stateStore = config.enabled && isTauriEnv()
+    ? createFileStateStore()
+    : createMemoryStateStore();
+
   engine = new SyncEngine({
     config,
     api: new SupabaseRestApi({ baseUrl: config.baseUrl, anonKey: config.anonKey }),
     sessionStore,
+    stateStore,
     local: {
       loadByUuids: (uuids) => fetchTodoSyncRows(uuids),
+      loadAll: () => fetchTodoSyncRows(null),
       applyRemote: (rows) => applyRemoteTodos(rows),
+      reviveTombstones: (uuids) => reviveTombstones(uuids),
     },
     oauth: isTauriEnv() ? tauriOAuthLauncher : unsupportedOAuthLauncher,
     // 时钟与定时器走可注入的全局实现（FR-SYNC-15），这里只做转发
@@ -252,6 +296,40 @@ export async function retrySync(): Promise<void> {
   }
 }
 
+/**
+ * 把本机全部待办上传到当前账号（用户显式动作）。
+ *
+ * 自动同步只覆盖「变更驱动」的增量；配 key 之前就存在的历史待办不在增量里，
+ * 需要这个入口才能上云。
+ *
+ * **只上传还活着的待办**：删除记录不跟着走（引擎里说明了原因）。
+ */
+export async function pushAllLocal(): Promise<void> {
+  if (!engine || syncState.actionBusy) return;
+  syncState.actionBusy = true;
+  try {
+    await engine.pushAllLocal();
+  } finally {
+    syncState.actionBusy = false;
+  }
+}
+
+/**
+ * 找回被本机删除记录挡住的条目（用户显式动作）。
+ *
+ * 墓碑终结会让「本机已删、云端还活着」的条目**永远拉不回来**，
+ * 界面上连「全部待办」都看不到——这个入口是唯一的出路。
+ */
+export async function recoverDeleted(): Promise<void> {
+  if (!engine || syncState.actionBusy) return;
+  syncState.actionBusy = true;
+  try {
+    await engine.recoverDeleted();
+  } finally {
+    syncState.actionBusy = false;
+  }
+}
+
 /* ------------------------------------------------------------- 展示用派生 */
 
 /** 状态区主文案（PRD FR-SYNC-02 的五种状态） */
@@ -272,10 +350,30 @@ export function phaseLabel(status: SyncStatus): string {
   }
 }
 
-/** 「上次同步 2026-11-01 09:30 · 成功」 */
+/**
+ * 「上次同步 11月26日 09:30」
+ *
+ * **口径（2026-11-27 收敛）**：只到分钟——秒在这个角落里是纯噪音；
+ * **结果不写在这里**（`· 成功` / `· 失败`），因为状态行已经在承担这件事：
+ * `signed-in` ⟺ 上次成功，`error` ⟺ 上次失败（面板会另起两行错误说明）。
+ */
 export function lastSyncText(status: SyncStatus): string {
   if (!status.lastSyncAt) return '';
-  const time = dayjs(status.lastSyncAt).format('M月D日 HH:mm:ss');
-  const result = status.lastResult === 'ok' ? '成功' : status.lastResult === 'failed' ? '失败' : '';
-  return `上次同步 ${time}${result ? ` · ${result}` : ''}`;
+  return `上次同步 ${dayjs(status.lastSyncAt).format('M月D日 HH:mm')}`;
+}
+
+/**
+ * 定时同步周期（PRD FR-SYNC-17）。
+ *
+ * **口径（2026-11-27 收敛）**：只说「每 N 天」，**不再常驻**「下次 M月D日 HH:mm」。
+ * 下一轮同步的时刻在角落面板里没有行动价值（用户不会为了等它改计划），
+ * 而它会把这一行拉长到需要换行——需求方反馈的正是「显示这么多信息」。
+ * 周期本身降级到「立即重试」按钮的悬停说明里（鼠标停上去才出现）。
+ *
+ * - 未启用 → 空串（不显示「0 天」这种怪文案）。
+ */
+export function autoSyncText(status: SyncStatus): string {
+  if (!status.autoSyncEnabled || status.autoSyncIntervalMs <= 0) return '';
+  const days = Math.round(status.autoSyncIntervalMs / (24 * 60 * 60 * 1000));
+  return `每 ${days} 天自动同步`;
 }

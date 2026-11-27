@@ -29,6 +29,23 @@ const emit = defineEmits<{
 const today = dayjs().format('YYYY-MM-DD');
 
 /**
+ * 键盘激活时的「输入法组合中」判定。
+ *
+ * **中文输入法选词时也会派发 Enter / Space**（`isComposing === true`）。
+ * 不拦住的话，用户在输入法里确认候选词会**顺手把这条往期记录也「打开」**。
+ * `TodoEditor` 与 `DailyMethodView` 都已处理，这里补齐同一套判定。
+ */
+function onEnter(event: KeyboardEvent): void {
+  if (event.isComposing) return;
+  emit('open', props.date);
+}
+
+function onSpace(event: KeyboardEvent): void {
+  if (event.isComposing) return;
+  emit('open', props.date);
+}
+
+/**
  * 直接读 store 派生，而不是在本地缓存一份：
  * 每日工作法模块里「换一条」会改写当日推送，小卡片必须同步跟着变，
  * 否则同一天会出现「小卡片是 A、主卡片是 B」的不一致。
@@ -85,8 +102,8 @@ watch(() => props.date, () => void load(), { immediate: true });
     role="button"
     tabindex="0"
     @click="emit('open', date)"
-    @keydown.enter="emit('open', date)"
-    @keydown.space.prevent="emit('open', date)"
+    @keydown.enter="onEnter"
+    @keydown.space.prevent="onSpace"
   >
     <span class="mini-bar" aria-hidden="true"></span>
 

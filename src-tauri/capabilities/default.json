@@ -2,10 +2,12 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Capability for the main window",
+  "_comment": "opener:allow-open-url 对当前实现其实不是必需的 —— 打开浏览器是在 Rust 侧调的（sync_open_url → app.opener().open_url），而 Tauri 的 ACL 只拦前端 JS 的 invoke 路径（resolve_access 只出现在 webview/mod.rs）。保留它是刻意的：把「本应用允许打开 http/https URL」这件事显式写在配置里，且未来若把调用挪到前端不必再改配置。暴露面很小 —— 前端零 XSS 面（全部走 Vue 插值转义，无 v-html/innerHTML/eval）。",
   "windows": ["main"],
   "permissions": [
     "core:default",
     "sql:default",
-    "sql:allow-execute"
+    "sql:allow-execute",
+    "opener:allow-open-url"
   ]
 }

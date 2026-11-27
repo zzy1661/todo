@@ -20,7 +20,7 @@
  * 用法：node scripts/check-bundle-config.mjs
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 
 const failures = [];
@@ -177,9 +177,22 @@ check(
   JSON.stringify(win.bundle?.windows?.nsis?.languages),
 );
 check('Windows wix.language 含 zh-CN', JSON.stringify(win.bundle?.windows?.wix?.language).includes('zh-CN'));
+// 2026-11-02：downloadBootstrapper → embedBootstrapper。
+// 起因是实机反馈「Windows 上装完双击 exe 没反应」。
+//
+// 为什么是 embedBootstrapper 而不是 offlineInstaller：
+// - offlineInstaller 把完整 WebView2 运行时打进安装包（Tauri 官方注记 +127MB/个，
+//   NSIS 与 MSI 各一份 → 实测 artifact 从 5.2MB 涨到 418MB），代价太大；
+// - embedBootstrapper 只把 ~1.8MB 的引导程序嵌进去，安装时不必**先联网下载**
+//   引导程序（少一个失败点），本体仍由引导程序联网拉取；
+// - 真正解决「用户看不到任何提示」的是**启动期的可诊断层**（预检弹窗 + panic 弹窗
+//   + 启动日志，见 src-tauri/src/startup.rs），缺 WebView2 时会明确告知并给下载地址。
+//
+// 断言写成「引导程序必须内嵌」而不是钉死字面量，意图更清楚。
 check(
-  'Windows webviewInstallMode = downloadBootstrapper',
-  win.bundle?.windows?.webviewInstallMode?.type === 'downloadBootstrapper',
+  'Windows webviewInstallMode = embedBootstrapper（引导程序内嵌，包体不膨胀）',
+  win.bundle?.windows?.webviewInstallMode?.type === 'embedBootstrapper',
+  JSON.stringify(win.bundle?.windows?.webviewInstallMode),
 );
 check('Windows 合并结果不含 dmg / app 目标', !JSON.stringify(win.bundle?.targets).match(/dmg/i));
 check('Windows 合并结果不含 macOS 平台块', !('macOS' in (win.bundle ?? {})));
@@ -226,17 +239,55 @@ check(
 
 /* ------------------------------------------------- 6. workflow 自检 */
 
+/**
+ * workflow 自检需要把 YAML 解析成 JSON，原实现借 **ruby 的 psych**（macOS 自带 ruby）。
+ *
+ * **为什么要探测而不是直接调**：windows-latest 的 runner 镜像**带 ruby**（Ruby 3.3.10），
+ * 但这不是「Windows 自带 ruby」——镜像里有 ruby 不代表**每个**环境都有，
+ * 更不代表路径里能找到（`spawn` 在 Windows 上只会尝试 `ruby.exe`）。
+ * 一旦找不到，`execFileSync` 抛 ENOENT → **整个自检脚本失败** → Windows job 在此中断。
+ *
+ * **而且这里本来就是「可跳过」的**：workflow 文件**与平台无关**（同一个
+ * `.github/workflows/build.yml` 被两个 job 共用），workflow 的合规性由 macOS 上
+ * 那一遍完整覆盖即可。Windows 上跳过**不丢证据**，但不能让它把 CI 打断。
+ *
+ * 措辞上要区分「跳过（不具备技术条件）」与「通过」。
+ */
 const WORKFLOW = '.github/workflows/build.yml';
-const yaml = execFileSync('ruby', [
-  '-ryaml',
-  '-rjson',
-  '-e',
-  `puts YAML.load_file('${WORKFLOW}').to_json`,
-]).toString();
-const workflow = JSON.parse(yaml);
 
-check('workflow YAML 可被解析（ruby psych）', typeof workflow === 'object' && workflow !== null);
-check('workflow 定义 build job', Boolean(workflow.jobs?.build));
+function loadWorkflowYaml() {
+  // 探测：ruby 能不能跑（真的跑一次，而不是只看 PATH 里有没有）
+  const probe = spawnSync('ruby', ['-e', 'exit 0'], { encoding: 'utf8' });
+  if (probe.error || probe.status !== 0) {
+    return { ok: false, reason: '本平台找不到可用的 ruby（YAML 解析器）' };
+  }
+  try {
+    const yaml = execFileSync('ruby', [
+      '-ryaml',
+      '-rjson',
+      '-e',
+      `puts YAML.load_file('${WORKFLOW}').to_json`,
+    ]).toString();
+    return { ok: true, workflow: JSON.parse(yaml) };
+  } catch (error) {
+    // ruby 在、但解析失败 —— 这是**真问题**（workflow 写坏了），必须判失败
+    return { ok: false, fatal: true, reason: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+const loaded = loadWorkflowYaml();
+
+if (!loaded.ok && loaded.fatal) {
+  check(`workflow YAML 可被解析（ruby psych）`, false, loaded.reason);
+} else if (!loaded.ok) {
+  console.log(`⊘ 跳过 workflow 自检：${loaded.reason}。`);
+  console.log('  这不是「workflow 合规」，而是「本平台不具备解析 YAML 的技术条件」——');
+  console.log('  workflow 文件与平台无关，其合规性由 macOS 上那一遍完整覆盖。');
+} else {
+  const workflow = loaded.workflow;
+
+  check('workflow YAML 可被解析（ruby psych）', typeof workflow === 'object' && workflow !== null);
+  check('workflow 定义 build job', Boolean(workflow.jobs?.build));
 
 const matrixOs = (workflow.jobs.build.strategy?.matrix?.include ?? []).map((entry) => entry.os);
 check('matrix 含 macos-latest', matrixOs.includes('macos-latest'), matrixOs.join(','));
@@ -308,8 +359,11 @@ check(
   JSON.stringify(workflow.permissions),
 );
 
-const releaseSteps = steps.filter((s) => /softprops\/action-gh-release/.test(s.uses ?? ''));
-check('存在发布 Release 资产的步骤（softprops/action-gh-release）', releaseSteps.length > 0);
+// 发布步骤：现在自己用 gh CLI 发布（不再用 softprops/action-gh-release），
+// 理由见 workflow 注释：第三方 action 对 GitHub API 的 500 没有兜底，
+// v0.3.5 实测「连返 3 次 500 → Too many retries → Windows 资产全丢」。
+const releaseSteps = steps.filter((s) => /gh release (upload|create)/.test(s.run ?? ''));
+check('存在发布 Release 资产的步骤（gh release）', releaseSteps.length > 0);
 check(
   '发布步骤只在 tag 推送时执行',
   releaseSteps.length > 0 &&
@@ -317,30 +371,151 @@ check(
   releaseSteps.map((s) => s.if ?? '').join(' | '),
 );
 check(
-  '发布步骤声明了 files 且 fail_on_unmatched_files: false',
+  '发布步骤同时具备 upload 与 create 两条路径（另一端 job 可能已创建 Release）',
   releaseSteps.length > 0 &&
     releaseSteps.every(
-      (s) =>
-        typeof s.with?.files === 'string' &&
-        s.with.files.trim() !== '' &&
-        s.with?.['fail_on_unmatched_files'] === false,
+      (s) => /gh release upload/.test(s.run ?? '') && /gh release create/.test(s.run ?? '')
     ),
 );
-const releaseFiles = releaseSteps.map((s) => s.with?.files ?? '').join('\n');
+// 重试次数要**明确够多**：只匹配「有 for attempt in」会把 `for attempt in 1;`
+// 这种「只试一次」的写法放过——那正是 v0.3.5 的失败形态（4 秒内试 3 次就放弃）。
+const attemptCounts = releaseSteps.map((s) => {
+  const matched = (s.run ?? '').match(/for attempt in\s+([0-9\s]+);/);
+  return matched ? matched[1].trim().split(/\s+/).filter(Boolean).length : 0;
+});
+check(
+  '发布步骤的退避重试至少尝试 3 次（GitHub API 偶发 500 时不能一次就放弃）',
+  releaseSteps.length > 0 && attemptCounts.every((count) => count >= 3),
+  attemptCounts.join(' | '),
+);
+check(
+  '发布步骤的重试之间有退避等待（≥ 15 秒）',
+  releaseSteps.length > 0 &&
+    releaseSteps.every((s) => /sleep\s+(?:1[5-9]|[2-9]\d|\d{3,})/.test(s.run ?? '')),
+);
+check(
+  '发布步骤在产物缺失时直接失败（不再静默少挂一个资产）',
+  releaseSteps.length > 0 &&
+    releaseSteps.every((s) => /产物缺失/.test(s.run ?? '') && /exit 1/.test(s.run ?? '')),
+);
+const releaseFiles = releaseSteps.map((s) => s.run ?? '').join('\n');
 check(
   '发布资产覆盖 dmg / app.zip / exe / msi 四类产物',
   ['.dmg', '.app.zip', '.exe', '.msi'].every((ext) => releaseFiles.includes(ext)),
   releaseFiles.replace(/\s+/g, ' ').slice(0, 120),
 );
+// 只看**资产名**本身必须是 ASCII（脚本里的中文提示与说明不影响资产名），
+// 断言的是「Release 资产 URL 里不会出现百分号编码的中文」。
+const assetNameTokens = releaseFiles.match(/ScheduleTodo-[^"'\s]*/g) ?? [];
 check(
   '发布资产名统一为 ASCII 前缀 ScheduleTodo-',
-  releaseFiles.includes('ScheduleTodo-') && !/[^\x00-\x7F]/.test(releaseFiles),
-  releaseFiles.replace(/\s+/g, ' ').slice(0, 120),
+  assetNameTokens.length > 0 && assetNameTokens.every((name) => !/[^\x00-\x7F]/.test(name)),
+  assetNameTokens.join(' | '),
 );
 check(
   '存在把产物改名为 ASCII 的步骤',
   steps.some((s) => /mv\b/.test(s.run ?? '') && /ScheduleTodo-/.test(s.run ?? '')),
 );
+
+// 核对 job：发布完必须确认四个资产都在（缺一个就是红的）。
+const verifyJob = workflow.jobs?.['verify-release'];
+check('存在 verify-release job（核对四个资产都在）', Boolean(verifyJob));
+check('verify-release 依赖 build job（两个平台都发完才核对）', verifyJob?.needs === 'build');
+check(
+  'verify-release 只在 tag 推送时执行',
+  /startsWith\(github\.ref, 'refs\/tags\/v'\)/.test(verifyJob?.if ?? ''),
+  verifyJob?.if ?? '',
+);
+const verifyRun = (verifyJob?.steps ?? []).map((s) => s.run ?? '').join('\n');
+check(
+  'verify-release 逐个核对 dmg / app.zip / exe / msi 四个资产名',
+  ['-macos-arm64.dmg', '-macos-arm64.app.zip', '-windows-x64-setup.exe', '-windows-x64.msi'].every(
+    (name) => verifyRun.includes(name)
+  ),
+);
+check(
+  'verify-release 缺资产时判失败',
+  /exit 1/.test(verifyRun) && /missing/.test(verifyRun),
+);
+
+/* --------------------------- 6.2 gh 必须显式指定仓库（-R），否则「静默什么都没做」 */
+
+// **为什么必须断言这条**（2026-11-26 实测踩坑）：
+// `gh` 默认从**当前目录的 git remote** 推断仓库。
+// `verify-release` job **没有 checkout** ⇒ 它的工作目录不是 git 仓库 ⇒
+// `gh release view` 直接报「failed to run git: fatal: not a git repository」，
+// 而这句错误又被 `|| true` **吞掉** ⇒ `have` 恒为空 ⇒
+// 连续 30 轮误报「四个资产全缺」⇒ **job 判红**，
+// 而四个资产其实**早已上线且匿名可下载**。
+//
+// 这种失败最坏的地方在于：**它看起来像「发布没成功」，实际是「检查没跑起来」**——
+// 会把人引到「产物没打出来」的错误方向上去查，方向完全错了。
+//
+// 修法：所有 `gh release …` 调用都显式带 `-R "$GITHUB_REPOSITORY"`。
+
+/** 把 run 脚本按「命令」切开（处理 `\` 续行、`;` 分隔，并**去掉注释行**） */
+function splitCommands(script) {
+  return script
+    .split('\n')
+    // 注释行不是命令：workflow 里为了讲清楚「为什么」写了不少提到 `gh release` 的注释，
+    // 不去掉会把它们当成「没带 -R 的 gh 调用」⇒ 误报。
+    .filter((line) => !/^\s*#/.test(line))
+    .join('\n')
+    .replace(/\\\r?\n\s*/g, ' ')
+    .split(/[;\n]/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+const ghCommands = [
+  ...releaseSteps.map((s) => s.run ?? ''),
+  verifyJob?.steps?.map((s) => s.run ?? '').join('\n') ?? '',
+]
+  .flatMap(splitCommands)
+  .filter((line) => /\bgh\s+release\b/.test(line));
+
+check(
+  '存在 gh release 调用（发布与核对都走 gh）',
+  ghCommands.length > 0,
+  `${ghCommands.length} 条`,
+);
+check(
+  '所有 gh release 调用都显式指定仓库（-R "$GITHUB_REPOSITORY"）',
+  ghCommands.length > 0 &&
+    ghCommands.every((line) => /-R\s+"?\$\{?GITHUB_REPOSITORY\}?"?/.test(line)),
+  ghCommands.filter((line) => !/-R\s+"?\$\{?GITHUB_REPOSITORY\}?"?/.test(line)).join(' | ') ||
+    '（无未指定项）',
+);
+check(
+  'verify-release job 没有 checkout —— 所以 -R 是唯一可行的仓库来源',
+  !(verifyJob?.steps ?? []).some((s) => /actions\/checkout/.test(s.uses ?? '')),
+  '有 checkout' +
+    ((verifyJob?.steps ?? []).some((s) => /actions\/checkout/.test(s.uses ?? '')) ? '' : '（无）'),
+);
+
+/* ------------------------------- 6.2 E2E 套件是否真的进 CI（不只是「本地跑过」） */
+
+// **为什么要这一组**：2026-11-22 的实机故障（「登录了但没有同步到数据」）
+// 之所以能一路漏到实机，正是因为**同步侧的断言只存在于本机**。
+// 同理，`e2e-sync/` 这一整套同步 E2E **从未进过 CI** ——
+// 2026-11-25 的实机故障恰恰是「界面没把同步结果说出来」，
+// 而那一组断言（状态区表达、墓碑死锁的「找回」出口）正是为它准备的。
+//
+// 「本地跑过」不等于「有防护」：只有断言进了 CI，改坏了才会当场被拦。
+const e2eRuns = steps.map((s) => s.run ?? '').join('\n');
+check(
+  '主套件 E2E 进 CI（npx playwright test）',
+  /npx playwright test/.test(e2eRuns),
+);
+check(
+  '同步套件 E2E 进 CI（npm run test:sync）',
+  /npm run test:sync/.test(e2eRuns),
+);
+check(
+  'Rust 侧断言进 CI（cargo test --release）',
+  /cargo test --release/.test(e2eRuns),
+);
+} // ← workflow 自检（ruby 可用时才做）
 
 /* ------------------------------------------------- 7. 结果 */
 

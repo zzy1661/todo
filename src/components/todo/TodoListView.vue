@@ -8,7 +8,7 @@
  */
 import { computed, ref, watch } from 'vue';
 import dayjs from 'dayjs';
-import { byDate } from '../../stores/todo.ts';
+import { byDate, nearestTodoDate } from '../../stores/todo.ts';
 import type { Todo, TodoFilter } from '../../types/index.ts';
 import TodoFilterTabs from './TodoFilterTabs.vue';
 import TodoItem from './TodoItem.vue';
@@ -23,6 +23,8 @@ const emit = defineEmits<{
   (e: 'create', date: string): void;
   (e: 'edit', todo: Todo): void;
   (e: 'error', message: string): void;
+  /** 跳到别的日期（当天没有待办、但别处有时） */
+  (e: 'jump-date', date: string): void;
 }>();
 
 const WEEK_CN = ['日', '一', '二', '三', '四', '五', '六'] as const;
@@ -45,6 +47,20 @@ const visible = computed<Todo[]>(() => {
 });
 
 const isToday = computed(() => props.date === today);
+
+/**
+ * 当天没有待办时，**别处的待办**（最近的在哪一天）。
+ *
+ * 为什么要有：多设备同步之后，待办很可能全在另一台机器建的那几天，
+ * 于是「这一天没有待办」看上去像「数据没同步过来」。
+ * 把最近的那一天指出来，用户一步就能跳过去。
+ */
+const nearest = computed(() => nearestTodoDate(props.date));
+
+/** 「11月16日」 */
+function formatDay(day: string): string {
+  return dayjs(day).format('M月D日');
+}
 
 const title = computed(
   () => `${dayjs(props.date).format('M月D日')} 周${WEEK_CN[dayjs(props.date).day()]}`
@@ -102,6 +118,19 @@ function onError(message: string): void {
           <path d="M72 13v5l3 2" stroke="#2f6bff" stroke-width="1.8" stroke-linecap="round" />
         </svg>
         <p class="empty-title">这一天还没有待办</p>
+        <!--
+          待办在别的日期时，直接指出来并给一个跳转。
+          没有这条，用户看到空列表只会以为「数据丢了 / 没同步过来」。
+        -->
+        <button
+          v-if="nearest"
+          type="button"
+          class="empty-jump"
+          data-empty-jump
+          @click="emit('jump-date', nearest.date)"
+        >
+          其他日期还有 {{ nearest.total }} 条待办 · 最近的在 {{ formatDay(nearest.date) }}
+        </button>
         <button type="button" class="empty-action" @click="emit('create', date)">
           创建第一条待办
         </button>
@@ -232,5 +261,20 @@ function onError(message: string): void {
 
 .empty-action:hover {
   background: #dfe8ff;
+}
+
+/* 「别的日期还有待办」：把「数据在哪」变成一次点击 */
+.empty-jump {
+  padding: 4px 12px;
+  font-size: 11px;
+  color: var(--color-primary);
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid var(--color-primary);
+  border-radius: 999px;
+}
+
+.empty-jump:hover {
+  background: var(--color-primary-soft);
 }
 </style>

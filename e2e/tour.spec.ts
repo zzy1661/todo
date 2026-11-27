@@ -6,6 +6,7 @@ import {
   RUN_START,
   TODAY,
   makeTodo,
+  methodName,
   openApp,
   rowByTitle,
   seedDatabase,
@@ -137,15 +138,15 @@ test('6 · 巡览: 14 screenshots + one continuous recording', async ({ page }) 
   await expect(page.locator('.history-item.active')).toHaveCount(1);
   await shot(TOUR[7]);
 
-  // 09 · method library: 65 entries with category counts
+  // 09 · method library: 146 entries with category counts
   await page.locator('.dm-today').click();
   await page.locator('.cf-btn[data-filter="all"]').click();
-  await expect(page.locator('.library-list .lib-item')).toHaveCount(65);
+  await expect(page.locator('.library-list .lib-item')).toHaveCount(146);
   await shot(TOUR[8]);
 
   // 10 · library preview state
   await page.locator('.lib-item[data-method-id="5w2h"]').click();
-  await expect(page.locator('.mc-name')).toHaveText('5W2H 分析法');
+  await expect(page.locator('.mc-name')).toHaveText(methodName('5w2h'));
   await expect(page.locator('.mc-preview')).toHaveText('方法库预览');
   await shot(TOUR[9]);
 

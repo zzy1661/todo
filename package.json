@@ -1,7 +1,7 @@
 {
   "name": "todo",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.3.10",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,6 +11,8 @@
     "check:sync": "node scripts/check-sync.mjs",
     "check:deleted": "node scripts/check-deleted-filter.mjs",
     "check:no-secrets": "node scripts/check-no-secrets.mjs",
+    "check:unit": "node scripts/run-unit-checks.mjs",
+    "check:platform": "node scripts/check-platform-portability.mjs",
     "test:sync": "playwright test -c playwright.sync.config.ts"
   },
   "dependencies": {

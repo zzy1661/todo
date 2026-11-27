@@ -1,6 +1,6 @@
 [package]
 name = "todo"
-version = "0.1.0"
+version = "0.3.10"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2024"
@@ -21,6 +21,34 @@ tauri-build = { version = "2", features = [] }
 serde_json = "1.0.154"
 tauri = { version = "2", features = [] }
 tauri-plugin-sql = { version = "2.6.0", features = ["sqlite"] }
+# 打开系统浏览器：用官方 opener 插件（内部走 ShellExecuteW / NSWorkspace / xdg-open）。
+# 自己用 `cmd /C start` 打开 URL 是错的——start 会把 URL 当**文件路径**去找，
+# 在 Windows 上直接报「找不到文件 'https://...'」。
+tauri-plugin-opener = "2" 
+# 启动日志目录：用平台约定的数据目录根 + identifier 拼出，
+# 与 Tauri 的 app_data_dir() 同一套规则（Windows=Roaming、macOS=Application Support）。
+# 这样源码里不会出现任何一端的数据目录字面量（BR 数据路径中立）。
+dirs = "7"
+
+# 迁移记账修复（见 src/migrate_repair.rs）：要直接打开 SQLite，
+# 并按 sqlx 用的**同一套算法**（SHA-384）复算迁移 checksum。
+#
+# 这两个 crate **本来就在依赖树里**（tauri-plugin-sql → sqlx → sha2），
+# 版本一致、特性并集不变 → **不引入任何新的编译量**（实测 cargo 不重新编译 sqlx）。
+sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio"] }
+sha2 = "0.10"
+
+# Windows 启动失败时弹原生消息框（release 无控制台，见 src/startup.rs）。
+# 版本与 Cargo.lock 中已有的 windows-sys 0.61.2 一致，不引入新的下载。
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_UI_WindowsAndMessaging",
+    # 凭据管理器（Windows 版钥匙串）：CredWriteW / CredReadW / CredDeleteW / CredFree
+    "Win32_Security_Credentials",
+    # FormatMessageW：把 Win32 错误码转成可读文案（不在 Foundation 里，在这里）
+    "Win32_System_Diagnostics_Debug",
+] }
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

@@ -149,6 +149,36 @@ export function countByDate(date: string): number {
   return state.todos.filter((t) => t.date === date).length;
 }
 
+/**
+ * 除 `exclude` 之外，最近一个**有待办**的日期。
+ *
+ * **为什么需要它**：当天面板空着的时候，用户分不清
+ * 「这一天真的没有待办」与「待办在别的日期上」——
+ * 尤其在多设备同步之后，数据可能全在另一台机器建的那几天。
+ * 给出「最近的在哪一天」，用户一步就能跳过去，不用自己去翻月历。
+ *
+ * 优先取**往后**最近的日期（还没到来的更可能是用户关心的）；
+ * 往后没有才退回最近的一个过去日期。
+ */
+export function nearestTodoDate(exclude: string): {
+  date: string;
+  count: number;
+  total: number;
+} | null {
+  const counts = new Map<string, number>();
+  let total = 0;
+  for (const t of state.todos) {
+    if (t.date === exclude) continue;
+    counts.set(t.date, (counts.get(t.date) ?? 0) + 1);
+    total += 1;
+  }
+  if (total === 0) return null;
+  const sorted = [...counts.keys()].sort();
+  const upcoming = sorted.find((d) => d > exclude);
+  const target = upcoming ?? sorted[sorted.length - 1];
+  return { date: target, count: counts.get(target) ?? 0, total };
+}
+
 /** 某月哪些日期有待办：日期 → 条数 */
 export function markedDates(
   year: number,

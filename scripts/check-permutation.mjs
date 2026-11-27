@@ -2,7 +2,7 @@
  * 推送确定性比对脚本。
  *
  * 口径（PRD 附录 A）：
- * 1. 从内容库取出 65 个 id，保持内容库数组原始顺序作为输入；
+ * 1. 从内容库取出 146 个 id，保持内容库数组原始顺序作为输入；
  * 2. 对抽样日期 d 计算 permutationFor(d, ids)；
  * 3. 同一日期重复计算 3 次结果一致。
  *
@@ -71,8 +71,8 @@ const errors = [];
 
 // 输入 id 序列必须是内容库数组原始顺序
 const sourceIds = METHODS.map((m) => m.id);
-if (sourceIds.length !== 65) {
-  errors.push(`内容库 id 数量应为 65，实际 ${sourceIds.length}`);
+if (sourceIds.length !== 146) {
+  errors.push(`内容库 id 数量应为 146，实际 ${sourceIds.length}`);
 }
 if (METHOD_IDS.join('|') !== sourceIds.join('|')) {
   errors.push('METHOD_IDS 与内容库数组原始顺序不一致');
@@ -117,7 +117,7 @@ for (const date of SAMPLE_DATES) {
     continue;
   }
 
-  // 排列必须是 65 条 id 的一个置换（无重复、无遗漏）
+  // 排列必须是 146 条 id 的一个置换（无重复、无遗漏）
   if (new Set(actual).size !== expected.length) {
     errors.push(`${date} 排列存在重复 id`);
     continue;
@@ -135,7 +135,7 @@ for (const date of SAMPLE_DATES) {
 // 用真实的 store（ensurePick / refresh）跑一遍，校验：
 // - 首次查看该日：落库的 method_id = permutation[0]，且 manual = false
 // - 点「换一条」：落库的 method_id = permutation[1]，且 manual = true，
-//   其在排列中的下标 = 首推下标 + 1（模 65）
+//   其在排列中的下标 = 首推下标 + 1（模 146）
 // 这里必须打到真实的存储层，不能只算排列 —— 否则 ensurePick / refresh
 // 的回归（例如 EX-06 回退时忘了复位 manual）不会被任何脚本发现。
 // ---------------------------------------------------------------------------

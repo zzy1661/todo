@@ -12,7 +12,9 @@ export type MethodCategory =
   | 'work'
   | 'report'
   | 'communication'
-  | 'efficiency';
+  | 'efficiency'
+  /** 中国古典智慧：按典籍来源成组（儒 / 道 / 法 / 易），与前五类的「用途」维度并列 */
+  | 'classic';
 
 /** 案例类型：`practice` = 方法提出者本人的实践案例，`story` = 提出者的故事 */
 export type MethodCaseType = 'practice' | 'story';
