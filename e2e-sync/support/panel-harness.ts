@@ -24,6 +24,11 @@ const params = new URLSearchParams(window.location.search);
 const recoverable = Number(params.get('recoverable') ?? '8');
 /** 界面正在查看的日期（用来验证「云端数据不在这一天」的分支） */
 const viewDate = params.get('date') ?? '2026-11-26';
+/** 用户显式动作的短暂反馈（2026-11-27 面板收敛后新增的一行） */
+const notice = params.get('notice') ?? '';
+/** 是否开启定时同步（用来验证「周期」只出现在按钮悬停说明里） */
+const autoSync = params.has('auto');
+const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
 
 syncState.enabled = true;
 syncState.panelOpen = true;
@@ -38,6 +43,9 @@ syncState.status = {
   remoteLiveCount: recoverable,
   remoteDateMin: '2026-10-15',
   remoteDateMax: '2026-11-16',
+  autoSyncEnabled: autoSync,
+  autoSyncIntervalMs: autoSync ? TWO_DAYS_MS : 0,
+  notice,
 };
 
 const Harness = {

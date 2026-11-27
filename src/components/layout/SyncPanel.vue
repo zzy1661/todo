@@ -10,7 +10,7 @@
  * 3. **无 key 时说明清楚**：显示「未配置」并给出填写方式，登录按钮禁用，
  *    全程零云端请求（FR-SYNC-10 / AC-57）。
  */
-import { computed } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import dayjs from 'dayjs';
 import {
   autoSyncText,
@@ -39,7 +39,6 @@ const emit = defineEmits<{
 const status = computed(() => syncState.status);
 const label = computed(() => phaseLabel(status.value));
 const lastText = computed(() => lastSyncText(status.value));
-const autoText = computed(() => autoSyncText(status.value));
 const signedIn = computed(
   () => status.value.phase === 'signed-in' || status.value.phase === 'syncing'
 );
@@ -47,16 +46,56 @@ const canLogin = computed(
   () => syncState.enabled && !signedIn.value && !syncState.actionBusy
 );
 
+/**
+ * 用户**显式动作**的短暂反馈（引擎把结果写在 `status.notice` 里）。
+ *
+ * **为什么单独做一行**：面板收敛后日常只剩「状态 + 一行时间 + 一行云端摘要」，
+ * 「点了『上传本机全部』/『找回』之后到底发生了什么」就没有出口了——
+ * 按钮消失、提示消失，用户只能猜。反馈必须留着，但**不能常驻**：
+ * 它显示几秒就自己退场，下一轮同步开始也会被引擎清掉。
+ */
+const NOTICE_LIFETIME_MS = 5000;
+const notice = ref('');
+let noticeTimer: ReturnType<typeof setTimeout> | null = null;
+
+watch(
+  () => status.value.notice,
+  (value) => {
+    if (noticeTimer) {
+      clearTimeout(noticeTimer);
+      noticeTimer = null;
+    }
+    if (!value) {
+      notice.value = '';
+      return;
+    }
+    notice.value = value;
+    noticeTimer = setTimeout(() => {
+      notice.value = '';
+      noticeTimer = null;
+    }, NOTICE_LIFETIME_MS);
+  },
+  { immediate: true }
+);
+
+onBeforeUnmount(() => {
+  if (noticeTimer) {
+    clearTimeout(noticeTimer);
+    noticeTimer = null;
+  }
+});
+
 /** 最近一次拉取到的云端活跃待办条数 */
 const remoteCount = computed(() => status.value.remoteLiveCount ?? 0);
 
-/** 云端待办的日期范围文案（`10月15日 ~ 11月16日`） */
+/** 云端待办的日期范围文案（`10月15日~11月16日`） */
 const remoteRangeText = computed(() => {
   const min = status.value.remoteDateMin ?? '';
   const max = status.value.remoteDateMax ?? '';
   if (!min) return '';
   const format = (day: string) => dayjs(day).format('M月D日');
-  return min === max ? format(min) : `${format(min)} ~ ${format(max)}`;
+  // 不加空格：这一行要塞进 232px 的面板，加了空格就会多折一行
+  return min === max ? format(min) : `${format(min)}~${format(max)}`;
 });
 
 /**
@@ -79,6 +118,39 @@ function gotoAllTodos(): void {
   closePanel();
   emit('goto-todos');
 }
+
+/**
+ * 当前查看的日期（`11月26日`），给「云端数据不在这一天」用。
+ *
+ * **为什么要格式化**：`props.viewDate` 是 `2026-11-26`，直接印在界面上
+ * 是一串机器格式；转成「11月26日」才读得懂。
+ */
+const viewDateText = computed(() => {
+  const value = props.viewDate;
+  if (!value) return '';
+  const day = dayjs(value);
+  return day.isValid() ? day.format('M月D日') : value;
+});
+
+/**
+ * 「立即重试」的悬停说明：把「多久自动同步一次」收进这里。
+ *
+ * **为什么要下沉**：周期是常驻不变的信息，而角落面板就那么大；
+ * 悬停才出现的说明等于「想知道的人能看到，不想看的人看不见」。
+ */
+const retryTitle = computed(() => {
+  const cadence = autoSyncText(status.value);
+  return cadence ? `${cadence}；点此立即同步` : '点此立即同步';
+});
+
+/**
+ * 「上传本机全部」的悬停说明。
+ *
+ * **为什么不能删掉这条知识**：用户容易以为「删掉的条目也会跟着搬上云」，
+ * 于是把删除当成撤销手段。这句话原来常驻在面板里（占了三行），
+ * 现在收进按钮的悬停说明——**知识不丢，但不占版面**。
+ */
+const pushAllTitle = '只上传还活着的待办；删除记录不会上传';
 
 /**
  * 找回被本机删除记录挡住的条目。
@@ -122,73 +194,63 @@ function onRecover(): void {
         </button>
       </header>
 
+      <!--
+        面板只保留**三类常驻信息**（2026-11-27 收敛，需求方反馈「不需要显示这么多信息」）：
+        ① 状态；② 一行时间；③ 一行云端摘要。
+        其余一律**按需出现**（出错、要用户行动时才显示）——
+        状态区是侧栏角落，不该常驻一大段说明文字。
+        「多久自动同步一次」「删除记录不会上传」这类知识下沉到按钮悬停说明。
+      -->
       <p class="sync-state" :data-phase="status.phase">{{ label }}</p>
-      <p v-if="status.email" class="sync-account">{{ status.email }}</p>
-      <p class="sync-detail">{{ status.detail }}</p>
+
+      <!-- 上次同步时间：只到分钟；「成功 / 失败」由上面的状态行承担，不在这里重复 -->
       <p v-if="lastText" class="sync-last">{{ lastText }}</p>
-      <p v-if="autoText" class="sync-auto" data-sync-auto>{{ autoText }}</p>
+
+      <!-- 用户显式动作（上传本机全部 / 找回）的短暂反馈：几秒后自动退场 -->
+      <p v-if="notice" class="sync-notice" data-sync-notice>{{ notice }}</p>
+
+      <!-- 出错时才给细节：正常状态不显示操作日志（那是排障用的，不是日常信息） -->
+      <p v-if="status.phase === 'error' && status.detail" class="sync-hint">
+        {{ status.detail }}
+      </p>
+      <p v-if="status.phase === 'error' && status.lastError" class="sync-hint sync-hint--soft">
+        {{ status.lastError }}
+      </p>
+
       <p v-if="status.phase === 'disabled'" class="sync-hint">
         未配置 Supabase：本地功能不受影响，也不会发起任何网络请求。填入
         <code>sync.config.json</code> 后可登录同步。
       </p>
-      <p v-else-if="status.phase === 'error' && status.lastError" class="sync-hint">
-        {{ status.lastError }}
-      </p>
+
       <!--
-        云端为空、但本机还有没上云的待办时，给出**下一步该做什么**。
-        自动同步只推「变更驱动」的增量，**登录之前就存在的历史待办不在里面**，
-        所以「云端 0 行」通常不是故障，而是「本地数据还没上传」。
-        没有这条提示，用户只会看到「新增 0 条、更新 0 条」，无从判断。
+        **需要用户行动时才出现**的两条：
+        ① 云端为空但本机有没上云的待办 → 点「上传本机全部」；
+        ② 本机被标记为已删除、云端还活着 → 点「找回」。
+        解释都压到一句话，细节交给按钮与二次确认弹窗。
       -->
       <p v-else-if="status.localNotUploaded" class="sync-hint">
-        云端还没有你的数据：本机有 {{ status.localNotUploaded }} 条待办尚未上传
-        （自动同步只推「登录后被改动过」的增量，登录前的历史待办不在里面）。
-        点下面的「上传本机全部」即可同步到云端。
+        云端还没有你的数据，本机有 {{ status.localNotUploaded }} 条待办未上传。
       </p>
       <!--
         **可找回**：这些条目在本机被标记为「已删除」，但云端还活着。
 
         墓碑终结（PRD BR-28 / OPEN-01）规定「已删条目不因任何非删除记录复活」，
-        于是它们**永远拉不回来**——界面上连「全部待办」都看不到，
-        状态区只会说「已是最新 N 条」。用户完全想不通数据去哪了。
-
+        于是它们**永远拉不回来**——界面上连「全部待办」都看不到。
         所以这里必须给一个**出口**：撤销**本机**的删除记录（只影响这台机器，
         不广播，别的设备上的删除依然有效），它们就能回来。
       -->
       <p v-else-if="status.recoverableCount" class="sync-hint" data-sync-recoverable>
-        有 {{ status.recoverableCount }} 条待办在这台机器上被标记为「已删除」，但云端还留着它们。
-        点下面的「找回」可以撤销「这台机器上」的删除记录，让它们重新出现（只影响这台机器）。
+        有 {{ status.recoverableCount }} 条被标记为已删除，点「找回」恢复（只影响这台机器）。
       </p>
-      <p v-else-if="status.localTombstone" class="sync-hint">
-        其中 {{ status.localTombstone }} 条在本机是「已删除」状态，因此不会出现在列表里
-        —— 删除会传播到所有设备（墓碑终结），这是正常的。
-      </p>
-      <!--
-        **云端的数据落在哪些日期**。
 
-        这是本次改动要解决的核心困惑：「同步说成功，界面却空空」。
-        真实原因往往不是同步失败，而是**数据落在别的日期**——
-        界面只显示当天（FR-DAY-01），云端那几条全在过去或未来的日子里，
-        于是「已是最新 N 条」和「列表一条不显示」同时成立。
-        不把日期说出来，用户只会以为同步没生效（2026-11-25 实机反馈）。
-      -->
-      <p v-if="remoteCount > 0" class="sync-hint" data-sync-where>
-        云端有 {{ remoteCount }} 条待办，日期在 {{ remoteRangeText }}。
-        <template v-if="remoteOutsideView">
-          它们不在当前查看的日期（{{ props.viewDate }}）—— 这就是列表空着的原因。
-        </template>
-      </p>
       <!--
-        「上传本机全部」上传的是**这台机器**上的待办。
-        这句话必须**可见**：用户看到的是「我的数据在另一台机器上」，
-        在这台机器点按钮只会把这台机器的行传上去 —— 看起来「点了没用」，
-        实际是传错了机器。
-        **删除记录不会一起上传**（2026-11-26 修正）——把墓碑推上云会让别的设备
-        把你的活数据当成「已删除」清掉。
+        云端摘要：一行说清「云端有多少、在哪几天」。
+        「不在你正在看的这一天」另起一行——这一行只在**当前页是空的**时才有意义，
+        挤在同一行会把 232px 的面板撑成两行，反而更难读。
       -->
-      <p v-if="signedIn" class="sync-hint sync-hint--soft">
-        「上传本机全部」上传的是这台机器上「还活着」的待办（删除记录不会上传）；
-        另一台机器上的数据，要在那一台点一次。
+      <p v-if="remoteCount > 0" class="sync-hint sync-hint--soft" data-sync-where>
+        云端 {{ remoteCount }} 条 · <span class="sync-nowrap">{{ remoteRangeText }}</span>
+        <template v-if="remoteOutsideView"><br />不在 {{ viewDateText }}</template>
       </p>
 
       <footer class="sync-actions">
@@ -212,6 +274,7 @@ function onRecover(): void {
         <button
           type="button"
           class="sync-retry"
+          :title="retryTitle"
           :disabled="!syncState.enabled || syncState.actionBusy"
           @click="retrySync"
         >
@@ -226,6 +289,7 @@ function onRecover(): void {
         <button
           type="button"
           class="sync-push-all"
+          :title="pushAllTitle"
           :disabled="!signedIn || syncState.actionBusy"
           @click="pushAllLocal"
         >
@@ -352,17 +416,30 @@ function onRecover(): void {
   color: var(--color-danger);
 }
 
-.sync-account {
+.sync-last {
   font-size: 11px;
   color: var(--color-text-secondary);
-  word-break: break-all;
 }
 
-.sync-detail,
-.sync-last,
-.sync-auto {
+/*
+ * 动作反馈（上传本机全部 / 找回的结果）：短暂出现的一行。
+ * 用主色把它和静态信息区分开——用户一眼能认出「这是刚发生的反馈」。
+ */
+.sync-notice {
   font-size: 11px;
-  color: var(--color-text-secondary);
+  line-height: 1.5;
+  color: var(--color-primary);
+}
+
+/*
+ * 不许在词中间断行。
+ *
+ * **为什么**：中文可以在任意字符间断行，于是「不在 11月26日」会被折成
+ * 「… · 不」/「在 11月26日」——读起来像两句话。日期区间与「不在 X」
+ * 各是一个整体，锁住不许拆开。
+ */
+.sync-nowrap {
+  white-space: nowrap;
 }
 
 .sync-hint {

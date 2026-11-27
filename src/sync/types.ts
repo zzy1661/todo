@@ -104,6 +104,18 @@ export interface SyncStatus {
    * 用户看到的只是「已是最新 N 条」与空空的列表（2026-11-25 实机反馈）。
    */
   recoverableCount?: number;
+  /**
+   * 用户**显式动作**的结果提示（短暂出现，不是常驻状态）。
+   *
+   * **为什么要有它**：面板收敛后（2026-11-27 需求方反馈「不需要显示这么多信息」），
+   * 日常只显示「状态 + 一行时间 + 一行云端摘要」，于是「点了『上传本机全部』
+   * 或『找回』之后到底发生了什么」就没有出口了——按钮消失、提示消失，
+   * 用户只能猜。状态区在角落里，**动作反馈必须留着，解释性常驻文字必须走**。
+   *
+   * **口径**：只在「用户自己点的动作」完成后写一次；下一轮同步一开始就清空。
+   * 所以它不会退化成又一段常驻文字。
+   */
+  notice?: string;
 }
 
 export const EMPTY_STATUS: SyncStatus = {
@@ -117,6 +129,7 @@ export const EMPTY_STATUS: SyncStatus = {
   autoSyncIntervalMs: 0,
   nextAutoSyncAt: null,
   localNotUploaded: 0,
+  notice: '',
 };
 
 /** 合并结果统计（AC-61 / AC-63 的观察点） */

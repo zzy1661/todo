@@ -1813,11 +1813,23 @@ section('⑭ 拉取结果说清「远端 N 行」，云端为空时给出上传�
     await engine.pushAllLocal();
     const pushed = statuses[statuses.length - 1];
     eq(pushed.localNotUploaded, 0, '上传本机全部后「尚未上传」的提示必须撤掉');
+    // 面板收敛后（2026-11-27）常驻文字只剩「状态 + 一行时间 + 一行摘要」，
+    // 所以「点了按钮之后发生了什么」必须由 notice 这一行承担。
+    assert(
+      pushed.notice.includes('已上传本机全部 2 条待办'),
+      `上传本机全部后必须给出结果反馈（notice），实际：${pushed.notice}`
+    );
 
     // ── 云端已有数据时，不再提示「尚未上传」
     await engine.pull('手动重试');
     const refetched = statuses[statuses.length - 1];
     eq(refetched.localNotUploaded, 0, '云端已有数据时不应再提示「尚未上传」');
+    // notice 必须**清空**：它是「刚刚发生」的反馈，不是常驻状态
+    eq(
+      refetched.notice,
+      '',
+      '新一轮同步开始后，上一条动作反馈必须清空（不许变成常驻文字）'
+    );
     assert(
       refetched.detail.includes('远端 2 行'),
       `云端已有数据时必须报出远端行数，实际：${refetched.detail}`
@@ -1996,6 +2008,12 @@ section('⑮ 墓碑死锁：「上传不带墓碑」+「找回」出口');
       statuses[statuses.length - 1].recoverableCount,
       0,
       '找回完成后「可找回」的条数必须归零（不然会反复提示）'
+    );
+    // 「找回」完成后按钮会消失，面板收敛后也没有常驻说明段了——
+    // 没有 notice，用户会以为「点了没反应」。
+    assert(
+      statuses[statuses.length - 1].notice.includes('已找回 2 条'),
+      `「找回」完成后必须给出结果反馈（notice），实际：${statuses[statuses.length - 1].notice}`
     );
 
     // ── ④「上传本机全部」**不推墓碑**

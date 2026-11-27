@@ -370,7 +370,8 @@ export class SyncEngine {
 
     this.busy = true;
     const snapshot = new Map(this.pending);
-    this.setStatus({ phase: 'syncing', detail: '同步中…' });
+    // notice 清空：新一轮同步开始，上一条动作提示就不该继续挂着
+    this.setStatus({ phase: 'syncing', detail: '同步中…', notice: '' });
     try {
       const token = await this.ensureFreshToken();
       const rows = await this.options.local.loadByUuids([...snapshot.keys()]);
@@ -448,7 +449,8 @@ export class SyncEngine {
     if (this.busy) return null;
 
     this.busy = true;
-    this.setStatus({ phase: 'syncing', detail: '同步中…' });
+    // notice 清空：新一轮同步开始，上一条动作提示就不该继续挂着
+    this.setStatus({ phase: 'syncing', detail: '同步中…', notice: '' });
     try {
       const token = await this.ensureFreshToken();
       const rows = await this.options.api.pull(token);
@@ -762,7 +764,7 @@ export class SyncEngine {
     }
     if (this.busy) return;
     this.busy = true;
-    this.setStatus({ phase: 'syncing', detail: '正在上传本机全部待办…' });
+    this.setStatus({ phase: 'syncing', detail: '正在上传本机全部待办…', notice: '' });
     try {
       const token = await this.ensureFreshToken();
       const all = await this.options.local.loadAll();
@@ -772,7 +774,9 @@ export class SyncEngine {
         this.markSuccess(
           all.length > 0
             ? '本机没有可上传的待办（只有已删除的记录；删除记录不会上传）'
-            : '本机没有待办可上传'
+            : '本机没有待办可上传',
+          // 动作反馈：面板收敛后，用户点了按钮必须知道结果
+          { notice: '本机没有可上传的待办' }
         );
         this.busy = false;
         return;
@@ -780,7 +784,10 @@ export class SyncEngine {
       await this.options.api.push(token, this.session.userId, rows);
       this.retryIndex = 0;
       // 上传完了：本机待办**已经在云端**，「还没上云」的提示必须撤掉。
-      this.markSuccess(`已上传本机全部 ${rows.length} 条待办`, { localNotUploaded: 0 });
+      this.markSuccess(`已上传本机全部 ${rows.length} 条待办`, {
+        localNotUploaded: 0,
+        notice: `已上传本机全部 ${rows.length} 条待办`,
+      });
     } catch (error) {
       this.busy = false;
       const message = error instanceof Error ? error.message : String(error);
@@ -817,7 +824,7 @@ export class SyncEngine {
     const targets = [...this.recoverableUuids];
     if (targets.length === 0) return;
     this.busy = true;
-    this.setStatus({ phase: 'syncing', detail: '正在找回被删除的条目…' });
+    this.setStatus({ phase: 'syncing', detail: '正在找回被删除的条目…', notice: '' });
     try {
       const revived = await this.options.local.reviveTombstones(targets);
       this.recoverableUuids = [];
@@ -827,6 +834,8 @@ export class SyncEngine {
       this.setStatus({
         detail: `已找回 ${revived} 条被删除的条目（只影响这台机器）`,
         recoverableCount: 0,
+        // 动作反馈：面板收敛后，「找回」的结果必须说给用户听
+        notice: `已找回 ${revived} 条被删除的条目（只影响这台机器）`,
       });
     } catch (error) {
       this.busy = false;

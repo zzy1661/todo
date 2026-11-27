@@ -350,26 +350,30 @@ export function phaseLabel(status: SyncStatus): string {
   }
 }
 
-/** 「上次同步 2026-11-01 09:30 · 成功」 */
+/**
+ * 「上次同步 11月26日 09:30」
+ *
+ * **口径（2026-11-27 收敛）**：只到分钟——秒在这个角落里是纯噪音；
+ * **结果不写在这里**（`· 成功` / `· 失败`），因为状态行已经在承担这件事：
+ * `signed-in` ⟺ 上次成功，`error` ⟺ 上次失败（面板会另起两行错误说明）。
+ */
 export function lastSyncText(status: SyncStatus): string {
   if (!status.lastSyncAt) return '';
-  const time = dayjs(status.lastSyncAt).format('M月D日 HH:mm:ss');
-  const result = status.lastResult === 'ok' ? '成功' : status.lastResult === 'failed' ? '失败' : '';
-  return `上次同步 ${time}${result ? ` · ${result}` : ''}`;
+  return `上次同步 ${dayjs(status.lastSyncAt).format('M月D日 HH:mm')}`;
 }
 
 /**
- * 定时同步说明（PRD FR-SYNC-17）。
+ * 定时同步周期（PRD FR-SYNC-17）。
  *
- * 口径：
- * - 未启用 → 空串（状态区不显示这一行，避免出现「0 天」这种怪文案）；
- * - 已启用但未排期（未登录） → 「每 N 天自动同步 · 登录后开始」；
- * - 已排期 → 「每 N 天自动同步 · 下次 M月D日 HH:mm」。
+ * **口径（2026-11-27 收敛）**：只说「每 N 天」，**不再常驻**「下次 M月D日 HH:mm」。
+ * 下一轮同步的时刻在角落面板里没有行动价值（用户不会为了等它改计划），
+ * 而它会把这一行拉长到需要换行——需求方反馈的正是「显示这么多信息」。
+ * 周期本身降级到「立即重试」按钮的悬停说明里（鼠标停上去才出现）。
+ *
+ * - 未启用 → 空串（不显示「0 天」这种怪文案）。
  */
 export function autoSyncText(status: SyncStatus): string {
   if (!status.autoSyncEnabled || status.autoSyncIntervalMs <= 0) return '';
   const days = Math.round(status.autoSyncIntervalMs / (24 * 60 * 60 * 1000));
-  const period = `每 ${days} 天自动同步`;
-  if (!status.nextAutoSyncAt) return `${period} · 登录后开始`;
-  return `${period} · 下次 ${dayjs(status.nextAutoSyncAt).format('M月D日 HH:mm')}`;
+  return `每 ${days} 天自动同步`;
 }
