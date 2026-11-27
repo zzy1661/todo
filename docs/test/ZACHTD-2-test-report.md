@@ -3785,7 +3785,20 @@ S5 仍守着「可找回」的表达与「找回」的二次确认）。
 | `npm run build`（vue-tsc + vite） | **通过**（顺带抓出并修掉一个 `autoText` 未使用的类型错误） |
 | 界面取证 | Playwright 对面板夹具实拍，**有图**（不受本机「屏幕录制」权限限制） |
 
-#### 13.45.6 纪律更新
+#### 13.45.6 v0.3.10 发版记录
+
+| 项 | 结果 |
+| --- | --- |
+| 提交 / tag | `df380c5`（功能）/ `2886a99`（注释口径修正，不改行为）/ `f4985c7`（CI 步骤名措辞） / **`v0.3.10`**（tag 打在 `df380c5` 上） |
+| CI run | [45983778053](https://github.com/zzy1661/todo/actions/runs/45983778053) → **success**（**三个 job 全绿**：macOS 36 步 / Windows 36 步 / **verify-release 3 步**） |
+| 关键步骤 | 自检 12 步（含 `check-db-sync`）✅ · Rust **25 项** ✅ · E2E 基线 **6 passed** ✅ · **E2E 同步套件 8 passed** ✅（新增 S7 / S8 在 CI 上同样绿）· 两端出包 ✅ |
+| 自检（本机） | `npm run check:unit` **12 / 12**（`check-sync` **203 项** / 十五组） |
+| Release 资产 | **4 个齐全**：`ScheduleTodo-0.3.10-macos-arm64.dmg`（3 377 673 B）/ `.app.zip`（3 146 630 B）/ `windows-x64-setup.exe`（4 151 525 B）/ `windows-x64.msi`（5 177 344 B），**匿名可下载**（HTTP 200，不带任何凭据） |
+| 资产 sha256（GitHub API 记录） | dmg `47c0e150…c40d2de8` · app.zip `f442247f…1cf5c62e26` · setup.exe `20168b89…c2b6bc` · msi `eb843dc6…29fddea23` |
+| 匿名下载核对 | 不带任何凭据**逐个整包下载**，**大小与 sha256 与 GitHub 记录逐位吻合**（四个全过）。`hdiutil verify` ⇒ dmg 校验和 **VALID**；app.zip 内含完整 `.app` 结构（`Contents/MacOS/`、`_CodeSignature/CodeResources`），`Info.plist` 的 `CFBundleShortVersionString` = **0.3.10**；`file` 判定 setup.exe = `PE32 executable (GUI) … Nullsoft Installer self-extracting archive`、msi = `Composite Document File V2 … Windows Installer XML Toolset (3.14.1)` |
+| 本机安装 | `/Applications/日程待办.app` = **0.3.10**，已启动；本机库 **19 行 / 18 条活跃**（云端仍在往下同步，v0.3.9 拉进来的 5 行之后又增了 6 行） |
+
+#### 13.45.7 纪律更新
 
 - **面板是角落，不是排障面板**：常驻信息只回答「好了吗 / 在哪」；
 - **减法需求要配加法断言**：不钉住，下次迭代就把说明加回来了；
